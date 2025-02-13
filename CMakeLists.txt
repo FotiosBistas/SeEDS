@@ -38,19 +38,34 @@ set(NDN_CXX_LIBRARY_DIR ${ndn-cxx_BINARY_DIR}/install/lib)
 include_directories(${NDN_CXX_INCLUDE_DIR})
 link_directories(${NDN_CXX_LIBRARY_DIR})
 
-# Include the directory where the custom header file is located
-include_directories(src/snds_messages)
+# Include the directories for custom header files
+include_directories(src/snds_message)
+include_directories(src/snds_queue)
+
+# Add source files for the `message_queue` library
+set(MESSAGE_QUEUE_SOURCES
+    src/snds_queue/message_queue.cpp
+)
+
+# Add a static library for the message queue
+add_library(message_queue STATIC ${MESSAGE_QUEUE_SOURCES})
+
+# Add public include directories for the message_queue library
+target_include_directories(message_queue PUBLIC src/snds_message src/snds_queue)
+
+# Link the ndn-cxx library to the message_queue library
+target_link_libraries(message_queue PRIVATE ${NDN_CXX_LIBRARY_DIR}/libndn-cxx.so)
 
 # Add source files for the example
-set(EXAMPLE_SOURCES
-    src/snds_messages/example_snds_messages.cpp
+set(MESSAGE_QUEUE_EXAMPLE_SOURCES
+    src/snds_queue/message_queue_example.cpp
 )
 
 # Add the executable for the example
-add_executable(example_snds_messages ${EXAMPLE_SOURCES})
+add_executable(message_queue_example ${MESSAGE_QUEUE_EXAMPLE_SOURCES})
 
-# Link ndn-cxx library to the example executable
-target_link_libraries(example_snds_messages PRIVATE ${NDN_CXX_LIBRARY_DIR}/libndn-cxx.so)
+# Link the message_queue library and ndn-cxx to the example executable
+target_link_libraries(message_queue_example PRIVATE message_queue ${NDN_CXX_LIBRARY_DIR}/libndn-cxx.so)
 
 # Ensure ndn-cxx is built before the example executable
-add_dependencies(example_snds_messages ndn-cxx-build)
+add_dependencies(message_queue_example ndn-cxx-build)
