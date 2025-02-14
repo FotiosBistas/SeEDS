@@ -1,0 +1,242 @@
+/* ServiceBase.hpp */
+#ifndef SERVICE_BASE_HPP
+#define SERVICE_BASE_HPP
+
+#include <ndn-cxx/face.hpp>
+#include <ndn-cxx/security/validator-config.hpp>
+#include <spdlog/spdlog.h>
+#include <spdlog/sinks/stdout_color_sinks.h>
+#include <spdlog/sinks/basic_file_sink.h>
+#include <memory>
+#include <thread>
+#include <exception>
+#include <vector>
+#include <string>
+#include "snds_message.h"
+#include "message_queue.h"
+
+class ServiceBase {
+public:
+  /**
+   * @brief Constructor that configures logging and protocol-specific parameters.
+   *
+   * Parameters are taken by value so that both lvalues and rvalues can be used.
+   *
+   * @param logLevel The desired spdlog log level (default: info).
+   * @param logFile The file to which log output should be written (default: "ServiceBase.log").
+   * @param numberOfSndsSrvs The number of SNDS servers (default: 1).
+   * @param sndsPrefix The SNDS prefix (default: "/SNDS").
+   * @param mySndsId The local SNDS service ID (default: "0").
+   * @param idScopePrefix The prefix used for the ID scope (default: "/SNDS_ID_scope_").
+   * @param registryFilePostfix The postfix used for registry file names (default: "_registry").
+   * @param ackTag The ack tag for acking data
+   */
+  ServiceBase(spdlog::level::level_enum logLevel = spdlog::level::info,
+              std::string logFile = "ServiceBase.log",
+              uint8_t numberOfSndsSrvs = 1,
+              std::string sndsPrefix = "/SNDS",
+              std::string mySndsId = "0",
+              std::string idScopePrefix = "/SNDS_ID_scope_",
+              std::string registryFilePostfix = "_registry",
+              std::string ackTag = "THIS_IS_AN_SNDS_ACK"
+            )
+  : m_validator(m_face),
+    m_numberOfSndsSrvs(numberOfSndsSrvs),
+    m_sndsPrefix(std::move(sndsPrefix)),
+    m_mySndsId(std::move(mySndsId)),
+    m_idScopePrefix(std::move(idScopePrefix)),
+    m_registryFilePostfix(std::move(registryFilePostfix)),
+    m_ackTag(std::move(ackTag))
+  {
+    // Compute derived values.
+    m_mySndsIdName = m_sndsPrefix + "_" + m_mySndsId;
+    m_mySndsIdScopeName = m_sndsPrefix + m_idScopePrefix + m_mySndsId;
+
+    // Set up logging with two sinks: console and file.
+    auto console_sink = std::make_shared<spdlog::sinks::stdout_color_sink_mt>();
+    console_sink->set_pattern("[%Y-%m-%d %H:%M:%S.%e] [%l] %v");
+
+    auto file_sink = std::make_shared<spdlog::sinks::basic_file_sink_mt>(logFile, true);
+    file_sink->set_pattern("[%Y-%m-%d %H:%M:%S.%e] [%l] %v");
+
+    std::vector<spdlog::sink_ptr> sinks { console_sink, file_sink };
+    m_logger = std::make_shared<spdlog::logger>("ServiceBase", sinks.begin(), sinks.end());
+    spdlog::register_logger(m_logger);
+    m_logger->set_level(logLevel);
+
+    // Load the trust schema for validator configuration.
+    try {
+      m_validator.load("trust-schema.conf");
+    }
+    catch (const std::exception &e) {
+      m_logger->error("Error loading validator configuration: {}", e.what());
+    }
+  }
+
+  virtual ~ServiceBase() {}
+
+  void onInterest(const ndn::Interest& interest) {
+    ndn::Name name = interest.getName();
+    m_logger->info("Received in function: {0}, name: {1}", __FUNCTION__, name.toUri());
+
+    if (name.size() < 2) {
+      m_logger->warn("Interest name {0}, in function {1} is too short. Ignoring...", name.toUri(), __FUNCTION__);
+      return;
+    }
+
+    // Example: Assume the name follows the structure: /<prefix>/<command>/...
+    const std::string servicePrefix = name.get(0).toUri();  // Should match m_sndsPrefix ideally.
+    const std::string command       = name.get(1).toUri();  // Could be "CAR", a scope, or a registry file spec.
+
+    // If the command contains the registry postfix, handle registry requests.
+    if (command.find(m_registryFilePostfix) != std::string::npos) {
+      processRegistryRequest(name, interest);
+      return;
+    }
+
+    // If there are at least three components, extract the next parameter.
+    std::string param1;
+    if (name.size() >= 3) {
+      param1 = name.get(2).toUri();
+    }
+
+    // Dispatch based on the command.
+    if (isTypeAdvertisement(command)) {
+      processTypeAdvertisement(name, interest);
+      return;
+    }
+    else if (isSubscriptionCommand(command)) {
+      processSubscription(name, interest);
+      return;
+    }
+    else if (!param1.empty()) { 
+      processLocalIdRequest(name, interest);
+      return;
+    }
+    
+    m_logger->info("Interest left unprocessed. No matching handler found.");
+  }
+
+  void onData(const ndn::Interest&, const ndn::Data& data) {
+    // Log the receipt of the Data packet.
+    m_logger->info("Received Data with name: {0} in function {1}", data.getName().toUri(), __FUNCTION__);
+    
+    // Convert the data content into a string.
+    std::string payload(reinterpret_cast<const char*>(data.getContent().data()), data.getContent().size());
+    m_logger->info("Data packet payload: \"{}\"", payload);
+    
+    // Ensure the Data name has at least two components.
+    if (data.getName().size() < 2) {
+      m_logger->warn("WARNING: Got unexpectedly small content name. Skipping.");
+      return;
+    }
+    
+    // If the payload contains the ACK tag, then no further processing is needed.
+    if (payload.find(m_ackTag) != std::string::npos) {
+      m_logger->info("Got ACK in function {}. Skipping.", __FUNCTION__);
+      return;
+    }
+    
+    // Extract the second component of the Data name, which is used as the intra-message name.
+    std::string messageName = data.getName().at(1).toUri();
+    
+    // Create a new intra-service message with the payload.
+    auto message = std::make_unique<SNDS_INTRA_MESSAGE>(
+      std::move(payload), 
+      SNDS_INTRA_MESSAGE_TYPE::BY_ID_RESPONSE, //TODO not sure this is correct
+      SNDS_CLIENT_TYPES::CONSUMER,
+      messageName.c_str()
+    );
+    
+    // Dispatch the intra-service message to the service queue for further processing.
+    v_to_service->writeMessage(std::move(message));
+  }
+
+  void onNack(const ndn::Interest& interest, const ndn::lp::Nack& nack) {
+    m_logger->info("Received Nack (reason: {}) for Interest: {}",
+                    nack.getReason(), interest.getName().toUri());
+  }
+
+  void onTimeout(const ndn::Interest& interest) {
+    m_logger->info("Timeout for Interest: {}", interest.getName().toUri());
+  }
+
+  void onRegisterFailed(const ndn::Name& prefix, const std::string& reason){
+    m_logger->error("Failed to register prefix: {0} with the local forwarder ({1})", prefix, reason);
+		m_face.shutdown();
+  }
+
+  /**
+   * @brief Utility method to send a Data packet with the specified name and payload.
+   */
+  bool sendData(const ndn::Name& name, const std::string &payload) {
+    auto data = std::make_shared<ndn::Data>();
+    data->setName(name);
+    data->setContent(payload);
+    m_keyChain.sign(*data);
+    m_face.put(*data);
+    return true;
+  }
+
+  /**
+   * @brief Runs the NDN Face event loop.
+   */
+  void run() {
+    try {
+      m_face.processEvents();
+    }
+    catch(const std::exception &ex) {
+      m_logger->error("Exception in run(): {}", ex.what());
+    }
+  }
+
+protected:
+  ndn::Face m_face;
+  ndn::KeyChain m_keyChain;
+  ndn::ValidatorConfig m_validator;
+  ndn::ScopedInterestFilterHandle m_certServeHandle;
+  std::shared_ptr<spdlog::logger> m_logger;
+
+  MessageQueue* v_to_proxy = new MessageQueue();
+  MessageQueue* v_to_dt = new MessageQueue();
+  MessageQueue* v_to_producer = new MessageQueue();
+  MessageQueue* v_to_consumer = new MessageQueue();
+  MessageQueue* v_to_service = new MessageQueue();
+
+
+  // Configurable protocol parameters:
+  uint8_t m_numberOfSndsSrvs;           // Number of SNDS services.
+  std::string m_sndsPrefix;             // e.g., "/SNDS"
+  std::string m_mySndsId;               // e.g., "0"
+  std::string m_mySndsIdName;           // Computed as m_sndsPrefix + "_" + m_mySndsId.
+  std::string m_idScopePrefix;          // e.g., "/SNDS_ID_scope_"
+  std::string m_mySndsIdScopeName;      // Computed as m_sndsPrefix + m_idScopePrefix + m_mySndsId.
+  std::string m_registryFilePostfix;    // e.g., "_registry"
+	std::string m_ackTag = "THIS_IS_AN_SNDS_ACK";
+
+  // Helper functions for request processing.
+  virtual void processRegistryRequest(const ndn::Name& name, const ndn::Interest& interest) {
+    // Implementation for handling registry requests.
+  }
+  virtual void processTypeAdvertisement(const ndn::Name& name, const ndn::Interest& interest) {
+    // Implementation for handling type advertisements.
+  }
+  virtual void processSubscription(const ndn::Name& name, const ndn::Interest& interest) {
+    // Implementation for handling subscription requests.
+  }
+  virtual void processLocalIdRequest(const ndn::Name& name, const ndn::Interest& interest) {
+    // Implementation for handling local ID requests.
+  }
+
+  // Example predicate functions (to be implemented or refined as needed).
+  virtual bool isTypeAdvertisement(const std::string& command) const {
+    // For example, return (command == "CAR");
+    return false;
+  }
+  virtual bool isSubscriptionCommand(const std::string& command) const {
+    // For example, return (command.find("SNDS_ID_scope") != std::string::npos);
+    return false;
+  }
+};
+
+#endif // SERVICE_BASE_HPP
