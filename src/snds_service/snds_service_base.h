@@ -131,7 +131,7 @@ public:
   /**
    * @brief Utility method to send a Data packet with the specified name and payload.
    */
-  bool sendData(const ndn::Name& name, const std::string &payload) {
+  inline bool sendData(const ndn::Name& name, std::string&& payload) {
     auto data = std::make_shared<ndn::Data>();
     data->setName(name);
     data->setContent(payload);
