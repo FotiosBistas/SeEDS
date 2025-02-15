@@ -29,34 +29,35 @@ struct ParsedInterest {
         return oss.str();
     }
 
-    /**
-     * 
-     * @brief Parses an ndn::Name into a ParsedInterest structure.
-     *
-     * For example, an Interest name such as:
-     *     /SNDS/CAR/car1
-     * would be parsed as:
-     *     prefix  = "/SNDS"
-     *     command = "CAR"
-     *     params  = ["car1"]
-     *
-     * @param name The NDN name to parse.
-     * @return ParsedInterest The structure containing the parsed fields.
-     */
-    inline ParsedInterest parseInterestName(const ndn::Name& name) {
-        ParsedInterest pi;
-        size_t n = name.size();
-        if(n > 0) {
-            pi.prefix = name.get(0).toUri();
-        }
-        if(n > 1) {
-            pi.command = name.get(1).toUri();
-        }
-        for(size_t i = 2; i < n; ++i) {
-            pi.params.push_back(name.get(i).toUri());
-        }
-        return pi;
-    }
 };
+
+/**
+ * 
+ * @brief Parses an ndn::Name into a ParsedInterest structure.
+ *
+ * For example, an Interest name such as:
+ *     /SNDS/CAR/car1
+ * would be parsed as:
+ *     prefix  = "/SNDS"
+ *     command = "CAR"
+ *     params  = ["car1"]
+ *
+ * @param name The NDN name to parse.
+ * @return ParsedInterest The structure containing the parsed fields.
+ */
+inline ParsedInterest parseInterestName(const ndn::Name& name) {
+    ParsedInterest pi;
+    size_t n = name.size();
+    if(n > 0) {
+        pi.prefix = name.get(0).toUri();
+    }
+    if(n > 1) {
+        pi.command = name.get(1).toUri();
+    }
+    for(size_t i = 2; i < n; ++i) {
+        pi.params.push_back(name.get(i).toUri());
+    }
+    return pi;
+}
 
 #endif 
