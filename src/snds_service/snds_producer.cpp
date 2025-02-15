@@ -40,33 +40,45 @@ void SNDSProducer::onRegisterFailed(const ndn::Name& prefix, const std::string& 
 	m_face.shutdown();
 }
 
-//void SNDSProducer::processTypeAdvertisement(const ndn::Name& name, const ndn::Interest& interest) {
-//  // In our parsed model, we expect:
-//  //   prefix: m_sndsPrefix (e.g., "/SNDS")
-//  //   command: type (e.g., "CAR")
-//  //   params[0]: ID for that type.
-//  ParsedInterest pi = parseInterestName(name);
-//  if(pi.params.empty()) {
-//    m_logger->warn("No ID provided in type advertisement. Ignoring.");
-//    return;
-//  }
-//  
-//  std::string idForType = pi.params[0];
-//  m_logger->info("Type advertisement: command = \"{}\", ID = \"{}\"", pi.command, idForType);
-//  
-//  auto iter = myTypesRegistryMap.find("/" + pi.command);
-//  if (iter != myTypesRegistryMap.end()) {
-//    std::vector<std::string>* idList = iter->second;
-//    if (std::find(idList->begin(), idList->end(), idForType) != idList->end()) {
-//      m_logger->warn("ID already registered for type \"{}\". Skipping.", pi.command);
-//      sendData(interest.getName(), "WARNING:;ID already registered for type.");
-//      return;
-//    }
-//    idList->push_back(idForType);
-//    m_logger->info("Registered new ID \"{}\" for type \"{}\". Sending ACK.", idForType, pi.command);
-//    sendData(interest.getName(), ACK_TAG);
-//  }
-//}
+void SNDSProducer::processTypeAdvertisement(const ndn::Name& name, const ndn::Interest& interest) {
+  // Parse the incoming Interest name into a structured format.
+  ParsedInterest pi = parseInterestName(name);
+  
+  // Ensure that there is at least one parameter (the ID) provided.
+  if(pi.params.empty()) {
+    m_logger->warn("No ID provided in type advertisement. Ignoring.");
+    return;
+  }
+  
+  // Extract the advertised ID.
+  std::string idForType = pi.params[0];
+  m_logger->info("Type advertisement: command = \"{}\", ID = \"{}\"", pi.command, idForType);
+  
+  // Look up the content type (with a preceding slash) in the registry map.
+  std::string typeKey = "/" + pi.command;
+  auto iter = myTypesRegistryMap.find(typeKey);
+  if (iter != myTypesRegistryMap.end()) {
+    // Using a reference to the vector stored by value.
+    std::vector<std::string>& idList = iter->second;
+    
+    // If the ID is already registered, log a warning and send a warning Data packet.
+    if (std::find(idList.begin(), idList.end(), idForType) != idList.end()) {
+      m_logger->warn("ID already registered for type \"{}\". Skipping.", pi.command);
+      std::string warnMsg = "WARNING:;ID already registered for type {" + pi.command + "}";
+      sendData(interest.getName(), std::move(warnMsg));
+      return;
+    }
+    
+    // Otherwise, register the new ID.
+    idList.push_back(idForType);
+    m_logger->info("Registered new ID \"{}\" for type \"{}\". Sending ACK.", idForType, pi.command);
+    sendData(interest.getName(), std::move(m_ackTag));
+  }
+  else {
+    // If the type is not found, you might decide to log a warning or even insert a new entry.
+    m_logger->warn("Type \"{}\" not found in registry. Ignoring advertisement.", pi.command);
+  }
+}
 //
 //void SNDSProducer::processSubscription(const ndn::Name& name, const ndn::Interest& interest) {
 //  // In our parsed model for subscription, we expect:
