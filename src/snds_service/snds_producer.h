@@ -15,6 +15,7 @@ public:
     : ServiceBase(logLevel, logFile, numberOfSndsSrvs, sndsPrefix, mySndsId, idScopePrefix, registryFilePostfix) 
   {
     // Any additional initialization specific to SNDSProducer can go here.
+    myTypesRegistryMap["/CAR"] = std::vector<std::string>{};
   }
 
   void onInterest(const ndn::Interest& interest);

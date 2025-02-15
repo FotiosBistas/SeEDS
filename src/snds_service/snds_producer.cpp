@@ -58,11 +58,6 @@ std::vector<char> SNDSProducer::getRegistryFilePayload(const std::vector<std::st
   return payload;
 }
 
-void SNDSProducer::onRegisterFailed(const ndn::Name& prefix, const std::string& reason){
-    m_logger->error("Failed to register prefix: {0} with the local forwarder ({1})", prefix, reason);
-	m_face.shutdown();
-}
-
 void SNDSProducer::processTypeAdvertisement(const ndn::Name& name, const ndn::Interest& interest) {
   // Parse the incoming Interest name.
   ParsedInterest pi = parseInterestName(name);

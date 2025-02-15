@@ -4,6 +4,8 @@
 #include <memory>
 #include <mutex>
 
+#include "snds_service_base.h"
+
 class SNDSDaemon {
 public:
     /**
