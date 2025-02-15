@@ -35,6 +35,29 @@ void SNDSProducer::onInterest(const ndn::Interest& interest) {
   m_logger->info("Interest left unprocessed. No matching handler found.");
 }
 
+std::vector<char> SNDSProducer::getRegistryFilePayload(const std::vector<std::string>& ids) {
+  // Calculate the total length: 1 byte for count + 1 byte per ID for its length + ID characters.
+  size_t totalLength = 1;
+  for (const auto& id : ids) {
+      totalLength += 1 + id.size();
+  }
+
+  // Reserve capacity in the vector for efficiency.
+  std::vector<char> payload;
+  payload.reserve(totalLength);
+
+  // Write the number of IDs as the first byte.
+  payload.push_back(static_cast<char>(ids.size()));
+
+  // For each ID, write its length and then its characters.
+  for (const auto& id : ids) {
+      payload.push_back(static_cast<char>(id.size()));
+      payload.insert(payload.end(), id.begin(), id.end());
+  }
+
+  return payload;
+}
+
 void SNDSProducer::onRegisterFailed(const ndn::Name& prefix, const std::string& reason){
     m_logger->error("Failed to register prefix: {0} with the local forwarder ({1})", prefix, reason);
 	m_face.shutdown();
@@ -79,6 +102,33 @@ void SNDSProducer::processTypeAdvertisement(const ndn::Name& name, const ndn::In
   }
 }
 
+
+void SNDSProducer::processLocalIdRequest(const ndn::Name& name, const ndn::Interest& interest) {
+  // Parse the Interest into a structured format.
+  ParsedInterest pi = parseInterestName(name);
+
+  // In local ID requests, we assume the command field itself is the requested ID.
+  // Ensure it has a leading slash.
+  std::string localID = pi.command;
+  ensureLeadingSlash(localID);
+
+  // Look up the local ID in the locally announced IDs map.
+  auto it = locallyAnnouncedIDsMap.find(localID);
+  if (it != locallyAnnouncedIDsMap.end()) {
+    m_logger->info("Local ID request for \"{}\" found. Sending associated data.", localID);
+    sendData(interest.getName(), it->second);
+  }
+  else {
+    m_logger->warn("Interest for unknown local ID \"{}\".", localID);
+    
+    // Build a string with available IDs for debugging.
+    std::string availableIDs;
+    for (const auto& pair : locallyAnnouncedIDsMap) {
+      availableIDs += " " + pair.first;
+    }
+    m_logger->info("Available IDs: {}", availableIDs);
+  }
+}
 
 void SNDSProducer::processSubscription(const ndn::Name& name, const ndn::Interest& interest) {
   // Parse the Interest name.
@@ -152,37 +202,27 @@ void SNDSProducer::processSubscription(const ndn::Name& name, const ndn::Interes
   }
 }
 
-//
-//void SNDSProducer::processRegistryRequest(const ndn::Name& name, const ndn::Interest& interest) {
-//  // For registry requests, the command contains our registry postfix.
-//  ParsedInterest pi = parseInterestName(name);
-//  m_logger->info("Registry request received: command = \"{}\"", pi.command);
-//  // Remove the registry postfix to extract the base type.
-//  std::string baseType = pi.command.substr(0, pi.command.find(m_registryFilePostfix));
-//  auto iter = myTypesRegistryMap.find("/" + baseType);
-//  if (iter == myTypesRegistryMap.end()) {
-//    m_logger->warn("Unknown registry for type \"{}\".", baseType);
-//    return;
-//  }
-//  std::string payload = getRegistryFilePayload(iter->second);
-//  m_logger->info("Sending registry file payload for type \"{}\".", baseType);
-//  sendData(interest.getName(), payload);
-//}
-//
-//void SNDSProducer::processLocalIdRequest(const ndn::Name& name, const ndn::Interest& interest) {
-//  // For local ID requests, we assume the command itself is the ID.
-//  ParsedInterest pi = parseInterestName(name);
-//  std::string idQuery = "/" + pi.command;
-//  auto it = locallyAnnouncedIDsMap.find(idQuery);
-//  if (it != locallyAnnouncedIDsMap.end()) {
-//    m_logger->info("Local ID request for \"{}\". Sending data.", idQuery);
-//    sendData(interest.getName(), it->second);
-//  } else {
-//    m_logger->warn("Interest for unknown local ID \"{}\".", idQuery);
-//    std::string availableIDs;
-//    for (const auto& pair : locallyAnnouncedIDsMap) {
-//      availableIDs += " " + pair.first;
-//    }
-//    m_logger->info("Available IDs: {}", availableIDs);
-//  }
-//}
+void SNDSProducer::processRegistryRequest(const ndn::Name& name, const ndn::Interest& interest) {
+  // Parse the incoming Interest name.
+  ParsedInterest pi = parseInterestName(name);
+  m_logger->info("Registry request received: command = \"{}\"", pi.command);
+
+  // Remove the registry postfix from the command to get the base type.
+  std::string baseType = pi.command.substr(0, pi.command.find(m_registryFilePostfix));
+
+  // Look up the registry for the base type (the keys in myTypesRegistryMap are stored with a leading slash).
+  auto iter = myTypesRegistryMap.find("/" + baseType);
+  if (iter == myTypesRegistryMap.end()) {
+    m_logger->warn("Unknown registry for type \"{}\".", baseType);
+    return;
+  }
+
+  // Serialize the registry data into a payload using the modern method.
+  std::vector<char> payloadVec = getRegistryFilePayload(iter->second);
+  
+  // Convert the vector<char> to a std::string.
+  std::string payload(payloadVec.begin(), payloadVec.end());
+  
+  m_logger->info("Sending registry file payload for type \"{}\".", baseType);
+  sendData(interest.getName(), payload);
+}
