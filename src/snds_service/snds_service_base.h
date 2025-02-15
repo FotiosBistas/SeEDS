@@ -131,10 +131,10 @@ public:
   /**
    * @brief Utility method to send a Data packet with the specified name and payload.
    */
-  inline bool sendData(const ndn::Name& name, std::string&& payload) {
+  inline bool sendData(const ndn::Name& name, std::string payload) {
     auto data = std::make_shared<ndn::Data>();
     data->setName(name);
-    data->setContent(payload);
+    data->setContent(std::move(payload));
     m_keyChain.sign(*data);
     m_face.put(*data);
     return true;

@@ -41,95 +41,117 @@ void SNDSProducer::onRegisterFailed(const ndn::Name& prefix, const std::string& 
 }
 
 void SNDSProducer::processTypeAdvertisement(const ndn::Name& name, const ndn::Interest& interest) {
-  // Parse the incoming Interest name into a structured format.
+  // Parse the incoming Interest name.
   ParsedInterest pi = parseInterestName(name);
-  
-  // Ensure that there is at least one parameter (the ID) provided.
-  if(pi.params.empty()) {
+
+  // Attempt to get the advertised ID from the parsed parameters.
+  auto idOpt = pi.getParam(0);
+  if (!idOpt.has_value()) {
     m_logger->warn("No ID provided in type advertisement. Ignoring.");
     return;
   }
   
-  // Extract the advertised ID.
-  std::string idForType = pi.params[0];
+  std::string idForType = idOpt.value();
   m_logger->info("Type advertisement: command = \"{}\", ID = \"{}\"", pi.command, idForType);
   
   // Look up the content type (with a preceding slash) in the registry map.
   std::string typeKey = "/" + pi.command;
   auto iter = myTypesRegistryMap.find(typeKey);
   if (iter != myTypesRegistryMap.end()) {
-    // Using a reference to the vector stored by value.
+    // Access the vector of IDs stored by value.
     std::vector<std::string>& idList = iter->second;
     
     // If the ID is already registered, log a warning and send a warning Data packet.
     if (std::find(idList.begin(), idList.end(), idForType) != idList.end()) {
       m_logger->warn("ID already registered for type \"{}\". Skipping.", pi.command);
       std::string warnMsg = "WARNING:;ID already registered for type {" + pi.command + "}";
-      sendData(interest.getName(), std::move(warnMsg));
+      sendData(interest.getName(), warnMsg);
       return;
     }
     
-    // Otherwise, register the new ID.
+    // Register the new ID.
     idList.push_back(idForType);
     m_logger->info("Registered new ID \"{}\" for type \"{}\". Sending ACK.", idForType, pi.command);
-    sendData(interest.getName(), std::move(m_ackTag));
+    sendData(interest.getName(), m_ackTag);
   }
   else {
-    // If the type is not found, you might decide to log a warning or even insert a new entry.
     m_logger->warn("Type \"{}\" not found in registry. Ignoring advertisement.", pi.command);
   }
 }
-//
-//void SNDSProducer::processSubscription(const ndn::Name& name, const ndn::Interest& interest) {
-//  // In our parsed model for subscription, we expect:
-//  //   prefix: m_sndsPrefix
-//  //   command: something like "SNDS_ID_scope_X"
-//  //   params[0]: the ID; params[1] (if present): SNDS_NODE identifier.
-//  ParsedInterest pi = parseInterestName(name);
-//  if(pi.params.empty()) {
-//    m_logger->warn("Subscription request missing parameters. Ignoring.");
-//    return;
-//  }
-//  
-//  // Determine if this is a "new subscription" or a "notification"
-//  if(pi.params.size() == 2) { // New subscription request.
-//    m_logger->info("New subscription: ID \"{}\", SNDS_NODE \"{}\".", pi.params[0], pi.params[1]);
-//    std::string preparedId = pi.params[0];
-//    prepareName(preparedId);
-//    std::string preparedSndsId = pi.params[1];
-//    prepareName(preparedSndsId);
-//    auto it = subscribedBYID_SNDSnodes.find(preparedId);
-//    if (it == subscribedBYID_SNDSnodes.end()) {
-//      std::vector<std::string>* vec = new std::vector<std::string>();
-//      vec->push_back(preparedSndsId);
-//      subscribedBYID_SNDSnodes[preparedId] = vec;
-//    } else {
-//      std::vector<std::string>* vec = it->second;
-//      if (std::find(vec->begin(), vec->end(), preparedSndsId) == vec->end()) {
-//        vec->push_back(preparedSndsId);
-//      }
-//    }
-//    sendData(interest.getName(), ACK_TAG + " to_new_subscription");
-//  }
-//  else if(pi.params.size() == 1) { // Notification.
-//    m_logger->info("Subscription notification for ID \"{}\".", pi.params[0]);
-//    std::string preparedId = pi.params[0];
-//    prepareName(preparedId);
-//    auto it = subscribedBYID_SNDSnodes.find(preparedId);
-//    if (it != subscribedBYID_SNDSnodes.end()) {
-//      std::vector<std::string>* vec = it->second;
-//      for (const auto& node : *vec) {
-//        m_logger->info("Notifying SNDS node: {}", node);
-//        std::string itemName = node + preparedId;
-//        SNDS_Intra_Msg* msg = new SNDS_Intra_Msg(ON_INTEREST, itemName.c_str(), itemName.length());
-//        writeIntraSNDSMessage(v_to_consumer, m_to_consumer, c_to_consumer, msg);
-//      }
-//    } else {
-//      m_logger->info("No subscribers found for ID \"{}\".", preparedId);
-//    }
-//    sendData(interest.getName(), ACK_TAG + " to_notification_for_new_subscription");
-//  }
-//}
+
+
+void SNDSProducer::processSubscription(const ndn::Name& name, const ndn::Interest& interest) {
+  // Parse the Interest name.
+  ParsedInterest pi = parseInterestName(name);
+  
+  // Check that the command is either "SUBSCRIBE" or "NOTIFY".
+  if(pi.command == "SUBSCRIBE") {
+    // Expect two parameters: ID and SNDS_NODE.
+    if(pi.params.size() < 2) {
+      m_logger->warn("SUBSCRIBE command missing parameters. Ignoring.");
+      return;
+    }
+    std::string preparedId = pi.params[0];
+    ensureLeadingSlash(preparedId);
+    std::string preparedSndsId = pi.params[1];
+    ensureLeadingSlash(preparedSndsId);
+    
+    m_logger->info("New subscription: ID \"{}\", SNDS_NODE \"{}\".", preparedId, preparedSndsId);
+    
+    auto it = subscribedBYID_SNDSnodes.find(preparedId);
+
+    if(it == subscribedBYID_SNDSnodes.end()) {
+      std::vector<std::string> vec;
+      vec.push_back(preparedSndsId);
+      subscribedBYID_SNDSnodes[preparedId] = vec;
+      sendData(interest.getName(), m_ackTag + " to_new_subscription");
+      return;
+    } 
+
+    auto& vec = subscribedBYID_SNDSnodes[preparedId];
+    if(std::find(vec.begin(), vec.end(), preparedSndsId) == vec.end()) {
+      vec.push_back(preparedSndsId);
+    }
+
+    sendData(interest.getName(), m_ackTag + " to_new_subscription");
+
+  }else if(pi.command == "NOTIFY") {
+    // Expect one parameter: ID.
+    if(pi.params.empty()) {
+      m_logger->warn("NOTIFY command missing ID parameter. Ignoring.");
+      return;
+    }
+    std::string preparedId = pi.params[0];
+    ensureLeadingSlash(preparedId);
+    m_logger->info("Subscription notification for ID \"{}\".", preparedId);
+    
+    auto it = subscribedBYID_SNDSnodes.find(preparedId);
+    if(it != subscribedBYID_SNDSnodes.end()) {
+      for (const auto& node : subscribedBYID_SNDSnodes[preparedId]) {
+        m_logger->info("Notifying SNDS node: {}", node);
+
+        std::string itemName = node + preparedId;
+
+        auto message = std::make_unique<SNDS_INTRA_MESSAGE>(
+          std::move(itemName),
+          SNDS_INTRA_MESSAGE_TYPE::GENERIC,
+          SNDS_CLIENT_TYPES::ON_INTEREST,
+          ""
+        );
+
+        v_to_consumer->writeMessage(std::move(message));
+      }
+    } else {
+      m_logger->info("No subscribers found for ID \"{}\".", preparedId);
+    }
+
+    sendData(interest.getName(), m_ackTag + " to_notification_for_new_subscription");
+  }
+  else {
+    m_logger->warn("Unrecognized subscription command: {}. Ignoring.", pi.command);
+  }
+}
+
 //
 //void SNDSProducer::processRegistryRequest(const ndn::Name& name, const ndn::Interest& interest) {
 //  // For registry requests, the command contains our registry postfix.

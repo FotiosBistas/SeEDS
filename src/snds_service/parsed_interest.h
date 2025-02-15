@@ -29,6 +29,17 @@ struct ParsedInterest {
         return oss.str();
     }
 
+    /**
+     * @brief Safely retrieves the parameter at the given index.
+     *
+     * @param index The parameter index (0-based).
+     * @return std::optional<std::string> containing the parameter if it exists; std::nullopt otherwise.
+    */
+    std::optional<std::string> getParam(size_t index) const {
+        if (index < params.size())
+            return params[index];
+        return std::nullopt;
+    }
 };
 
 /**
