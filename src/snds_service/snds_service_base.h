@@ -1,6 +1,5 @@
-/* ServiceBase.hpp */
-#ifndef SERVICE_BASE_HPP
-#define SERVICE_BASE_HPP
+#ifndef SERVICE_BASE_H
+#define SERVICE_BASE_H
 
 #include <ndn-cxx/face.hpp>
 #include <ndn-cxx/security/validator-config.hpp>
@@ -75,46 +74,9 @@ public:
 
   virtual ~ServiceBase() {}
 
-  void onInterest(const ndn::Interest& interest) {
+  virtual void onInterest(const ndn::Interest& interest) {
     ndn::Name name = interest.getName();
     m_logger->info("Received in function: {0}, name: {1}", __FUNCTION__, name.toUri());
-
-    if (name.size() < 2) {
-      m_logger->warn("Interest name {0}, in function {1} is too short. Ignoring...", name.toUri(), __FUNCTION__);
-      return;
-    }
-
-    // Example: Assume the name follows the structure: /<prefix>/<command>/...
-    const std::string servicePrefix = name.get(0).toUri();  // Should match m_sndsPrefix ideally.
-    const std::string command       = name.get(1).toUri();  // Could be "CAR", a scope, or a registry file spec.
-
-    // If the command contains the registry postfix, handle registry requests.
-    if (command.find(m_registryFilePostfix) != std::string::npos) {
-      processRegistryRequest(name, interest);
-      return;
-    }
-
-    // If there are at least three components, extract the next parameter.
-    std::string param1;
-    if (name.size() >= 3) {
-      param1 = name.get(2).toUri();
-    }
-
-    // Dispatch based on the command.
-    if (isTypeAdvertisement(command)) {
-      processTypeAdvertisement(name, interest);
-      return;
-    }
-    else if (isSubscriptionCommand(command)) {
-      processSubscription(name, interest);
-      return;
-    }
-    else if (!param1.empty()) { 
-      processLocalIdRequest(name, interest);
-      return;
-    }
-    
-    m_logger->info("Interest left unprocessed. No matching handler found.");
   }
 
   void onData(const ndn::Interest&, const ndn::Data& data) {
@@ -152,16 +114,16 @@ public:
     v_to_service->writeMessage(std::move(message));
   }
 
-  void onNack(const ndn::Interest& interest, const ndn::lp::Nack& nack) {
+  virtual void onNack(const ndn::Interest& interest, const ndn::lp::Nack& nack) {
     m_logger->info("Received Nack (reason: {}) for Interest: {}",
                     nack.getReason(), interest.getName().toUri());
   }
 
-  void onTimeout(const ndn::Interest& interest) {
+  virtual void onTimeout(const ndn::Interest& interest) {
     m_logger->info("Timeout for Interest: {}", interest.getName().toUri());
   }
 
-  void onRegisterFailed(const ndn::Name& prefix, const std::string& reason){
+  virtual void onRegisterFailed(const ndn::Name& prefix, const std::string& reason){
     m_logger->error("Failed to register prefix: {0} with the local forwarder ({1})", prefix, reason);
 		m_face.shutdown();
   }
@@ -214,29 +176,6 @@ protected:
   std::string m_registryFilePostfix;    // e.g., "_registry"
 	std::string m_ackTag = "THIS_IS_AN_SNDS_ACK";
 
-  // Helper functions for request processing.
-  virtual void processRegistryRequest(const ndn::Name& name, const ndn::Interest& interest) {
-    // Implementation for handling registry requests.
-  }
-  virtual void processTypeAdvertisement(const ndn::Name& name, const ndn::Interest& interest) {
-    // Implementation for handling type advertisements.
-  }
-  virtual void processSubscription(const ndn::Name& name, const ndn::Interest& interest) {
-    // Implementation for handling subscription requests.
-  }
-  virtual void processLocalIdRequest(const ndn::Name& name, const ndn::Interest& interest) {
-    // Implementation for handling local ID requests.
-  }
-
-  // Example predicate functions (to be implemented or refined as needed).
-  virtual bool isTypeAdvertisement(const std::string& command) const {
-    // For example, return (command == "CAR");
-    return false;
-  }
-  virtual bool isSubscriptionCommand(const std::string& command) const {
-    // For example, return (command.find("SNDS_ID_scope") != std::string::npos);
-    return false;
-  }
 };
 
-#endif // SERVICE_BASE_HPP
+#endif // SERVICE_BASE_H
