@@ -31,9 +31,7 @@ public:
     /**
      * @brief Registers a new service.
      *
-     * @param service Pointer to a ServiceBase‑derived service. The daemon does
-     *                not take ownership, so manage lifetimes externally or consider
-     *                using smart pointers.
+     * @param service Pointer to a ServiceBase‑derived service.
      */
     void addService(std::unique_ptr<ServiceBase> service) {
         services.push_back(std::move(service));
@@ -43,7 +41,7 @@ public:
     /**
      * @brief Starts all registered services by calling their init functions in separate threads.
      *
-     * Since your service's init (e.g. func_proxy) runs a perpetual loop,
+     * Since service's init (e.g. func_proxy) runs a perpetual loop,
      * this launches each service concurrently.
      */
     void start() {
