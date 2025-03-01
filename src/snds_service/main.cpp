@@ -1,4 +1,5 @@
 #include "snds_producer.h"
+#include "snds_consumer.h"
 #include "snds_daemon.h" 
 
 int main() {
@@ -7,12 +8,13 @@ int main() {
 
   // Create a producer instance.
   auto producer = std::make_unique<SNDSProducer>();
+  auto consumer = std::make_unique<SNDSConsumer>();
 
   // Add the producer to the daemon.
   daemon.addService(std::move(producer));
+  daemon.addService(std::move(consumer));
 
   // Initialize and start the daemon.
-  daemon.init();
   daemon.start();
 
   // (Optionally) run a loop or wait for a key press to shut down.

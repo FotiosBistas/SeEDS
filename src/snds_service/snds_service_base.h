@@ -62,7 +62,7 @@ public:
     file_sink->set_pattern("[%Y-%m-%d %H:%M:%S.%e] [%l] %v");
 
     std::vector<spdlog::sink_ptr> sinks{ console_sink, file_sink };
-    m_logger = std::make_shared<spdlog::logger>("ServiceBase", sinks.begin(), sinks.end());
+    m_logger = std::make_shared<spdlog::logger>(this->serviceName, sinks.begin(), sinks.end());
     spdlog::register_logger(m_logger);
     m_logger->set_level(logLevel);
 
