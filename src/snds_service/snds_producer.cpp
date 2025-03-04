@@ -5,7 +5,6 @@ void SNDSProducer::init(){
     if (serviceName.empty()) {
         m_logger->warn("Warning: serviceName is EMPTY! Check constructor initialization.");
     }
-    m_logger->info("Producer: Exiting service: {}", this->serviceName);
     m_logger->info("Producer thread started.");
         
     // Set up your initial interest filters
@@ -46,18 +45,25 @@ void SNDSProducer::init(){
     }
 
     // Optionally register a certificate filter (if needed)
-    auto cert = m_keyChain.getPib().getDefaultIdentity().getDefaultKey().getDefaultCertificate();
-    m_certServeHandle = m_face.setInterestFilter(
-        ndn::security::extractIdentityFromCertName(cert.getName()),
-        [this, cert] (auto&&...) { m_face.put(cert); }, // Ensure correct lambda signature
-        std::bind(&SNDSProducer::onRegisterFailed, this, std::placeholders::_1, std::placeholders::_2)
-    );
+    ndn::security::Certificate cert;
+    try {
+        cert = m_keyChain.getPib().getDefaultIdentity().getDefaultKey().getDefaultCertificate();
+        m_certServeHandle = m_face.setInterestFilter(
+            ndn::security::extractIdentityFromCertName(cert.getName()),
+            [this, cert] (auto&&...) { m_face.put(cert); }, // Ensure correct lambda signature
+            std::bind(&SNDSProducer::onRegisterFailed, this, std::placeholders::_1, std::placeholders::_2)
+        );
+    } catch (const ndn::security::pib::Pib::Error &e) {
+        m_logger->error("No default identity found: {}", e.what());
+        return;
+    }
 
     // Process events in a blocking mode once (if needed)
     m_face.processEvents(ndn::time::milliseconds(-1));
 
     // Run the loop until 'running' is false.
     while (running.load()) {
+        m_logger->debug("Producer loop iteration; running = {}", running.load());
         // Process events non-blockingly (or with a timeout)
         m_face.processEvents(ndn::time::milliseconds(1000)); // Process for 1 second
 

@@ -59,6 +59,13 @@ public:
      */
     void stop() {
         logger->info("SNDSDaemon: Stopping all services...");
+
+        // Signal each service to stop.
+        for (auto& service : services) {
+            service->stop();  
+        }
+
+        // Now join all threads.
         for (auto& t : threads) {
             if (t.joinable()) {
                 t.join();

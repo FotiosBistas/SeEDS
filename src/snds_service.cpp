@@ -704,6 +704,8 @@ private:
 			 * */		
 			std::string typenamestr = name.at(1).toUri();
 			//log(__FUNCTION__, typenamestr.c_str());
+			//SNDS/CAR/car1
+			//we insert the new car inside the registry
 			auto iter = myTypesRegistryMap.find("/"+typenamestr);
 			if (iter!=myTypesRegistryMap.end()){
 				std::string id_for_type = name.at(2).toUri();
@@ -728,6 +730,8 @@ private:
 			/**
 			 * Handle interest indicating a new ID advertised for async pub/sub -- prefix will be a predefined SNDS_ID_scope_X
 			 * */		
+			// this handles types for async publication 
+			// slide 22-26
 			std::string prefix = "/"+name.at(1).toUri();
 			if (MY_SNDS_ID_SCOPE_NAME.compare(SNDS_PREFIX+prefix)==0){
 				//there are two cases:

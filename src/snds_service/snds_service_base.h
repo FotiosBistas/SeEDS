@@ -115,6 +115,11 @@ public:
     m_logger->info("Exiting service: {}", serviceName);
   }
 
+  // This method stops the loop by setting the flag to false.
+  void stop() {
+    running.store(false);
+  };
+
   /**
    * @brief Utility method to send a Data packet with the specified name and payload.
    */
@@ -127,17 +132,6 @@ public:
     return true;
   }
 
-  /**
-   * @brief Runs the NDN Face event loop.
-   */
-  void run() {
-    try {
-      m_face.processEvents();
-    }
-    catch(const std::exception &ex) {
-      m_logger->error("Exception in run(): {}", ex.what());
-    }
-  }
 
 protected:
   ndn::Face m_face;
@@ -145,7 +139,7 @@ protected:
   ndn::ValidatorConfig m_validator;
   ndn::ScopedRegisteredPrefixHandle m_certServeHandle;
   std::shared_ptr<spdlog::logger> m_logger;
-  std::atomic<bool> running;
+  std::atomic<bool> running { true };
 
   MessageQueue* v_to_proxy = new MessageQueue();
   MessageQueue* v_to_dt = new MessageQueue();
