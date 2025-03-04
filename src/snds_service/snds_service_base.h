@@ -6,6 +6,8 @@
 #include <spdlog/spdlog.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
 #include <spdlog/sinks/basic_file_sink.h>
+#include <atomic>
+#include <thread>
 #include <memory>
 #include <thread>
 #include <exception>
@@ -100,6 +102,11 @@ public:
 		m_face.shutdown();
   }
 
+  virtual void onRegisterSuccess(const ndn::Name& prefix) {
+    m_logger->info("Successfully registered prefix: {}", prefix.toUri());
+  }
+
+
   virtual void init(){
     m_logger->info("Starting service: {}", serviceName);
     if (serviceName.empty()) {
@@ -136,8 +143,9 @@ protected:
   ndn::Face m_face;
   ndn::KeyChain m_keyChain;
   ndn::ValidatorConfig m_validator;
-  ndn::ScopedInterestFilterHandle m_certServeHandle;
+  ndn::ScopedRegisteredPrefixHandle m_certServeHandle;
   std::shared_ptr<spdlog::logger> m_logger;
+  std::atomic<bool> running;
 
   MessageQueue* v_to_proxy = new MessageQueue();
   MessageQueue* v_to_dt = new MessageQueue();

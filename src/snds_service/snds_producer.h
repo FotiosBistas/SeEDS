@@ -1,3 +1,4 @@
+#include <ndn-cxx/face.hpp>
 #include <spdlog/spdlog.h>
 #include "snds_service_base.h"
 #include "parsed_interest.h"
@@ -26,13 +27,7 @@ public:
       myTypesRegistryMap["/CAR"] = std::vector<std::string>{};
   }
 
-  void init(){
-    m_logger->info("Producer: Starting service: {}", this->serviceName);
-    if (serviceName.empty()) {
-        m_logger->warn("Warning: serviceName is EMPTY! Check constructor initialization.");
-    }
-    m_logger->info("Producer: Exiting service: {}", this->serviceName);
-  }
+  void init();
 
   void onInterest(const ndn::Interest& interest);
   void processRegistryRequest(const ndn::Name& name, const ndn::Interest& interest);
@@ -158,5 +153,4 @@ private:
 	std::unordered_map<std::string, std::vector<std::string>> myTypesRegistryMap; //maps Type names to vectors of IDs 
 	std::unordered_map<std::string, std::vector<std::string>> subscribedBYID_SNDSnodes; //maps Type names to vectors of IDs 
 	std::unordered_map<std::string, std::string> locallyAnnouncedIDsMap; //stores the IDs of locally advertised items and theit data
-  
 };
