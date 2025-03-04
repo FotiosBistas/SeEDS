@@ -82,12 +82,12 @@ public:
   virtual void onData(const ndn::Interest&, const ndn::Data& data) {
     // Log the receipt of the Data packet.
     m_logger->info("Received Data with name: {0} in function {1}", data.getName().toUri(), __FUNCTION__);
-    
+
   }
 
   virtual void onNack(const ndn::Interest& interest, const ndn::lp::Nack& nack) {
     m_logger->info("Received Nack (reason: {}) for Interest: {}",
-                    nack.getReason(), interest.getName().toUri());
+      static_cast<int>(nack.getReason()), interest.getName().toUri());
   }
 
   virtual void onTimeout(const ndn::Interest& interest) {
@@ -95,7 +95,7 @@ public:
   }
 
   virtual void onRegisterFailed(const ndn::Name& prefix, const std::string& reason){
-    m_logger->error("Failed to register prefix: {0} with the local forwarder ({1})", prefix, reason);
+    m_logger->error("Failed to register prefix: {0} with the local forwarder ({1})", prefix.toUri(), reason);
 		m_face.shutdown();
   }
 

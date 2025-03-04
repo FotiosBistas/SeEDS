@@ -12,14 +12,13 @@ public:
                const std::string mySndsId = "0",
                const std::string idScopePrefix = "/SNDS_ID_scope_",
                const std::string registryFilePostfix = "_registry")
-    : ServiceBase(logLevel, logFile, numberOfSndsSrvs, sndsPrefix, mySndsId, idScopePrefix, registryFilePostfix) 
+    : ServiceBase(logLevel, logFile, numberOfSndsSrvs, sndsPrefix, mySndsId, idScopePrefix, registryFilePostfix)
   {
     // Any additional initialization specific to SNDSProducer can go here.
     myTypesRegistryMap["/CAR"] = std::vector<std::string>{};
   }
 
   void onInterest(const ndn::Interest& interest);
-  void onRegisterFailed(const ndn::Name& prefix, const std::string& reason);
   void processRegistryRequest(const ndn::Name& name, const ndn::Interest& interest);
   /**
    * @brief Processes an Interest that advertises a new content type.
@@ -56,7 +55,7 @@ public:
    * @param interest The Interest packet.
    */
   void processSubscription(const ndn::Name& name, const ndn::Interest& interest);
-  
+
   /**
    * @brief Processes a getById request for a locally announced ID.
    *
@@ -68,7 +67,7 @@ public:
    * @param name The full Interest name.
    * @param interest The Interest packet.
    */
-  void SNDSProducer::processLocalIdRequest(const ndn::Name& name, const ndn::Interest& interest);
+  void processLocalIdRequest(const ndn::Name& name, const ndn::Interest& interest);
 
   /**
    * @brief Determines whether the specified command corresponds to a type advertisement.
@@ -95,7 +94,7 @@ public:
    * @param command The command extracted from the Interest name.
    * @return true if the command is a subscription command; false otherwise.
   */
-  inline bool SNDSProducer::isSubscriptionCommand(const std::string& command) const {
+  inline bool isSubscriptionCommand(const std::string& command) const {
       return (command == "SUBSCRIBE" || command == "NOTIFY");
   }
 
@@ -117,8 +116,8 @@ public:
    * @brief Serializes a vector of strings into a binary payload.
    *
    * The payload format is:
-   *   [ number_of_IDs (1 byte) | 
-   *     id1_length (1 byte) | id1 characters | 
+   *   [ number_of_IDs (1 byte) |
+   *     id1_length (1 byte) | id1 characters |
    *     id2_length (1 byte) | id2 characters | ... ]
    *
    * For example, if the vector contains {"car1", "bus2"},
@@ -132,15 +131,24 @@ public:
    * @param ids A vector of ID strings.
    * @return A vector of char containing the serialized payload.
   */
-  std::vector<char> SNDSProducer::getRegistryFilePayload(const std::vector<std::string>& ids);
+  std::vector<char> getRegistryFilePayload(const std::vector<std::string>& ids);
 
   void advertise() {
     m_logger->info("Advertising SNDSProducer with ID: {}", m_mySndsIdName);
     // Use inherited members such as m_face, m_mySndsIdName, etc.
   }
 
-private: 
-	std::unordered_map<std::string, std::vector<std::string>> myTypesRegistryMap; //maps Type names to vectors of IDs 
-	std::unordered_map<std::string, std::vector<std::string>> subscribedBYID_SNDSnodes; //maps Type names to vectors of IDs 
+  // Getters and setters for private members
+  inline const std::unordered_map<std::string, std::vector<std::string>>& getMyTypesRegistryMap() const {
+    return myTypesRegistryMap;
+  }
+
+  inline void setMyTypesRegistryMap(const std::unordered_map<std::string, std::vector<std::string>>& map) {
+    myTypesRegistryMap = map;
+  }
+
+private:
+	std::unordered_map<std::string, std::vector<std::string>> myTypesRegistryMap; //maps Type names to vectors of IDs
+	std::unordered_map<std::string, std::vector<std::string>> subscribedBYID_SNDSnodes; //maps Type names to vectors of IDs
 	std::unordered_map<std::string, std::string> locallyAnnouncedIDsMap; //stores the IDs of locally advertised items and theit data
 };
