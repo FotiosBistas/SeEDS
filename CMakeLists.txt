@@ -4,6 +4,8 @@ cmake_minimum_required(VERSION 3.10)
 # Project name and language
 project(SeEDS LANGUAGES CXX)
 
+enable_testing()
+
 # Specify the C++ standard
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -69,3 +71,34 @@ target_link_libraries(message_queue_example PRIVATE message_queue ${NDN_CXX_LIBR
 
 # Ensure ndn-cxx is built before the example executable
 add_dependencies(message_queue_example ndn-cxx-build)
+
+# Locate Google Test (requires GTest installed system-wide)
+find_package(GTest REQUIRED)
+
+# Add a test executable for producer tests
+add_executable(test_snds_producer tests/test_snds_producer.cpp src/snds_service/snds_producer.cpp)
+
+# Include directories for the test
+target_include_directories(test_snds_producer PRIVATE
+    src/snds_service
+    src/snds_message
+    src/snds_queue
+)
+
+# Link libraries
+target_link_libraries(test_snds_producer PRIVATE
+    gtest
+    gtest_main
+    message_queue
+    ${NDN_CXX_LIBRARY_DIR}/libndn-cxx.so
+    pthread
+)
+
+# Ensure ndn-cxx is built before test
+add_dependencies(test_snds_producer ndn-cxx-build)
+
+# Register the test with CTest so "ctest" can run it
+add_test(NAME ProducerTests COMMAND test_snds_producer)
+
+find_package(fmt REQUIRED)
+target_link_libraries(test_snds_producer PRIVATE fmt::fmt)

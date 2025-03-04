@@ -102,7 +102,7 @@ public:
   /**
    * @brief Utility method to send a Data packet with the specified name and payload.
    */
-  inline bool sendData(const ndn::Name& name, std::string payload) {
+  virtual bool sendData(const ndn::Name& name, std::string payload) {
     auto data = std::make_shared<ndn::Data>();
     data->setName(name);
     data->setContent(std::move(payload));

@@ -143,6 +143,11 @@ public:
     return myTypesRegistryMap;
   }
 
+  // Used in testing to inject sample data
+  inline std::unordered_map<std::string, std::vector<std::string>>& getMutableMyTypesRegistryMap() {
+    return myTypesRegistryMap;
+  }
+
   inline void setMyTypesRegistryMap(const std::unordered_map<std::string, std::vector<std::string>>& map) {
     myTypesRegistryMap = map;
   }
