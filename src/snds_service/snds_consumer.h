@@ -27,13 +27,7 @@ public:
         m_logger->info("SNDSConsumer initialized with serviceName: {}", this->serviceName);
     }
 
-    void init(){
-        m_logger->info("Consumer: Starting service: {}", this->serviceName);
-        if (serviceName.empty()) {
-            m_logger->warn("Warning: serviceName is EMPTY! Check constructor initialization.");
-        }
-        m_logger->info("Consumer: Exiting service: {}", this->serviceName);
-    }
+    void init();
 
     /**
      * @brief Callback invoked when a Data packet is received.

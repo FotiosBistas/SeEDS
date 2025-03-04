@@ -28,7 +28,7 @@ public:
      * This method blocks the caller if the queue is empty until a message is
      * available. It removes the message from the front of the queue.
      *
-     * @return A unique pointer to the `SNDS_Intra_Msg` read from the queue.
+     * @return A unique pointer to the `SNDS_Intra_Msg` read from the queue or a nullptr if no messages are available.
      */
     std::unique_ptr<SNDS_INTRA_MESSAGE> readMessage();
 

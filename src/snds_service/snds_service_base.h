@@ -77,7 +77,14 @@ public:
     }
   }
 
-  virtual ~ServiceBase() {}
+  virtual ~ServiceBase() {
+    // Clean up dynamically allocated resources
+    delete v_to_proxy;
+    delete v_to_dt;
+    delete v_to_producer;
+    delete v_to_consumer;
+    delete v_to_service;
+  }
 
   virtual void onInterest(const ndn::Interest& interest) {
     ndn::Name name = interest.getName();
@@ -116,8 +123,11 @@ public:
   }
 
   // This method stops the loop by setting the flag to false.
-  void stop() {
+  virtual void stop() {
     running.store(false);
+    m_face.shutdown();
+    m_logger->info("Service stopping: {}", serviceName);
+    m_logger->flush();
   };
 
   /**
