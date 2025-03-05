@@ -68,17 +68,17 @@ void SNDSProducer::processTypeAdvertisement(const ndn::Name& name, const ndn::In
     m_logger->warn("No ID provided in type advertisement. Ignoring.");
     return;
   }
-  
+
   std::string idForType = idOpt.value();
   m_logger->info("Type advertisement: command = \"{}\", ID = \"{}\"", pi.command, idForType);
-  
+
   // Look up the content type (with a preceding slash) in the registry map.
   std::string typeKey = "/" + pi.command;
   auto iter = myTypesRegistryMap.find(typeKey);
   if (iter != myTypesRegistryMap.end()) {
     // Access the vector of IDs stored by value.
     std::vector<std::string>& idList = iter->second;
-    
+
     // If the ID is already registered, log a warning and send a warning Data packet.
     if (std::find(idList.begin(), idList.end(), idForType) != idList.end()) {
       m_logger->warn("ID already registered for type \"{}\". Skipping.", pi.command);
@@ -86,7 +86,7 @@ void SNDSProducer::processTypeAdvertisement(const ndn::Name& name, const ndn::In
       sendData(interest.getName(), warnMsg);
       return;
     }
-    
+
     // Register the new ID.
     idList.push_back(idForType);
     m_logger->info("Registered new ID \"{}\" for type \"{}\". Sending ACK.", idForType, pi.command);
@@ -115,7 +115,7 @@ void SNDSProducer::processLocalIdRequest(const ndn::Name& name, const ndn::Inter
   }
   else {
     m_logger->warn("Interest for unknown local ID \"{}\".", localID);
-    
+
     // Build a string with available IDs for debugging.
     std::string availableIDs;
     for (const auto& pair : locallyAnnouncedIDsMap) {
@@ -128,7 +128,7 @@ void SNDSProducer::processLocalIdRequest(const ndn::Name& name, const ndn::Inter
 void SNDSProducer::processSubscription(const ndn::Name& name, const ndn::Interest& interest) {
   // Parse the Interest name.
   ParsedInterest pi = parseInterestName(name);
-  
+
   // Check that the command is either "SUBSCRIBE" or "NOTIFY".
   if(pi.command == "SUBSCRIBE") {
     // Expect two parameters: ID and SNDS_NODE.
@@ -140,9 +140,9 @@ void SNDSProducer::processSubscription(const ndn::Name& name, const ndn::Interes
     ensureLeadingSlash(preparedId);
     std::string preparedSndsId = pi.params[1];
     ensureLeadingSlash(preparedSndsId);
-    
+
     m_logger->info("New subscription: ID \"{}\", SNDS_NODE \"{}\".", preparedId, preparedSndsId);
-    
+
     auto it = subscribedBYID_SNDSnodes.find(preparedId);
 
     if(it == subscribedBYID_SNDSnodes.end()) {
@@ -151,7 +151,7 @@ void SNDSProducer::processSubscription(const ndn::Name& name, const ndn::Interes
       subscribedBYID_SNDSnodes[preparedId] = vec;
       sendData(interest.getName(), m_ackTag + " to_new_subscription");
       return;
-    } 
+    }
 
     auto& vec = subscribedBYID_SNDSnodes[preparedId];
     if(std::find(vec.begin(), vec.end(), preparedSndsId) == vec.end()) {
@@ -169,7 +169,7 @@ void SNDSProducer::processSubscription(const ndn::Name& name, const ndn::Interes
     std::string preparedId = pi.params[0];
     ensureLeadingSlash(preparedId);
     m_logger->info("Subscription notification for ID \"{}\".", preparedId);
-    
+
     auto it = subscribedBYID_SNDSnodes.find(preparedId);
     if(it != subscribedBYID_SNDSnodes.end()) {
       for (const auto& node : subscribedBYID_SNDSnodes[preparedId]) {
@@ -214,10 +214,10 @@ void SNDSProducer::processRegistryRequest(const ndn::Name& name, const ndn::Inte
 
   // Serialize the registry data into a payload using the modern method.
   std::vector<char> payloadVec = getRegistryFilePayload(iter->second);
-  
+
   // Convert the vector<char> to a std::string.
   std::string payload(payloadVec.begin(), payloadVec.end());
-  
+
   m_logger->info("Sending registry file payload for type \"{}\".", baseType);
   sendData(interest.getName(), payload);
 }

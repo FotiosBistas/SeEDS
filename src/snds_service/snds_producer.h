@@ -139,6 +139,7 @@ public:
   }
 
   // Getters and setters for private members
+
   inline const std::unordered_map<std::string, std::vector<std::string>>& getMyTypesRegistryMap() const {
     return myTypesRegistryMap;
   }
@@ -150,6 +151,19 @@ public:
 
   inline void setMyTypesRegistryMap(const std::unordered_map<std::string, std::vector<std::string>>& map) {
     myTypesRegistryMap = map;
+  }
+
+  inline const std::unordered_map<std::string, std::vector<std::string>>& getSubscribedById() const {
+    return subscribedBYID_SNDSnodes;
+  }
+
+  // Used in testing to inject sample data
+  inline std::unordered_map<std::string, std::vector<std::string>>& getMutableSubscribedById() {
+    return subscribedBYID_SNDSnodes;
+  }
+
+  inline void setSubscribedById(const std::unordered_map<std::string, std::vector<std::string>>& map) {
+    subscribedBYID_SNDSnodes = map;
   }
 
 private:

@@ -40,7 +40,7 @@ public:
      *
      * @param msg A unique pointer to the `SNDS_Intra_Msg` to add to the queue.
      */
-    void writeMessage(std::unique_ptr<SNDS_INTRA_MESSAGE> msg);
+    virtual void writeMessage(std::unique_ptr<SNDS_INTRA_MESSAGE> msg);
 
     /**
      * @brief Gets the current size of the queue.
