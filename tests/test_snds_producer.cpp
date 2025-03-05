@@ -81,6 +81,130 @@ TEST_F(SNDSProducerTestFixture, OnInterest_IgnoresShortInterest) {
   ASSERT_FALSE(producer.sendDataCalled);
 }
 
+// Test that the producer ignores registry requests
+// with an invalid Intent name (e.g., the postfix is at the beginning).
+TEST_F(SNDSProducerTestFixture, ProcessRegistryRequest_IgnoreInvalidIntent) {
+  TestSNDSProducer producer;
+  auto& myTypesRegistry = producer.getMutableMyTypesRegistryMap();
+
+  // Verify that the registry for "/CAR" is empty.
+  ASSERT_TRUE(myTypesRegistry["/CAR"].empty());
+
+  // Create an Interest with the "_registry" postfix
+  // being at the beginning of the Intent name.
+  ndn::Name interestName("/SNDS/_registryCAR");
+  ndn::Interest interest(interestName);
+
+  producer.onInterest(interest);
+
+  // The base type extracted was empty ("").
+  // It was an unknown type so it was ignored
+  // and sendData() was not called.
+  ASSERT_FALSE(producer.sendDataCalled);
+
+  // Verify that the registry for "/CAR" remains empty.
+  ASSERT_TRUE(myTypesRegistry["/CAR"].empty());
+
+  // Reset our capture.
+  producer.sendDataCalled = false;
+  producer.capturedPayload.clear();
+}
+
+// Test that the producer ignores registry requests with an unknown base type.
+TEST_F(SNDSProducerTestFixture, ProcessRegistryRequest_IgnoreUnknownBaseType) {
+  TestSNDSProducer producer;
+  auto& myTypesRegistry = producer.getMutableMyTypesRegistryMap();
+
+  // Verify that the registry does not have an entry for "/BUS".
+  ASSERT_EQ(myTypesRegistry.count("/BUS"), 0);
+
+  // Create a registry request with a "/BUS" base type.
+  ndn::Name interestName("/SNDS/BUS_registry");
+  ndn::Interest interest(interestName);
+
+  producer.onInterest(interest);
+
+  // The base type extracted was unknown and sendData() was not called.
+  ASSERT_FALSE(producer.sendDataCalled);
+
+  // Verify that the registry *still* does not have an entry for "/BUS".
+  ASSERT_EQ(myTypesRegistry.count("/BUS"), 0);
+
+  // Reset our capture.
+  producer.sendDataCalled = false;
+  producer.capturedPayload.clear();
+}
+
+// Test the producer on a registry request with a base type that has an empty vector.
+TEST_F(SNDSProducerTestFixture, ProcessRegistryRequest_HandleEmptyBaseTypeVector) {
+  TestSNDSProducer producer;
+  auto& myTypesRegistry = producer.getMutableMyTypesRegistryMap();
+
+  // Verify that the registry for "/CAR" is empty.
+  ASSERT_TRUE(myTypesRegistry["/CAR"].empty());
+
+  // Construct the expected payload:
+  // Byte 0: number of IDs (0)
+  std::vector<char> expectedVec = {
+    static_cast<char>(0)
+  };
+  std::string expectedPayload(expectedVec.begin(), expectedVec.end());
+
+  // Create a registry request with a "/CAR" base type.
+  ndn::Name interestName("/SNDS/CAR_registry");
+  ndn::Interest interest(interestName);
+
+  // Also tests producer.getRegistryFilePayload() via producer.processRegistryRequest().
+  producer.onInterest(interest);
+
+  /// Check expected sendData() call.
+  ASSERT_TRUE(producer.sendDataCalled);
+
+  // Compared the expected to the actual payload.
+  ASSERT_EQ(producer.capturedPayload, expectedPayload);
+
+  // Reset our capture.
+  producer.sendDataCalled = false;
+  producer.capturedPayload.clear();
+}
+
+// Test the producer on a registry request with a base type that has a non-empty vector.
+TEST_F(SNDSProducerTestFixture, ProcessRegistryRequest_HandleNonEmptyBaseTypeVector) {
+  TestSNDSProducer producer;
+  auto& myTypesRegistry = producer.getMutableMyTypesRegistryMap();
+  myTypesRegistry["/CAR"].push_back("car1");
+  myTypesRegistry["/CAR"].push_back("car2");
+
+  // Construct the expected payload:
+  // Byte 0: number of IDs (2)
+  // Byte 1: length of "car1" (4)
+  // Bytes 2-5: characters 'c', 'a', 'r', '1'
+  // Byte 6: length of "car2" (4)
+  // Bytes 7-10: characters 'c', 'a', 'r', '2'
+  std::vector<char> expectedVec = {
+    static_cast<char>(2),
+    static_cast<char>(4), 'c', 'a', 'r', '1',
+    static_cast<char>(4), 'c', 'a', 'r', '2'
+  };
+  std::string expectedPayload(expectedVec.begin(), expectedVec.end());
+
+  // Create a registry request with a "/CAR" base type.
+  ndn::Name interestName("/SNDS/CAR_registry");
+  ndn::Interest interest(interestName);
+
+  producer.onInterest(interest);
+
+  // Check expected sendData() call.
+  ASSERT_TRUE(producer.sendDataCalled);
+
+  // Compared the expected to the actual payload.
+  ASSERT_EQ(producer.capturedPayload, expectedPayload);
+
+  // Reset our capture.
+  producer.sendDataCalled = false;
+  producer.capturedPayload.clear();
+}
+
 // Test that if no ID is provided the advertisement is ignored.
 TEST_F(SNDSProducerTestFixture, ProcessTypeAdvertisement_IgnoresWhenIDMissing) {
   TestSNDSProducer producer;
@@ -93,6 +217,8 @@ TEST_F(SNDSProducerTestFixture, ProcessTypeAdvertisement_IgnoresWhenIDMissing) {
   ndn::Name interestName("/SNDS/CAR");
   ndn::Interest interest(interestName);
 
+  // Calling producer.onInterest() tests both redirection of requests
+  // and the functionality of producer.isTypeAdvertisement().
   producer.onInterest(interest);
 
   // Since no ID is provided, sendData() should not have been called.
@@ -147,8 +273,6 @@ TEST_F(SNDSProducerTestFixture, ProcessTypeAdvertisement_RegistersNewID) {
   ndn::Name interestName("/SNDS/CAR/car1");
   ndn::Interest interest(interestName);
 
-  // Calling producer.onInterest() tests both redirection of requests
-  // and the functionality of producer.isTypeAdvertisement().
   producer.onInterest(interest);
 
   // "car1" should have been added to the registry for the key "/CAR".
