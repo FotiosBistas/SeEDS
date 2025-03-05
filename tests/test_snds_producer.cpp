@@ -51,6 +51,36 @@ protected:
   }
 };
 
+// Test the SNDSProducer constructor.
+TEST_F(SNDSProducerTestFixture, SNDSProducer_Constructor) {
+  TestSNDSProducer producer;
+  auto& myTypesRegistry = producer.getMutableMyTypesRegistryMap();
+
+  // Verify that there is an empty entry for "/CAR".
+  ASSERT_EQ(myTypesRegistry.count("/CAR"), 1);
+  ASSERT_TRUE(myTypesRegistry["/CAR"].empty());
+}
+
+// Test that the producer ignores Interests with short names.
+TEST_F(SNDSProducerTestFixture, OnInterest_IgnoresShortInterest) {
+  TestSNDSProducer producer;
+  auto& myTypesRegistry = producer.getMutableMyTypesRegistryMap();
+
+  // Verify that the registry for "/CAR" is empty.
+  ASSERT_TRUE(myTypesRegistry["/CAR"].empty());
+
+  // Create an Interest with only the service prefix.
+  ndn::Name interestName("/SNDS");
+  ndn::Interest interest(interestName);
+
+  producer.onInterest(interest);
+
+  // Verify that the registry for "/CAR" is *still* empty
+  // and sendData() was *not* called.
+  ASSERT_TRUE(myTypesRegistry["/CAR"].empty());
+  ASSERT_FALSE(producer.sendDataCalled);
+}
+
 // Test that if no ID is provided the advertisement is ignored.
 TEST_F(SNDSProducerTestFixture, ProcessTypeAdvertisement_IgnoresWhenIDMissing) {
   TestSNDSProducer producer;
@@ -65,7 +95,7 @@ TEST_F(SNDSProducerTestFixture, ProcessTypeAdvertisement_IgnoresWhenIDMissing) {
 
   producer.onInterest(interest);
 
-  // Since no ID is provided, sendData should not have been called.
+  // Since no ID is provided, sendData() should not have been called.
   ASSERT_FALSE(producer.sendDataCalled);
 
   // Verify that the registry for "/CAR" remains empty.
@@ -92,7 +122,7 @@ TEST_F(SNDSProducerTestFixture, ProcessTypeAdvertisement_WarnsOnDuplicateID) {
 
   producer.onInterest(interest);
 
-  // Expect sendData to have been called with a warning message.
+  // Expect sendData() to have been called with a warning message.
   std::string expectedWarnMsg = "WARNING:;ID already registered for type {CAR}";
   ASSERT_TRUE(producer.sendDataCalled);
   ASSERT_EQ(producer.capturedPayload, expectedWarnMsg);
@@ -126,7 +156,7 @@ TEST_F(SNDSProducerTestFixture, ProcessTypeAdvertisement_RegistersNewID) {
   ASSERT_EQ(myTypesRegistry["/CAR"].size(), 1);
   ASSERT_EQ(myTypesRegistry["/CAR"][0], "car1");
 
-  // Expect sendData to have been called with the ACK message.
+  // Expect sendData() to have been called with the ACK message.
   ASSERT_TRUE(producer.sendDataCalled);
   ASSERT_EQ(producer.capturedPayload, "THIS_IS_AN_SNDS_ACK");
 
@@ -150,7 +180,7 @@ TEST_F(SNDSProducerTestFixture, ProcessTypeAdvertisement_IgnoresWhenTypeNotFound
   producer.onInterest(interest);
 
   // Since the type "/BUS" does not exist in the registry,
-  // sendData should not have been called.
+  // sendData() should not have been called.
   ASSERT_FALSE(producer.sendDataCalled);
 
   // Verify that the registry *still* does not have an entry for "/BUS".
@@ -175,7 +205,7 @@ TEST_F(SNDSProducerTestFixture, ProcessSubscription_IgnoresIncompleteSubscriptio
   producer.onInterest(interest);
 
   // Since there is only one parameter in the interest,
-  // sendData should not have been called.
+  // sendData() should not have been called.
   ASSERT_FALSE(producer.sendDataCalled);
 
   // Reset our capture.
@@ -202,7 +232,7 @@ TEST_F(SNDSProducerTestFixture, ProcessSubscription_ValidNewSubscription) {
   ASSERT_EQ(subscribedById["/car1"].size(), 1);
   ASSERT_EQ(subscribedById["/car1"][0], "/node1");
 
-  // Expect sendData to have been called with the ACK message.
+  // Expect sendData() to have been called with the ACK message.
   ASSERT_TRUE(producer.sendDataCalled);
   ASSERT_EQ(producer.capturedPayload, "THIS_IS_AN_SNDS_ACK to_new_subscription");
 
@@ -228,7 +258,7 @@ TEST_F(SNDSProducerTestFixture, ProcessSubscription_AddsToValidSubscription) {
   ASSERT_EQ(subscribedById["/car1"].size(), 2);
   ASSERT_EQ(subscribedById["/car1"][1], "/node2");
 
-  // Expect sendData to have been called with the ACK message.
+  // Expect sendData() to have been called with the ACK message.
   ASSERT_TRUE(producer.sendDataCalled);
   ASSERT_EQ(producer.capturedPayload, "THIS_IS_AN_SNDS_ACK to_new_subscription");
 
@@ -251,7 +281,7 @@ TEST_F(SNDSProducerTestFixture, ProcessSubscription_IgnoresIncompleteNotify) {
   producer.onInterest(interest);
 
   // Since there are no parameters in the interest,
-  // sendData should not have been called.
+  // sendData() should not have been called.
   ASSERT_FALSE(producer.sendDataCalled);
 
   // Reset our capture.
@@ -290,7 +320,7 @@ TEST_F(SNDSProducerTestFixture, ProcessSubscription_NotifiesSubscribers) {
   ASSERT_EQ(msgPtr->getSender(), SNDS_CLIENT_TYPES::ON_INTEREST);
   ASSERT_TRUE(msgPtr->getName().empty());
 
-  // Expect sendData to have been called with the ACK message.
+  // Expect sendData() to have been called with the ACK message.
   ASSERT_TRUE(producer.sendDataCalled);
   ASSERT_EQ(producer.capturedPayload, "THIS_IS_AN_SNDS_ACK to_notification_for_new_subscription");
 
@@ -316,11 +346,41 @@ TEST_F(SNDSProducerTestFixture, ProcessSubscription_AcknowledgesNoSubscribers) {
 
   producer.onInterest(interest);
 
-  // Expect sendData to have been called with the ACK message.
+  // Expect sendData() to have been called with the ACK message.
   ASSERT_TRUE(producer.sendDataCalled);
   ASSERT_EQ(producer.capturedPayload, "THIS_IS_AN_SNDS_ACK to_notification_for_new_subscription");
 
   // Reset our capture.
   producer.sendDataCalled = false;
   producer.capturedPayload.clear();
+}
+
+// Test that the helper function adds a leading slash
+// to an empty string.
+TEST_F(SNDSProducerTestFixture, EnsureLeadingSlashTest_HandlesEmptyString) {
+  SNDSProducer producer;
+
+  std::string str = "";
+  producer.ensureLeadingSlash(str);
+  EXPECT_EQ(str, "/");
+}
+
+// Test that the helper function adds a leading slash
+// to a non-empty string that doesn't already have one.
+TEST_F(SNDSProducerTestFixture, EnsureLeadingSlashTest_AddsMissingSlash) {
+  SNDSProducer producer;
+
+  std::string str = "test";
+  producer.ensureLeadingSlash(str);
+  EXPECT_EQ(str, "/test");
+}
+
+// Test that the helper function does *not* add a leading slash
+// to a non-empty string that already has one.
+TEST_F(SNDSProducerTestFixture, EnsureLeadingSlashTest_HandlesExistingSlash) {
+  SNDSProducer producer;
+
+  std::string str = "/test";
+  producer.ensureLeadingSlash(str);
+  EXPECT_EQ(str, "/test");
 }
