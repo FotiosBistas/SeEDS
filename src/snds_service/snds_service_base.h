@@ -149,6 +149,7 @@ protected:
 
   // Declare message queues as static, so they are common to all instances.
   // Using std::unique_ptr for RAII management. 
+  // TODO this is terrible and should be changed
   static std::unique_ptr<MessageQueue> v_to_proxy;
   static std::unique_ptr<MessageQueue> v_to_dt;
   static std::unique_ptr<MessageQueue> v_to_producer;

@@ -25,25 +25,46 @@ void DigitalTwin::init(){
 
 
         std::string id = getFromGETRequest(content, "id");
+        std::string idScope = getSNDSNodeScopeNameForSubscription(id, m_sndsPrefix, m_numberOfSndsSrvs);
 
         if(!id.empty()){
             m_logger->info("DigitalTwin: Received by ID get request...");
             ensureLeadingSlash(id);
             announcedIDsVec.push_back(id);
-            auto message = std::make_unique<SNDS_INTRA_MESSAGE>(
+            auto message1 = std::make_unique<SNDS_INTRA_MESSAGE>(
                 std::move(id),
                 SNDS_INTRA_MESSAGE_TYPE::BY_ID_RESPONSE,
                 SNDS_CLIENT_TYPES::DIGITAL_TWIN,
                 ""
             );
             m_logger->info("DigitalTwin: Pushing byID advertisement to the Producer...");
-            v_to_producer->writeMessage(std::move(message));
+            v_to_producer->writeMessage(std::move(message1));
+
+
+            auto message2 = std::make_unique<SNDS_INTRA_MESSAGE>(
+                id+idScope,
+                SNDS_INTRA_MESSAGE_TYPE::GENERIC,
+                SNDS_CLIENT_TYPES::DIGITAL_TWIN,
+                ""
+            );
+
+            v_to_consumer->writeMessage(std::move(message2));
         }
 
         std::string type = getFromGETRequest(content, "type");
 
         if(!type.empty()){
             m_logger->info("DigitalTwin: Received by Type get request...");
+            ensureLeadingSlash(type);
+            ensureLeadingSlash(id);
+            auto message = std::make_unique<SNDS_INTRA_MESSAGE>(
+                std::move(type+id),
+                SNDS_INTRA_MESSAGE_TYPE::BY_TYPE_RESPONSE,
+                SNDS_CLIENT_TYPES::DIGITAL_TWIN,
+                ""
+            );
+            m_logger->info("DigitalTwin: Pushing byType advertisement to the Consumer...");
+            v_to_consumer->writeMessage(std::move(message));
         }
     }
 }
