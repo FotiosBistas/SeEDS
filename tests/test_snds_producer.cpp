@@ -79,10 +79,6 @@ TEST_F(SNDSProducerTestFixture, OnInterest_IgnoresShortInterest) {
   // and sendData() was *not* called.
   ASSERT_TRUE(myTypesRegistry["/CAR"].empty());
   ASSERT_FALSE(producer.sendDataCalled);
-
-  // Reset our capture.
-  producer.sendDataCalled = false;
-  producer.capturedPayload.clear();
 }
 
 // Test that the producer ignores registry requests
@@ -108,10 +104,6 @@ TEST_F(SNDSProducerTestFixture, ProcessRegistryRequest_IgnoreInvalidIntent) {
 
   // Verify that the registry for "/CAR" remains empty.
   ASSERT_TRUE(myTypesRegistry["/CAR"].empty());
-
-  // Reset our capture.
-  producer.sendDataCalled = false;
-  producer.capturedPayload.clear();
 }
 
 // Test that the producer ignores registry requests with an unknown base type.
@@ -133,10 +125,6 @@ TEST_F(SNDSProducerTestFixture, ProcessRegistryRequest_IgnoreUnknownBaseType) {
 
   // Verify that the registry *still* does not have an entry for "/BUS".
   ASSERT_EQ(myTypesRegistry.count("/BUS"), 0);
-
-  // Reset our capture.
-  producer.sendDataCalled = false;
-  producer.capturedPayload.clear();
 }
 
 // Test the producer on a registry request with a base type that has an empty vector.
@@ -166,10 +154,6 @@ TEST_F(SNDSProducerTestFixture, ProcessRegistryRequest_HandleEmptyBaseTypeVector
 
   // Compared the expected to the actual payload.
   ASSERT_EQ(producer.capturedPayload, expectedPayload);
-
-  // Reset our capture.
-  producer.sendDataCalled = false;
-  producer.capturedPayload.clear();
 }
 
 // Test the producer on a registry request with a base type that has a non-empty vector.
@@ -203,10 +187,6 @@ TEST_F(SNDSProducerTestFixture, ProcessRegistryRequest_HandleNonEmptyBaseTypeVec
 
   // Compared the expected to the actual payload.
   ASSERT_EQ(producer.capturedPayload, expectedPayload);
-
-  // Reset our capture.
-  producer.sendDataCalled = false;
-  producer.capturedPayload.clear();
 }
 
 // Test that if no ID is provided the advertisement is ignored.
@@ -230,10 +210,6 @@ TEST_F(SNDSProducerTestFixture, ProcessTypeAdvertisement_IgnoresWhenIDMissing) {
 
   // Verify that the registry for "/CAR" remains empty.
   ASSERT_TRUE(myTypesRegistry["/CAR"].empty());
-
-  // Reset our capture.
-  producer.sendDataCalled = false;
-  producer.capturedPayload.clear();
 }
 
 // Test that processing an advertisement with a duplicate ID sends a warning.
@@ -259,10 +235,6 @@ TEST_F(SNDSProducerTestFixture, ProcessTypeAdvertisement_WarnsOnDuplicateID) {
 
   // The registry should *still* have only one entry.
   ASSERT_EQ(myTypesRegistry["/CAR"].size(), 1);
-
-  // Reset our capture.
-  producer.sendDataCalled = false;
-  producer.capturedPayload.clear();
 }
 
 // Test that a new ID is properly registered and ACK is sent.
@@ -287,10 +259,6 @@ TEST_F(SNDSProducerTestFixture, ProcessTypeAdvertisement_RegistersNewID) {
   // Expect sendData() to have been called with the ACK message.
   ASSERT_TRUE(producer.sendDataCalled);
   ASSERT_EQ(producer.capturedPayload, "THIS_IS_AN_SNDS_ACK");
-
-  // Reset our capture.
-  producer.sendDataCalled = false;
-  producer.capturedPayload.clear();
 }
 
 // Test that if the type is not found in the registry, the advertisement is ignored.
@@ -313,10 +281,6 @@ TEST_F(SNDSProducerTestFixture, ProcessTypeAdvertisement_IgnoresWhenTypeNotFound
 
   // Verify that the registry *still* does not have an entry for "/BUS".
   ASSERT_EQ(myTypesRegistry.count("/BUS"), 0);
-
-  // Reset our capture.
-  producer.sendDataCalled = false;
-  producer.capturedPayload.clear();
 }
 
 // Test the SUBSCRIBE command of processSubscription.
@@ -335,10 +299,6 @@ TEST_F(SNDSProducerTestFixture, ProcessSubscription_IgnoresIncompleteSubscriptio
   // Since there is only one parameter in the interest,
   // sendData() should not have been called.
   ASSERT_FALSE(producer.sendDataCalled);
-
-  // Reset our capture.
-  producer.sendDataCalled = false;
-  producer.capturedPayload.clear();
 }
 
 // Test the SUBSCRIBE command of processSubscription.
@@ -363,10 +323,6 @@ TEST_F(SNDSProducerTestFixture, ProcessSubscription_ValidNewSubscription) {
   // Expect sendData() to have been called with the ACK message.
   ASSERT_TRUE(producer.sendDataCalled);
   ASSERT_EQ(producer.capturedPayload, "THIS_IS_AN_SNDS_ACK to_new_subscription");
-
-  // Reset our capture.
-  producer.sendDataCalled = false;
-  producer.capturedPayload.clear();
 }
 
 // Test the SUBSCRIBE command of processSubscription.
@@ -389,10 +345,6 @@ TEST_F(SNDSProducerTestFixture, ProcessSubscription_AddsToValidSubscription) {
   // Expect sendData() to have been called with the ACK message.
   ASSERT_TRUE(producer.sendDataCalled);
   ASSERT_EQ(producer.capturedPayload, "THIS_IS_AN_SNDS_ACK to_new_subscription");
-
-  // Reset our capture.
-  producer.sendDataCalled = false;
-  producer.capturedPayload.clear();
 }
 
 // Test the NOTIFY command of processSubscription.
@@ -411,10 +363,6 @@ TEST_F(SNDSProducerTestFixture, ProcessSubscription_IgnoresIncompleteNotify) {
   // Since there are no parameters in the interest,
   // sendData() should not have been called.
   ASSERT_FALSE(producer.sendDataCalled);
-
-  // Reset our capture.
-  producer.sendDataCalled = false;
-  producer.capturedPayload.clear();
 }
 
 // Test the NOTIFY command of processSubscription.
@@ -477,10 +425,6 @@ TEST_F(SNDSProducerTestFixture, ProcessSubscription_AcknowledgesNoSubscribers) {
   // Expect sendData() to have been called with the ACK message.
   ASSERT_TRUE(producer.sendDataCalled);
   ASSERT_EQ(producer.capturedPayload, "THIS_IS_AN_SNDS_ACK to_notification_for_new_subscription");
-
-  // Reset our capture.
-  producer.sendDataCalled = false;
-  producer.capturedPayload.clear();
 }
 
 // Test the processing of an unknown local ID request.
@@ -519,10 +463,6 @@ TEST_F(SNDSProducerTestFixture, ProcessLocalIdRequest_WarnsOnUnknownId) {
 
   // The ID is still unknown and sendData() was not called.
   ASSERT_FALSE(producer.sendDataCalled);
-
-  // Reset our capture.
-  producer.sendDataCalled = false;
-  producer.capturedPayload.clear();
 }
 
 // Test the processing of an existing local ID request.
@@ -544,10 +484,6 @@ TEST_F(SNDSProducerTestFixture, ProcessLocalIdRequest_ProcessesExistingId) {
   // sendData() was called and the "data" string was sent.
   ASSERT_TRUE(producer.sendDataCalled);
   ASSERT_EQ(producer.capturedPayload, "data");
-
-  // Reset our capture.
-  producer.sendDataCalled = false;
-  producer.capturedPayload.clear();
 }
 
 // Test that the helper function adds a leading slash
