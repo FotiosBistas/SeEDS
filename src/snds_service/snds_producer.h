@@ -18,6 +18,8 @@ public:
     myTypesRegistryMap["/CAR"] = std::vector<std::string>{};
   }
 
+  void init();
+
   void onInterest(const ndn::Interest& interest);
   void processRegistryRequest(const ndn::Name& name, const ndn::Interest& interest);
   /**
