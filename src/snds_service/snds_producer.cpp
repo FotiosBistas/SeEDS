@@ -27,7 +27,7 @@ void SNDSProducer::onInterest(const ndn::Interest& interest) {
     processSubscription(name, interest);
     return;
   }
-  else if (!pi.params.empty()) {
+  else if (pi.params.empty()) {
     processLocalIdRequest(name, interest);
     return;
   }

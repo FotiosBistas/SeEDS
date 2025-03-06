@@ -79,6 +79,10 @@ TEST_F(SNDSProducerTestFixture, OnInterest_IgnoresShortInterest) {
   // and sendData() was *not* called.
   ASSERT_TRUE(myTypesRegistry["/CAR"].empty());
   ASSERT_FALSE(producer.sendDataCalled);
+
+  // Reset our capture.
+  producer.sendDataCalled = false;
+  producer.capturedPayload.clear();
 }
 
 // Test that the producer ignores registry requests
@@ -473,6 +477,73 @@ TEST_F(SNDSProducerTestFixture, ProcessSubscription_AcknowledgesNoSubscribers) {
   // Expect sendData() to have been called with the ACK message.
   ASSERT_TRUE(producer.sendDataCalled);
   ASSERT_EQ(producer.capturedPayload, "THIS_IS_AN_SNDS_ACK to_notification_for_new_subscription");
+
+  // Reset our capture.
+  producer.sendDataCalled = false;
+  producer.capturedPayload.clear();
+}
+
+// Test the processing of an unknown local ID request.
+TEST_F(SNDSProducerTestFixture, ProcessLocalIdRequest_WarnsOnUnknownId) {
+  TestSNDSProducer producer;
+  auto& locallyAnnouncedIds = producer.getMutableLocallyAnnouncedIds();
+
+  // Verify that the map does not have any entries.
+  ASSERT_TRUE(locallyAnnouncedIds.empty());
+
+  // Create a local ID request Interest.
+  ndn::Name interestName("/SNDS/car1");
+  ndn::Interest interest(interestName);
+
+  producer.onInterest(interest);
+
+  // The map is empty so the ID is unknown
+  // and sendData() was not called.
+  ASSERT_FALSE(producer.sendDataCalled);
+
+  // Reset our capture.
+  producer.sendDataCalled = false;
+  producer.capturedPayload.clear();
+
+  // Add a new ID to the map.
+  locallyAnnouncedIds["/car1"] = "data";
+
+  // Verify that the map now has one entry.
+  ASSERT_EQ(locallyAnnouncedIds.size(), 1);
+
+  // Create a new local ID request Interest.
+  ndn::Name interestName2("/SNDS/car2");
+  ndn::Interest interest2(interestName2);
+
+  producer.onInterest(interest2);
+
+  // The ID is still unknown and sendData() was not called.
+  ASSERT_FALSE(producer.sendDataCalled);
+
+  // Reset our capture.
+  producer.sendDataCalled = false;
+  producer.capturedPayload.clear();
+}
+
+// Test the processing of an existing local ID request.
+TEST_F(SNDSProducerTestFixture, ProcessLocalIdRequest_ProcessesExistingId) {
+  TestSNDSProducer producer;
+  auto& locallyAnnouncedIds = producer.getMutableLocallyAnnouncedIds();
+  // Add a new ID to the map.
+  locallyAnnouncedIds["/car1"] = "data";
+
+  // Verify that the map now has one entry.
+  ASSERT_EQ(locallyAnnouncedIds.size(), 1);
+
+  // Create a local ID request Interest.
+  ndn::Name interestName("/SNDS/car1");
+  ndn::Interest interest(interestName);
+
+  producer.onInterest(interest);
+
+  // sendData() was called and the "data" string was sent.
+  ASSERT_TRUE(producer.sendDataCalled);
+  ASSERT_EQ(producer.capturedPayload, "data");
 
   // Reset our capture.
   producer.sendDataCalled = false;

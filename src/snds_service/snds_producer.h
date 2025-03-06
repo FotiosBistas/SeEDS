@@ -166,6 +166,19 @@ public:
     subscribedBYID_SNDSnodes = map;
   }
 
+  inline const std::unordered_map<std::string, std::string>& getLocallyAnnouncedIds() const {
+    return locallyAnnouncedIDsMap;
+  }
+
+  // Used in testing to inject sample data
+  inline std::unordered_map<std::string, std::string>& getMutableLocallyAnnouncedIds() {
+    return locallyAnnouncedIDsMap;
+  }
+
+  inline void setLocallyAnnouncedIds(const std::unordered_map<std::string, std::string>& map) {
+    locallyAnnouncedIDsMap = map;
+  }
+
 private:
 	std::unordered_map<std::string, std::vector<std::string>> myTypesRegistryMap; //maps Type names to vectors of IDs
 	std::unordered_map<std::string, std::vector<std::string>> subscribedBYID_SNDSnodes; //maps Type names to vectors of IDs
