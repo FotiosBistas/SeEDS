@@ -76,15 +76,10 @@ public:
     } catch (const std::exception& e) {
         m_logger->error("Error loading validator configuration: {}", e.what());
     }
+
   }
 
   virtual ~ServiceBase() {
-    // Clean up dynamically allocated resources
-    delete v_to_proxy;
-    delete v_to_dt;
-    delete v_to_producer;
-    delete v_to_consumer;
-    delete v_to_service;
   }
 
   virtual void onInterest(const ndn::Interest& interest) {
@@ -152,11 +147,13 @@ protected:
   std::shared_ptr<spdlog::logger> m_logger;
   std::atomic<bool> running { true };
 
-  MessageQueue* v_to_proxy = new MessageQueue();
-  MessageQueue* v_to_dt = new MessageQueue();
-  MessageQueue* v_to_producer = new MessageQueue();
-  MessageQueue* v_to_consumer = new MessageQueue();
-  MessageQueue* v_to_service = new MessageQueue();
+  // Declare message queues as static, so they are common to all instances.
+  // Using std::unique_ptr for RAII management. 
+  static std::unique_ptr<MessageQueue> v_to_proxy;
+  static std::unique_ptr<MessageQueue> v_to_dt;
+  static std::unique_ptr<MessageQueue> v_to_producer;
+  static std::unique_ptr<MessageQueue> v_to_consumer;
+  static std::unique_ptr<MessageQueue> v_to_service;
 
   friend class SNDSDaemon;
 

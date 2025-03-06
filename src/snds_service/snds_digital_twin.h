@@ -26,4 +26,5 @@ public:
 
     void init();
 private:
+	std::vector<std::string> announcedIDsVec; //stores local annnounced ids
 };

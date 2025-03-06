@@ -24,6 +24,26 @@ void DigitalTwin::init(){
         auto length = message.get()->getMessageLength();
 
 
-        getFromGETRequest(std::string_view(content), "id");
+        std::string id = getFromGETRequest(content, "id");
+
+        if(!id.empty()){
+            m_logger->info("DigitalTwin: Received by ID get request...");
+            ensureLeadingSlash(id);
+            announcedIDsVec.push_back(id);
+            auto message = std::make_unique<SNDS_INTRA_MESSAGE>(
+                std::move(id),
+                SNDS_INTRA_MESSAGE_TYPE::BY_ID_RESPONSE,
+                SNDS_CLIENT_TYPES::DIGITAL_TWIN,
+                ""
+            );
+            m_logger->info("DigitalTwin: Pushing byID advertisement to the Producer...");
+            v_to_producer->writeMessage(std::move(message));
+        }
+
+        std::string type = getFromGETRequest(content, "type");
+
+        if(!type.empty()){
+            m_logger->info("DigitalTwin: Received by Type get request...");
+        }
     }
 }
