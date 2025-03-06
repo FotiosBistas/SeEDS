@@ -26,3 +26,19 @@ std::string getFromGETRequest(std::string_view url, std::string_view tag) {
     std::string_view valueView = url.substr(start, end - start);
     return std::string(valueView);
 }
+
+
+void ensureLeadingSlash(std::string &nm) {
+    if (nm.empty()) {
+        // If the name is empty, set it to a single slash.
+        nm = "/";
+    } else if (nm.front() != '/') {
+        // Insert a leading slash if it does not already start with one.
+        nm.insert(nm.begin(), '/');
+    }
+}
+
+std::string getSNDSNodeScopeNameForSubscription(const std::string& id, const std::string& prefix) {
+    unsigned nodeIndex = getSNDSNodeForSubscription(id);
+    return prefix + std::to_string(nodeIndex);
+}
