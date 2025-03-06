@@ -9,7 +9,7 @@ void SNDSConsumer::init(){
     // Run the loop until 'running' is false.
     while (running.load()) {
 
-        m_logger->info("Consumer: reading packet...");
+        m_logger->debug("Consumer: Reading packet...");
         std::unique_ptr<SNDS_INTRA_MESSAGE> message = v_to_consumer->readMessage();
 
         if (message == nullptr){

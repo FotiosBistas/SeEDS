@@ -1,5 +1,6 @@
 #include "snds_producer.h"
 #include "snds_consumer.h"
+#include "snds_digital_twin.h"
 #include "snds_daemon.h" 
 #include <csignal>
 #include <atomic>
@@ -26,17 +27,20 @@ int main() {
 
     // Create a producer and consumer instance.
     auto producer = std::make_unique<SNDSProducer>(spdlog::level::debug);
-    auto consumer = std::make_unique<SNDSConsumer>();
+    auto consumer = std::make_unique<SNDSConsumer>(spdlog::level::debug);
+    auto dt = std::make_unique<DigitalTwin>(spdlog::level::debug);
 
     // Add the services to the daemon.
     daemon.addService(std::move(producer));
     daemon.addService(std::move(consumer));
+    daemon.addService(std::move(dt));
 
     // Start the daemon (and its services).
     daemon.start();
 
     std::cout << "Running... Press Ctrl-C to stop." << std::endl;
     
+    daemon.broadcastDummyData();
     // Wait until Ctrl-C is pressed.
     while (!g_stop.load()) {
         std::this_thread::sleep_for(std::chrono::milliseconds(100));

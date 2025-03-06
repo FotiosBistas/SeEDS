@@ -15,6 +15,7 @@
 #include <string>
 #include "snds_message.h"
 #include "message_queue.h"
+#include "snds_utils.h"
 
 class ServiceBase {
 public:
@@ -157,6 +158,7 @@ protected:
   MessageQueue* v_to_consumer = new MessageQueue();
   MessageQueue* v_to_service = new MessageQueue();
 
+  friend class SNDSDaemon;
 
   // Configurable protocol parameters:
   uint8_t m_numberOfSndsSrvs;           // Number of SNDS services.
