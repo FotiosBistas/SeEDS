@@ -6,14 +6,28 @@ class SNDSConsumer: public ServiceBase {
 public:
     // Constructor for SNDSProducer
     SNDSConsumer(spdlog::level::level_enum logLevel = spdlog::level::info,
-                const std::string logFile = "Producer.log",
+                std::string logFile = "Consumer.log",
                 uint8_t numberOfSndsSrvs = 1,
-                const std::string sndsPrefix = "/SNDS",
-                const std::string mySndsId = "0",
-                const std::string idScopePrefix = "/SNDS_ID_scope_",
-                const std::string registryFilePostfix = "_registry")
-        : ServiceBase(logLevel, logFile, numberOfSndsSrvs, sndsPrefix, mySndsId, idScopePrefix, registryFilePostfix) 
-    {}
+                std::string sndsPrefix = "/SNDS",
+                std::string mySndsId = "0",
+                std::string idScopePrefix = "/SNDS_ID_scope_",
+                std::string registryFilePostfix = "_registry",
+                std::string serviceName = "Consumer"
+            )
+    : ServiceBase(logLevel,
+                  logFile,
+                  numberOfSndsSrvs,
+                  sndsPrefix,
+                  mySndsId,
+                  idScopePrefix,
+                  registryFilePostfix,
+                  "THIS_IS_AN_SNDS_ACK",  
+                  serviceName)            
+    {
+        m_logger->info("SNDSConsumer initialized with serviceName: {}", this->serviceName);
+    }
+
+    void init();
 
     /**
      * @brief Callback invoked when a Data packet is received.

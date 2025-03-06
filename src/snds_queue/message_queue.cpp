@@ -2,7 +2,10 @@
 
 std::unique_ptr<SNDS_INTRA_MESSAGE> MessageQueue::readMessage() {
     std::unique_lock<std::mutex> lock(mtx);
-    cv.wait(lock, [this] { return !queue.empty(); }); // Wait until there's at least one message
+    //TODO this might not be ideal after all
+    if(queue.empty()){
+        return nullptr;
+    }
     auto msg = std::move(queue.front());
     queue.pop_front();
     return msg;

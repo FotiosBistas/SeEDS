@@ -1,10 +1,10 @@
+#include <ndn-cxx/face.hpp>
 #include <spdlog/spdlog.h>
 #include "snds_service_base.h"
 #include "parsed_interest.h"
 
 class SNDSProducer : public ServiceBase {
 public:
-  // Constructor for SNDSProducer
   SNDSProducer(spdlog::level::level_enum logLevel = spdlog::level::info,
                const std::string logFile = "Producer.log",
                uint8_t numberOfSndsSrvs = 1,
@@ -16,7 +16,28 @@ public:
   {
     // Any additional initialization specific to SNDSProducer can go here.
     myTypesRegistryMap["/CAR"] = std::vector<std::string>{};
+              std::string logFile = "Producer.log",
+              uint8_t numberOfSndsSrvs = 1,
+              std::string sndsPrefix = "/SNDS",
+              std::string mySndsId = "0",
+              std::string idScopePrefix = "/SNDS_ID_scope_",
+              std::string registryFilePostfix = "_registry",
+              std::string serviceName = "Producer")
+    : ServiceBase(logLevel,
+                  logFile,
+                  numberOfSndsSrvs,
+                  sndsPrefix,
+                  mySndsId,
+                  idScopePrefix,
+                  registryFilePostfix,
+                  "THIS_IS_AN_SNDS_ACK",  // Pass the ackTag explicitly
+                  serviceName)            // Then pass the serviceName
+  {
+      m_logger->info("SNDSProducer initialized with serviceName: {}", this->serviceName);
+      myTypesRegistryMap["/CAR"] = std::vector<std::string>{};
   }
+
+  void init();
 
   void init();
 
@@ -70,6 +91,7 @@ public:
    * @param interest The Interest packet.
    */
   void processLocalIdRequest(const ndn::Name& name, const ndn::Interest& interest);
+  void processLocalIdRequest(const ndn::Name& name, const ndn::Interest& interest);
 
   /**
    * @brief Determines whether the specified command corresponds to a type advertisement.
@@ -96,6 +118,7 @@ public:
    * @param command The command extracted from the Interest name.
    * @return true if the command is a subscription command; false otherwise.
   */
+  inline bool isSubscriptionCommand(const std::string& command) const {
   inline bool isSubscriptionCommand(const std::string& command) const {
       return (command == "SUBSCRIBE" || command == "NOTIFY");
   }
@@ -133,6 +156,7 @@ public:
    * @param ids A vector of ID strings.
    * @return A vector of char containing the serialized payload.
   */
+  std::vector<char> getRegistryFilePayload(const std::vector<std::string>& ids);
   std::vector<char> getRegistryFilePayload(const std::vector<std::string>& ids);
 
   void advertise() {

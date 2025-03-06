@@ -125,26 +125,6 @@ void SNDSProducer::onInterest(const ndn::Interest& interest) {
 }
 
 std::vector<char> SNDSProducer::getRegistryFilePayload(const std::vector<std::string>& ids) {
-  // Calculate the total length: 1 byte for count + 1 byte per ID for its length + ID characters.
-  size_t totalLength = 1;
-  for (const auto& id : ids) {
-      totalLength += 1 + id.size();
-  }
-
-  // Reserve capacity in the vector for efficiency.
-  std::vector<char> payload;
-  payload.reserve(totalLength);
-
-  // Write the number of IDs as the first byte.
-  payload.push_back(static_cast<char>(ids.size()));
-
-  // For each ID, write its length and then its characters.
-  for (const auto& id : ids) {
-      payload.push_back(static_cast<char>(id.size()));
-      payload.insert(payload.end(), id.begin(), id.end());
-  }
-
-  return payload;
 }
 
 void SNDSProducer::processTypeAdvertisement(const ndn::Name& name, const ndn::Interest& interest) {

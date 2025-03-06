@@ -6,6 +6,8 @@
 #include <spdlog/spdlog.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
 #include <spdlog/sinks/basic_file_sink.h>
+#include <atomic>
+#include <thread>
 #include <memory>
 #include <thread>
 #include <exception>
@@ -13,6 +15,7 @@
 #include <string>
 #include "snds_message.h"
 #include "message_queue.h"
+#include "snds_utils.h"
 
 class ServiceBase {
 public:
@@ -31,48 +34,53 @@ public:
    * @param ackTag The ack tag for acking data
    */
   ServiceBase(spdlog::level::level_enum logLevel = spdlog::level::info,
-              std::string logFile = "ServiceBase.log",
-              uint8_t numberOfSndsSrvs = 1,
-              std::string sndsPrefix = "/SNDS",
-              std::string mySndsId = "0",
-              std::string idScopePrefix = "/SNDS_ID_scope_",
-              std::string registryFilePostfix = "_registry",
-              std::string ackTag = "THIS_IS_AN_SNDS_ACK"
-            )
-  : m_validator(m_face),
+            std::string logFile = "ServiceBase.log",
+            uint8_t numberOfSndsSrvs = 1,
+            std::string sndsPrefix = "/SNDS",
+            std::string mySndsId = "0",
+            std::string idScopePrefix = "/SNDS_ID_scope_",
+            std::string registryFilePostfix = "_registry",
+            std::string ackTag = "THIS_IS_AN_SNDS_ACK",
+            std::string serviceName = "ServiceBase")
+  : m_face(),
+    m_keyChain(),
+    m_validator(m_face), // m_validator must be initialized after m_face
+    m_logger(nullptr), // Will be initialized below
     m_numberOfSndsSrvs(numberOfSndsSrvs),
     m_sndsPrefix(std::move(sndsPrefix)),
     m_mySndsId(std::move(mySndsId)),
     m_idScopePrefix(std::move(idScopePrefix)),
     m_registryFilePostfix(std::move(registryFilePostfix)),
-    m_ackTag(std::move(ackTag))
+    m_ackTag(std::move(ackTag)),
+    serviceName(std::move(serviceName)),
+    m_mySndsIdName(m_sndsPrefix + "_" + m_mySndsId), // Now initialized correctly
+    m_mySndsIdScopeName(m_sndsPrefix + m_idScopePrefix + m_mySndsId) // Correct order
   {
-    // Compute derived values.
-    m_mySndsIdName = m_sndsPrefix + "_" + m_mySndsId;
-    m_mySndsIdScopeName = m_sndsPrefix + m_idScopePrefix + m_mySndsId;
 
-    // Set up logging with two sinks: console and file.
+    // Logger initialization
     auto console_sink = std::make_shared<spdlog::sinks::stdout_color_sink_mt>();
     console_sink->set_pattern("[%Y-%m-%d %H:%M:%S.%e] [%l] %v");
 
     auto file_sink = std::make_shared<spdlog::sinks::basic_file_sink_mt>(logFile, true);
     file_sink->set_pattern("[%Y-%m-%d %H:%M:%S.%e] [%l] %v");
 
-    std::vector<spdlog::sink_ptr> sinks { console_sink, file_sink };
-    m_logger = std::make_shared<spdlog::logger>("ServiceBase", sinks.begin(), sinks.end());
+    std::vector<spdlog::sink_ptr> sinks{ console_sink, file_sink };
+    m_logger = std::make_shared<spdlog::logger>(this->serviceName, sinks.begin(), sinks.end());
     spdlog::register_logger(m_logger);
     m_logger->set_level(logLevel);
 
-    // Load the trust schema for validator configuration.
+    m_logger->info("ServiceBase initialized with serviceName: {}", this->serviceName);
+    // Validator setup
     try {
-      m_validator.load("trust-schema.conf");
+        m_validator.load("../trust-schema.conf");
+    } catch (const std::exception& e) {
+        m_logger->error("Error loading validator configuration: {}", e.what());
     }
-    catch (const std::exception &e) {
-      m_logger->error("Error loading validator configuration: {}", e.what());
-    }
+
   }
 
-  virtual ~ServiceBase() {}
+  virtual ~ServiceBase() {
+  }
 
   virtual void onInterest(const ndn::Interest& interest) {
     ndn::Name name = interest.getName();
@@ -96,8 +104,30 @@ public:
 
   virtual void onRegisterFailed(const ndn::Name& prefix, const std::string& reason){
     m_logger->error("Failed to register prefix: {0} with the local forwarder ({1})", prefix.toUri(), reason);
+    m_logger->error("Failed to register prefix: {0} with the local forwarder ({1})", prefix.toUri(), reason);
 		m_face.shutdown();
   }
+
+  virtual void onRegisterSuccess(const ndn::Name& prefix) {
+    m_logger->info("Successfully registered prefix: {}", prefix.toUri());
+  }
+
+
+  virtual void init(){
+    m_logger->info("Starting service: {}", serviceName);
+    if (serviceName.empty()) {
+        m_logger->warn("Warning: serviceName is EMPTY! Check constructor initialization.");
+    }
+    m_logger->info("Exiting service: {}", serviceName);
+  }
+
+  // This method stops the loop by setting the flag to false.
+  virtual void stop() {
+    running.store(false);
+    m_face.shutdown();
+    m_logger->info("Service stopping: {}", serviceName);
+    m_logger->flush();
+  };
 
   /**
    * @brief Utility method to send a Data packet with the specified name and payload.
@@ -111,31 +141,25 @@ public:
     return true;
   }
 
-  /**
-   * @brief Runs the NDN Face event loop.
-   */
-  void run() {
-    try {
-      m_face.processEvents();
-    }
-    catch(const std::exception &ex) {
-      m_logger->error("Exception in run(): {}", ex.what());
-    }
-  }
 
 protected:
   ndn::Face m_face;
   ndn::KeyChain m_keyChain;
   ndn::ValidatorConfig m_validator;
-  ndn::ScopedInterestFilterHandle m_certServeHandle;
+  ndn::ScopedRegisteredPrefixHandle m_certServeHandle;
   std::shared_ptr<spdlog::logger> m_logger;
+  std::atomic<bool> running { true };
 
-  MessageQueue* v_to_proxy = new MessageQueue();
-  MessageQueue* v_to_dt = new MessageQueue();
-  MessageQueue* v_to_producer = new MessageQueue();
-  MessageQueue* v_to_consumer = new MessageQueue();
-  MessageQueue* v_to_service = new MessageQueue();
+  // Declare message queues as static, so they are common to all instances.
+  // Using std::unique_ptr for RAII management.
+  // TODO this is terrible and should be changed
+  static std::unique_ptr<MessageQueue> v_to_proxy;
+  static std::unique_ptr<MessageQueue> v_to_dt;
+  static std::unique_ptr<MessageQueue> v_to_producer;
+  static std::unique_ptr<MessageQueue> v_to_consumer;
+  static std::unique_ptr<MessageQueue> v_to_service;
 
+  friend class SNDSDaemon;
 
   // Configurable protocol parameters:
   uint8_t m_numberOfSndsSrvs;           // Number of SNDS services.
@@ -145,6 +169,7 @@ protected:
   std::string m_idScopePrefix;          // e.g., "/SNDS_ID_scope_"
   std::string m_mySndsIdScopeName;      // Computed as m_sndsPrefix + m_idScopePrefix + m_mySndsId.
   std::string m_registryFilePostfix;    // e.g., "_registry"
+  std::string serviceName;
 	std::string m_ackTag = "THIS_IS_AN_SNDS_ACK";
 
 };
