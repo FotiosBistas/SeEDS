@@ -2,6 +2,7 @@
 
 std::unique_ptr<SNDS_INTRA_MESSAGE> MessageQueue::readMessage() {
     std::unique_lock<std::mutex> lock(mtx);
+    //TODO this might not be ideal after all
     if(queue.empty()){
         return nullptr;
     }
