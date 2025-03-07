@@ -69,9 +69,10 @@ void SNDSProducer::init(){
 
         // Check if there are messages to process for advertisement
         std::unique_ptr<SNDS_INTRA_MESSAGE> message = v_to_producer->readMessage();
-        if(message == nullptr){
-            m_logger->debug("Producer: empty queue, continuing...");
-            continue;
+
+        if (message == nullptr) {
+            m_logger->debug("Producer: Queue shutdown detected, exiting loop.");
+            break;
         }
 
         m_logger->info("Got new advertisement request. Message: {}", message.get()->printDetails());

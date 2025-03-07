@@ -91,12 +91,19 @@ public:
      */
     void stop() {
         logger->info("SNDSDaemon: Stopping all services...");
-
+        
         // Signal each service to stop.
         for (auto& service : services) {
             service->stop();  
         }
-
+        
+        // Also signal the message queues to shut down.
+        ServiceBase::v_to_proxy->shutdown();
+        ServiceBase::v_to_dt->shutdown();
+        ServiceBase::v_to_producer->shutdown();
+        ServiceBase::v_to_consumer->shutdown();
+        ServiceBase::v_to_service->shutdown();
+        
         // Now join all threads.
         for (auto& t : threads) {
             if (t.joinable()) {

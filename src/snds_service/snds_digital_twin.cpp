@@ -13,11 +13,9 @@ void DigitalTwin::init(){
         m_logger->debug("DigitalTwin: Reading packet...");
 
         std::unique_ptr<SNDS_INTRA_MESSAGE> message = v_to_dt->readMessage();
-
-        if (message==nullptr){
-            // No message available; sleep for a short while before checking again.
-            std::this_thread::sleep_for(std::chrono::milliseconds(1000));
-            continue;
+        if (message == nullptr) {
+            m_logger->debug("DigitalTwin: Queue shutdown detected, exiting loop.");
+            break;
         }
 
         auto content = message.get()->getMessage();
@@ -48,6 +46,7 @@ void DigitalTwin::init(){
                 ""
             );
 
+            m_logger->info("DigitalTwin: Pushing byID with Scope advertisement to the Consumer...");
             v_to_consumer->writeMessage(std::move(message2));
         }
 
