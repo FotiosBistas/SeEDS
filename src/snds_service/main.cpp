@@ -2,6 +2,7 @@
 #include "snds_http_service.h"
 #include "snds_producer.h"
 #include "snds_digital_twin.h"
+#include "snds_http_worker.h"
 #include "snds_daemon.h"
 #include <csignal>
 #include <atomic>
@@ -31,12 +32,14 @@ int main() {
     auto consumer = std::make_unique<SNDSConsumer>(spdlog::level::debug);
     auto dt = std::make_unique<DigitalTwin>(spdlog::level::debug);
     auto http = std::make_unique<SNDSHTTPService>(spdlog::level::debug);
+    auto worker = std::make_unique<HTTPWorker>(spdlog::level::debug);
 
     // Add the services to the daemon.
     daemon.addService(std::move(producer));
     daemon.addService(std::move(consumer));
     daemon.addService(std::move(dt));
     daemon.addService(std::move(http));
+    daemon.addService(std::move(worker));
 
     // Start the daemon (and its services).
     daemon.start();
