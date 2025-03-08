@@ -185,3 +185,31 @@ add_test(NAME ProducerTests COMMAND test_snds_producer)
 
 find_package(fmt REQUIRED)
 target_link_libraries(test_snds_producer PRIVATE fmt::fmt)
+
+# Add a test executable for consumer tests
+add_executable(test_snds_consumer tests/test_snds_consumer.cpp src/snds_service/snds_consumer.cpp src/snds_service/snds_service_base.cpp)
+
+# Include directories for the test
+target_include_directories(test_snds_consumer PRIVATE
+    src/snds_service
+    src/snds_message
+    src/snds_queue
+)
+
+# Link libraries
+target_link_libraries(test_snds_consumer PRIVATE
+    gtest
+    gtest_main
+    message_queue
+    ${NDN_CXX_LIBRARY_DIR}/libndn-cxx.so
+    pthread
+)
+
+# Ensure ndn-cxx is built before test
+add_dependencies(test_snds_consumer ndn-cxx-build)
+
+# Register the test with CTest so "ctest" can run it
+add_test(NAME ConsumerTests COMMAND test_snds_consumer)
+
+find_package(fmt REQUIRED)
+target_link_libraries(test_snds_consumer PRIVATE fmt::fmt)
