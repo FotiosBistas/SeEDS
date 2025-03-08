@@ -159,7 +159,7 @@ add_dependencies(test_snds_utils ndn-cxx-build)
 find_package(GTest REQUIRED)
 
 # Add a test executable for producer tests
-add_executable(test_snds_producer tests/test_snds_producer.cpp src/snds_service/snds_producer.cpp)
+add_executable(test_snds_producer tests/test_snds_producer.cpp src/snds_service/snds_producer.cpp src/snds_service/snds_service_base.cpp)
 
 # Include directories for the test
 target_include_directories(test_snds_producer PRIVATE

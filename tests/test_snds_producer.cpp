@@ -28,8 +28,8 @@ class TestSNDSProducer : public SNDSProducer {
     std::string capturedPayload;
 
     // Setter to allow injecting the test message queue.
-    void setConsumerQueue(MessageQueue* mq) {
-      v_to_consumer = mq;
+    void setConsumerQueue(std::unique_ptr<MessageQueue> mq) {
+      v_to_consumer = std::move(mq);
     }
 
     // Override sendData to capture the payload.
@@ -44,9 +44,9 @@ class TestSNDSProducer : public SNDSProducer {
 class SNDSProducerTestFixture : public ::testing::Test {
 protected:
   void SetUp() override {
-    // Drop logger "ServiceBase" if it exists to avoid duplicate logger errors.
-    if (spdlog::get("ServiceBase")) {
-    spdlog::drop("ServiceBase");
+    // Drop logger "Producer" if it exists to avoid duplicate logger errors.
+    if (spdlog::get("Producer")) {
+    spdlog::drop("Producer");
     }
   }
 };
@@ -370,10 +370,11 @@ TEST_F(SNDSProducerTestFixture, ProcessSubscription_IgnoresIncompleteNotify) {
 // they are notified.
 TEST_F(SNDSProducerTestFixture, ProcessSubscription_NotifiesSubscribers) {
   // Create a TestMessageQueue to use
-  TestMessageQueue testQueue;
+  auto testQueue = std::make_unique<TestMessageQueue>();
+  TestMessageQueue* testQueuePtr = testQueue.get();
 
   TestSNDSProducer producer;
-  producer.setConsumerQueue(&testQueue);
+  producer.setConsumerQueue(std::move(testQueue));
   auto& subscribedById = producer.getMutableSubscribedById();
   subscribedById["/car1"].push_back("node1");
 
@@ -385,10 +386,10 @@ TEST_F(SNDSProducerTestFixture, ProcessSubscription_NotifiesSubscribers) {
 
   // writeMessage() should have been called,
   // adding at least one message to the testQueue.
-  ASSERT_FALSE(testQueue.capturedMessages.empty());
+  ASSERT_FALSE(testQueuePtr->capturedMessages.empty());
 
   // Examine the captured message.
-  auto& msgPtr = testQueue.capturedMessages.front();
+  auto& msgPtr = testQueuePtr->capturedMessages.front();
   ASSERT_NE(msgPtr, nullptr);
 
   ASSERT_EQ(msgPtr->getMessage(), "node1/car1");
@@ -401,7 +402,7 @@ TEST_F(SNDSProducerTestFixture, ProcessSubscription_NotifiesSubscribers) {
   ASSERT_EQ(producer.capturedPayload, "THIS_IS_AN_SNDS_ACK to_notification_for_new_subscription");
 
   // Reset our capture.
-  testQueue.clear();
+  testQueuePtr->clear();
   producer.sendDataCalled = false;
   producer.capturedPayload.clear();
 }

@@ -26,10 +26,6 @@ void MessageQueue::writeMessage(std::unique_ptr<SNDS_INTRA_MESSAGE> msg) {
 }
 
 size_t MessageQueue::size() const {
-    std::lock_guard<std::mutex> lock(mtx); // Lock the mutex
-    return queue.size(); // Return the size of the queue
-}
-
     std::lock_guard<std::mutex> lock(mtx);
     return queue.size();
 }
