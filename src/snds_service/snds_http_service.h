@@ -55,7 +55,7 @@ private:
     class session : public std::enable_shared_from_this<session> {
     public:
         session(tcp::socket socket, std::shared_ptr<spdlog::logger> logger, const std::string& ackTag)
-            : socket_(std::move(socket)), logger_(logger), sessionAckTag(ackTag) {}
+            : socket_(std::move(socket)), logger_(logger), m_ackTag(ackTag) {}
 
         void run() {
             do_read();
@@ -66,7 +66,7 @@ private:
         beast::flat_buffer buffer_;
         http::request<http::string_body> request_;
         std::shared_ptr<spdlog::logger> logger_;
-        std::string sessionAckTag;
+        std::string m_ackTag;
 
         // Asynchronously read an HTTP request.
         void do_read() {

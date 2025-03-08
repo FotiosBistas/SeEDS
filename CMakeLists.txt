@@ -101,6 +101,7 @@ target_include_directories(snds_utils PUBLIC src/snds_utils)
 #####################################################################
 set(SNDS_SERVICE_SOURCES
     src/snds_service/snds_service_base.cpp
+    src/snds_service/snds_http_service.cpp
     src/snds_service/snds_producer.cpp   
     src/snds_service/snds_consumer.cpp   
     src/snds_service/snds_digital_twin.cpp
