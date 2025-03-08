@@ -44,6 +44,7 @@ int main() {
     std::cout << "Running... Press Ctrl-C to stop." << std::endl;
     
     daemon.broadcastDummyData();
+    daemon.sendDummyDatatoHTTP();
     // Wait until Ctrl-C is pressed.
     while (!g_stop.load()) {
         std::this_thread::sleep_for(std::chrono::milliseconds(100));

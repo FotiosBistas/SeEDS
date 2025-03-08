@@ -8,7 +8,12 @@
 #include <spdlog/spdlog.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
 #include <spdlog/sinks/basic_file_sink.h>
-#include "snds_service_base.h"  // This header declares ServiceBase and its init() method
+#include "snds_service_base.h"
+
+namespace beast = boost::beast;         // from <boost/beast.hpp>
+namespace http = beast::http;           // from <boost/beast/http.hpp>
+namespace net = boost::asio;            // from <boost/asio.hpp>
+using tcp = net::ip::tcp;               // from <boost/asio/ip/tcp.hpp>
 
 class SNDSDaemon {
 public:
@@ -84,6 +89,82 @@ public:
             "Car"
         ); 
         ServiceBase::v_to_dt->writeMessage(std::move(data4));
+    }
+
+    void sendDummyDatatoHTTP(){
+        logger->info("Waiting for HTTP server to start...");
+
+        net::io_context ioc;
+        tcp::resolver resolver(ioc);
+        bool serverReady = false;
+        
+        // Retry loop for up to 5 seconds
+        for (int i = 0; i < 50; ++i) {
+            try {
+                auto const results = resolver.resolve("127.0.0.1", "8080");
+                tcp::socket socket(ioc);
+                net::connect(socket, results.begin(), results.end());
+                serverReady = true;
+                socket.shutdown(tcp::socket::shutdown_both);
+                break;  // Server is ready, exit the loop
+            } catch (const std::exception&) {
+                std::this_thread::sleep_for(std::chrono::milliseconds(100)); // Wait before retrying
+            }
+        }
+
+        if (!serverReady) {
+            logger->error("HTTP Server did not start within 5 seconds.");
+            return;
+        }
+        
+        logger->info("HTTP Server is ready. Sending test requests...");
+
+        // Now we can safely send GET and POST requests
+        try {
+            tcp::socket socket(ioc);
+            auto const results = resolver.resolve("127.0.0.1", "8080");
+            net::connect(socket, results.begin(), results.end());
+
+            // Prepare a GET request
+            http::request<http::string_body> req{http::verb::get, "/", 11};
+            req.set(http::field::host, "127.0.0.1");
+            req.set(http::field::user_agent, BOOST_BEAST_VERSION_STRING);
+
+            http::write(socket, req);
+            beast::flat_buffer buffer;
+            http::response<http::string_body> res;
+            http::read(socket, buffer, res);
+            logger->info("HTTP GET response: {}", res.body());
+
+            socket.shutdown(tcp::socket::shutdown_both);
+        } catch (const std::exception& e) {
+            logger->error("HTTP GET test failed: {}", e.what());
+        }
+
+        try {
+            tcp::socket socket(ioc);
+            auto const results = resolver.resolve("127.0.0.1", "8080");
+            net::connect(socket, results.begin(), results.end());
+
+            // Prepare a POST request
+            std::string postBody = "test post data";
+            http::request<http::string_body> req{http::verb::post, "/", 11};
+            req.set(http::field::host, "127.0.0.1");
+            req.set(http::field::user_agent, BOOST_BEAST_VERSION_STRING);
+            req.set(http::field::content_type, "text/plain");
+            req.body() = postBody;
+            req.prepare_payload();
+
+            http::write(socket, req);
+            beast::flat_buffer buffer;
+            http::response<http::string_body> res;
+            http::read(socket, buffer, res);
+            logger->info("HTTP POST response: {}", res.body());
+
+            socket.shutdown(tcp::socket::shutdown_both);
+        } catch (const std::exception& e) {
+            logger->error("HTTP POST test failed: {}", e.what());
+        }
     }
 
     /**
