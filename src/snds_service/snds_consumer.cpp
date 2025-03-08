@@ -12,10 +12,9 @@ void SNDSConsumer::init(){
         m_logger->debug("Consumer: Reading packet...");
         std::unique_ptr<SNDS_INTRA_MESSAGE> message = v_to_consumer->readMessage();
 
-        if (message == nullptr){
-            // No message available; sleep for a short while before checking again.
-            std::this_thread::sleep_for(std::chrono::milliseconds(1000));
-            continue;
+        if (message == nullptr) {
+            m_logger->debug("Consumer: Queue shutdown detected, exiting loop.");
+            break;
         }
 
         auto content = message.get()->getMessage();

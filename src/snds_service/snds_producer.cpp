@@ -67,13 +67,13 @@ void SNDSProducer::init(){
       // Process events non-blockingly (or with a timeout)
       m_face.processEvents(ndn::time::milliseconds(1000)); // Process for 1 second
 
-      // Check if there are messages to process for advertisement
-      std::unique_ptr<SNDS_INTRA_MESSAGE> message = v_to_producer->readMessage();
+        // Check if there are messages to process for advertisement
+        std::unique_ptr<SNDS_INTRA_MESSAGE> message = v_to_producer->readMessage();
 
-      if (message == nullptr) {
-          m_logger->debug("Producer: Queue shutdown detected, exiting loop.");
-          break;
-      }
+        if (message == nullptr) {
+            m_logger->debug("Producer: Queue shutdown detected, exiting loop.");
+            break;
+        }
 
       m_logger->info("Got new advertisement request. Message: {}", message.get()->printDetails());
       auto content = message.get()->getMessage();
