@@ -61,7 +61,7 @@ void SNDSHTTPService::session::handle_request(){
     std::string method = std::string(request_.method_string());
     std::string target = std::string(request_.target());
     std::string body = std::string(request_.body());
-    logger_->info("HTTP SERVER: Received {} request for {} with body {}", method, target);
+    logger_->info("HTTP SERVER: Received {} request for {} with body {}", method, target, body);
 
     // Prepare an HTTP response.
     http::response<http::string_body> response{http::status::ok, request_.version()};
