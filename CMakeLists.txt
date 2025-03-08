@@ -56,6 +56,21 @@ if(NOT spdlog_POPULATED)
 endif()
 
 #####################################################################
+# Fetch and add cpp-httplib (header-only HTTP server library)
+#####################################################################
+FetchContent_Declare(
+  cpp-httplib
+  GIT_REPOSITORY https://github.com/yhirose/cpp-httplib.git
+  GIT_TAG master
+)
+FetchContent_GetProperties(cpp-httplib)
+if(NOT cpp-httplib_POPULATED)
+  FetchContent_Populate(cpp-httplib)
+endif()
+# Include cpp-httplib header directory.
+include_directories(${cpp-httplib_SOURCE_DIR})
+
+#####################################################################
 # Include directories for custom header files
 #####################################################################
 # Adjust these paths to match your folder structure.
