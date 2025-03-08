@@ -61,13 +61,13 @@ void SNDSHTTPService::session::handle_request(){
     std::string method = std::string(request_.method_string());
     std::string target = std::string(request_.target());
     std::string body = std::string(request_.body());
-    logger_->info("HTTP SERVER: Received {} request for {}", method, target);
+    logger_->info("HTTP SERVER: Received {} request for {} with body {}", method, target);
 
     // Prepare an HTTP response.
     http::response<http::string_body> response{http::status::ok, request_.version()};
     response.set(http::field::server, "SNDSHTTPService");
     response.set(http::field::content_type, "text/plain");
-    response.body() = m_ackTag;
+    response.body() = sessionAckTag;
     response.prepare_payload();
 
 
@@ -79,7 +79,7 @@ void SNDSHTTPService::session::handle_request(){
             SNDS_CLIENT_TYPES::HTTP_SRV,
             ""
         );
-        logger_->info("HTTP SERVER: Writing message from GET request to service queue");
+        logger_->debug("HTTP SERVER: Writing message {} from GET request to service queue", message.get()->printDetails());
         v_to_service.get()->writeMessage(std::move(message));
     } else if(request_.method() == http::verb::post){
         logger_->info("HTTP SERVER: Received POST request from {}", socket_.remote_endpoint().address().to_string());
@@ -89,6 +89,7 @@ void SNDSHTTPService::session::handle_request(){
             SNDS_CLIENT_TYPES::HTTP_SRV,
             ""
         );
+        logger_->debug("HTTP SERVER: Writing message {} from POST request to service queue", message.get()->printDetails());
         v_to_service.get()->writeMessage(std::move(message));
     } else {
         logger_->error("HTTP SERVER: Unsupported HTTP method received.");
