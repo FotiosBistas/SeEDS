@@ -10,10 +10,11 @@ void SNDSHTTPService::init() {
         // Handle GET requests at "/"
         svr.Get("/", [this](const httplib::Request& req, httplib::Response& res) {
             m_logger->info("HTTP SERVER: Received GET request for {} with body {}", req.path, req.body);
+            m_logger->info("HTTP SERVER: Received GET request for {} with target {}", req.path, req.target);
             m_logger->info("HTTP SERVER: Received GET request from {}", req.remote_addr);
             // Create a new internal message based on the request target.
             std::unique_ptr<SNDS_INTRA_MESSAGE> message = std::make_unique<SNDS_INTRA_MESSAGE>(
-                std::move(std::string(req.path)),
+                std::move(std::string(req.target)),
                 SNDS_INTRA_MESSAGE_TYPE::GENERIC,
                 SNDS_CLIENT_TYPES::HTTP_SRV,
                 ""

@@ -3,6 +3,8 @@
 
 #include <string>
 #include <string_view>
+#include <functional>  // For std::hash
+#include <spdlog/spdlog.h>
 
 /**
  * @brief Computes the responsible SNDS node ID for a given subscription name.

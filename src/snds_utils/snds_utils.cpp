@@ -1,5 +1,4 @@
 #include "snds_utils.h"
-#include <functional>  // For std::hash
 
 unsigned getSNDSNodeForSubscription(const std::string& name, int numberOfSNDSServices) {
     std::hash<std::string> hash_fn;
@@ -11,20 +10,28 @@ std::string getFromGETRequest(std::string_view url, std::string_view tag) {
     constexpr std::string_view delimiter = "&";
     constexpr std::string_view assignSymbol = "=";
 
-    // Build the pattern to search for, e.g., "tag="
     std::string pattern = std::string(tag) + std::string(assignSymbol);
     std::size_t start = url.find(pattern);
+
     if (start == std::string_view::npos) {
         return "";
     }
+
     start += pattern.size();
+
+    if (start >= url.size()) {
+        return "";
+    }
+
     std::size_t end = url.find(delimiter, start);
     if (end == std::string_view::npos) {
         end = url.size();
     }
+
     std::string_view valueView = url.substr(start, end - start);
     return std::string(valueView);
 }
+
 
 void ensureLeadingSlash(std::string &nm) {
     if (nm.empty()) {
