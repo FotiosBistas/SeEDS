@@ -144,6 +144,7 @@ void HTTPWorker::init() {
             }
             case SNDS_CLIENT_TYPES::CONSUMER:
                 m_logger->info("HTTPWorker: Received consumer message, no further action taken.");
+                //TODO needs to be implemented by @katerinamant
                 break;
             default:
                 m_logger->info("HTTPWorker: Received unprocessable client type...");
