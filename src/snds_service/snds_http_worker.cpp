@@ -127,14 +127,17 @@ void HTTPWorker::init() {
                 m_logger->info("HTTPWorker: Received HTTP SERVER message.");
                 // First, handle subscription requests.
                 if (isSub && !id.empty()) {
+                    m_logger->info("HTTPWorker: Processing subscription request...");
                     processSubscriptionRequest(id, subUrl);
                 }
                 // Next, handle regular getByID requests.
-                if (!id.empty()) {
+                else if (!id.empty()) {
+                    m_logger->info("HTTPWorker: Processing ID request...");
                     processByIDRequest(id);
                 }
                 // Otherwise, handle getByType requests.
                 else if (!type.empty()) {
+                    m_logger->info("HTTPWorker: Processing TYPE request...");
                     processByTYPERequest(type);
                 }
                 break;
