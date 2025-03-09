@@ -36,7 +36,7 @@ public:
 
 private:
   // Map for storing subscriptions: id -> list of subscriber URLs
-  std::unordered_map<std::string, std::vector<std::string>> subscribedBYID_users;
+  std::unordered_map<std::string, std::unordered_set<std::string>> subscribedBYID_users;
 
   // Unordered sets for deduplicating pending requests.
   std::unordered_set<std::string> pendingGetByIDreqs;

@@ -1,39 +1,45 @@
 #include "snds_http_worker.h"
 
-void HTTPWorker::processSubscriptionRequest(const std::string& id, const std::string& subURL){
-    // Insert new subscription or update existing.
-    auto [iter, inserted] = subscribedBYID_users.emplace(id, std::vector<std::string>{});
-    if (inserted) {
-        iter->second.push_back(subURL);
-        m_logger->info("Stored new getByID subscription for ID: {}", id);
+void HTTPWorker::processSubscriptionRequest(const std::string& id, const std::string& subURL) {
+    // Retrieve the subscription set for this ID.
+    // If 'id' is new, operator[] creates an empty set.
+    auto& subs = subscribedBYID_users[id];
+    
+    // Record whether this is the first subscription for the ID.
+    bool wasEmpty = subs.empty();
+    
+    // Insert the new subscription URL into the set.
+    bool isNewSubscription = subs.insert(subURL).second;
+    
+    if (isNewSubscription) {
+        m_logger->info("Stored subscription for ID: {}", id);
     } else {
-        // Avoid duplicates.
-        auto &urls = iter->second;
-        if (std::find(urls.begin(), urls.end(), subURL) == urls.end()) {
-            urls.push_back(subURL);
-            m_logger->info("Stored additional getByID subscription for ID: {}", id);
-        } else {
-            m_logger->info("Duplicate subscription for ID: {} ignored.", id);
-        }
+        m_logger->info("Duplicate subscription for ID: {} ignored.", id);
     }
-
-    // Forward subscription interest to responsible SNDS node.
-    std::string preparedID = id;  // Create a modifiable copy
-    ensureLeadingSlash(preparedID);
-
-    std::string interestName = getSNDSNodeScopeNameForSubscription(preparedID, m_idScopePrefix, m_numberOfSndsSrvs) + preparedID;
     
-    m_logger->info("Pushing getByID subscription interest for ID: {}", preparedID);
-    
-    auto message = std::make_unique<SNDS_INTRA_MESSAGE>(
-            std::move(interestName), 
+    // Only send the subscription interest if this is the first subscription for the ID.
+    if (wasEmpty && isNewSubscription) {
+        // Prepare the ID (ensure it starts with '/')
+        std::string preparedID = id; // Copy for modification
+        ensureLeadingSlash(preparedID);
+        
+        // Build the interest name using the scope name and the prepared ID.
+        std::string interestName = getSNDSNodeScopeNameForSubscription(preparedID, m_idScopePrefix, m_numberOfSndsSrvs) + preparedID;
+        
+        m_logger->info("Pushing getByID subscription interest for ID: {}", preparedID);
+        
+        // Create the intra-SNDS message (using the proper constructor)
+        auto msg = std::make_unique<SNDS_INTRA_MESSAGE>(
+            std::move(interestName),
             SNDS_INTRA_MESSAGE_TYPE::BY_ID_RESPONSE,
             SNDS_CLIENT_TYPES::SERVICE,
             ""
-    );
-
-    v_to_consumer.get()->writeMessage(std::move(message));
+        );
+        
+        v_to_consumer.get()->writeMessage(std::move(msg));
+    }
 }
+ 
 
 void HTTPWorker::processByIDRequest(const std::string& id){
     auto [_, newRequest] = pendingGetByIDreqs.insert(id);
