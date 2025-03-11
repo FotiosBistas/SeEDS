@@ -39,8 +39,6 @@ endif()
 # Set ndn-cxx include and library directories.
 set(NDN_CXX_INCLUDE_DIR ${ndn-cxx_BINARY_DIR}/install/include)
 set(NDN_CXX_LIBRARY_DIR ${ndn-cxx_BINARY_DIR}/install/lib)
-include_directories(${NDN_CXX_INCLUDE_DIR})
-link_directories(${NDN_CXX_LIBRARY_DIR})
 
 #####################################################################
 # Fetch and add spdlog (thread-safe logging library)
@@ -69,31 +67,28 @@ FetchContent_GetProperties(cpp-httplib)
 if(NOT cpp-httplib_POPULATED)
   FetchContent_Populate(cpp-httplib)
 endif()
-# Include cpp-httplib header directory.
-include_directories(${cpp-httplib_SOURCE_DIR})
 
 #####################################################################
-# Include directories for custom header files
+# Set up common include directories for custom headers
 #####################################################################
-# Adjust these paths to match your folder structure.
-include_directories(src/snds_message)
-include_directories(src/snds_queue)
-include_directories(src/snds_service)
-include_directories(src/snds_utils)   # Include snds_utils headers
+set(SNDS_MESSAGE_DIR ${CMAKE_SOURCE_DIR}/src/snds_message)
+set(SNDS_QUEUE_DIR   ${CMAKE_SOURCE_DIR}/src/snds_queue)
+set(SNDS_SERVICE_DIR ${CMAKE_SOURCE_DIR}/src/snds_service)
+set(SNDS_UTILS_DIR   ${CMAKE_SOURCE_DIR}/src/snds_utils)
 
 #####################################################################
 # Build the message_queue static library
 #####################################################################
 set(MESSAGE_QUEUE_SOURCES
-    src/snds_queue/message_queue.cpp
+    ${SNDS_QUEUE_DIR}/message_queue.cpp
 )
 
 add_library(message_queue STATIC ${MESSAGE_QUEUE_SOURCES})
 
 # Public include directories for message_queue
 target_include_directories(message_queue PUBLIC
-    src/snds_message
-    src/snds_queue
+    ${SNDS_MESSAGE_DIR}
+    ${SNDS_QUEUE_DIR}
 )
 
 # Link ndn-cxx and spdlog to the message_queue library
@@ -107,31 +102,32 @@ target_link_libraries(message_queue
 # Build the snds_utils static library
 #####################################################################
 set(SNDS_UTILS_SOURCES
-    src/snds_utils/snds_utils.cpp
+    ${SNDS_UTILS_DIR}/snds_utils.cpp
 )
 
 add_library(snds_utils STATIC ${SNDS_UTILS_SOURCES})
-target_include_directories(snds_utils PUBLIC src/snds_utils)
-
+target_include_directories(snds_utils PUBLIC ${SNDS_UTILS_DIR})
 
 #####################################################################
-# Build the snds_service static library (including producer & consumer)
+# Build the snds_service static library (excluding main.cpp)
 #####################################################################
 set(SNDS_SERVICE_SOURCES
-    src/snds_service/snds_service_base.cpp
-    src/snds_service/snds_http_service.cpp
-    src/snds_service/snds_http_worker.cpp
-    src/snds_service/snds_producer.cpp
-    src/snds_service/snds_consumer.cpp
-    src/snds_service/snds_digital_twin.cpp
-    src/snds_service/main.cpp
+    ${SNDS_SERVICE_DIR}/snds_service_base.cpp
+    ${SNDS_SERVICE_DIR}/snds_http_service.cpp
+    ${SNDS_SERVICE_DIR}/snds_http_worker.cpp
+    ${SNDS_SERVICE_DIR}/snds_producer.cpp
+    ${SNDS_SERVICE_DIR}/snds_consumer.cpp
+    ${SNDS_SERVICE_DIR}/snds_digital_twin.cpp
 )
 
 add_library(snds_service STATIC ${SNDS_SERVICE_SOURCES})
-target_include_directories(snds_service PUBLIC src/snds_service)
-# Link dependencies including message_queue and snds_utils
-target_link_libraries(snds_service
-    PRIVATE
+target_include_directories(snds_service PUBLIC
+    ${SNDS_SERVICE_DIR}
+    ${NDN_CXX_INCLUDE_DIR}        # for ndn-cxx headers
+    ${cpp-httplib_SOURCE_DIR}       # for cpp-httplib header
+    ${SNDS_UTILS_DIR}
+)
+target_link_libraries(snds_service PRIVATE
     message_queue
     snds_utils
     ${NDN_CXX_LIBRARY_DIR}/libndn-cxx.so
@@ -142,13 +138,14 @@ add_dependencies(snds_service ndn-cxx-build)
 #####################################################################
 # Build the main executable that runs the daemon
 #####################################################################
-set(SNDS_DAEMON_SOURCES
-    src/snds_service/main.cpp
+# Compile main.cpp only in the executable.
+add_executable(snds_daemon_bin ${SNDS_SERVICE_DIR}/main.cpp)
+target_include_directories(snds_daemon_bin PRIVATE
+    ${SNDS_SERVICE_DIR}
+    ${NDN_CXX_INCLUDE_DIR}
+    ${SNDS_UTILS_DIR}
 )
-
-add_executable(snds_daemon_bin ${SNDS_DAEMON_SOURCES})
-target_link_libraries(snds_daemon_bin
-    PRIVATE
+target_link_libraries(snds_daemon_bin PRIVATE
     snds_service
     message_queue
     ${NDN_CXX_LIBRARY_DIR}/libndn-cxx.so
@@ -160,74 +157,68 @@ add_dependencies(snds_daemon_bin ndn-cxx-build)
 # Build the snds_utils test executable
 #####################################################################
 set(SNDS_UTILS_TEST_SOURCES
-    src/snds_utils/test_snds_utils.cpp
-    src/snds_utils/snds_utils.cpp
+    ${SNDS_UTILS_DIR}/test_snds_utils.cpp
 )
-
 add_executable(test_snds_utils ${SNDS_UTILS_TEST_SOURCES})
-target_include_directories(test_snds_utils PRIVATE src/snds_utils)
-target_link_libraries(test_snds_utils
-    PRIVATE
+target_include_directories(test_snds_utils PRIVATE
+    ${SNDS_UTILS_DIR}
+    ${NDN_CXX_INCLUDE_DIR}
+)
+target_link_libraries(test_snds_utils PRIVATE
+    snds_utils
     ${NDN_CXX_LIBRARY_DIR}/libndn-cxx.so
     spdlog::spdlog
 )
 add_dependencies(test_snds_utils ndn-cxx-build)
 
-# Locate Google Test (requires GTest installed system-wide)
+#####################################################################
+# Find and configure GoogleTest and fmt
+#####################################################################
 find_package(GTest REQUIRED)
+find_package(fmt REQUIRED)
 
-# Add a test executable for producer tests
-add_executable(test_snds_producer tests/test_snds_producer.cpp src/snds_service/snds_producer.cpp src/snds_service/snds_service_base.cpp)
-
-# Include directories for the test
+#####################################################################
+# Build the test executable for producer tests
+#####################################################################
+add_executable(test_snds_producer tests/test_snds_producer.cpp)
 target_include_directories(test_snds_producer PRIVATE
-    src/snds_service
-    src/snds_message
-    src/snds_queue
+    ${SNDS_SERVICE_DIR}
+    ${SNDS_MESSAGE_DIR}
+    ${SNDS_QUEUE_DIR}
+    ${NDN_CXX_INCLUDE_DIR}
+    ${SNDS_UTILS_DIR}
 )
-
-# Link libraries
 target_link_libraries(test_snds_producer PRIVATE
     gtest
     gtest_main
+    snds_service
     message_queue
     ${NDN_CXX_LIBRARY_DIR}/libndn-cxx.so
     pthread
+    fmt::fmt
 )
-
-# Ensure ndn-cxx is built before test
 add_dependencies(test_snds_producer ndn-cxx-build)
-
-# Register the test with CTest so "ctest" can run it
 add_test(NAME ProducerTests COMMAND test_snds_producer)
 
-find_package(fmt REQUIRED)
-target_link_libraries(test_snds_producer PRIVATE fmt::fmt)
-
-# Add a test executable for consumer tests
-add_executable(test_snds_consumer tests/test_snds_consumer.cpp src/snds_service/snds_consumer.cpp src/snds_service/snds_service_base.cpp)
-
-# Include directories for the test
+#####################################################################
+# Build the test executable for consumer tests
+#####################################################################
+add_executable(test_snds_consumer tests/test_snds_consumer.cpp)
 target_include_directories(test_snds_consumer PRIVATE
-    src/snds_service
-    src/snds_message
-    src/snds_queue
+    ${SNDS_SERVICE_DIR}
+    ${SNDS_MESSAGE_DIR}
+    ${SNDS_QUEUE_DIR}
+    ${NDN_CXX_INCLUDE_DIR}
+    ${SNDS_UTILS_DIR}
 )
-
-# Link libraries
 target_link_libraries(test_snds_consumer PRIVATE
     gtest
     gtest_main
+    snds_service
     message_queue
     ${NDN_CXX_LIBRARY_DIR}/libndn-cxx.so
     pthread
+    fmt::fmt
 )
-
-# Ensure ndn-cxx is built before test
 add_dependencies(test_snds_consumer ndn-cxx-build)
-
-# Register the test with CTest so "ctest" can run it
 add_test(NAME ConsumerTests COMMAND test_snds_consumer)
-
-find_package(fmt REQUIRED)
-target_link_libraries(test_snds_consumer PRIVATE fmt::fmt)
