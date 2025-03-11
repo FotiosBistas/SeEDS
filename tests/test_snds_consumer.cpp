@@ -1,4 +1,4 @@
-#include "snds_producer.h"
+#include "snds_consumer.h"
 
 #include <gtest/gtest.h>
 #include <ndn-cxx/interest.hpp>
@@ -40,6 +40,58 @@ class SNDSConsumerTestFixture : public ::testing::Test {
       }
 };
 
+// Test that it skips a message with not enough components.
+TEST_F(SNDSConsumerTestFixture, OnData_SkipsShortMessage) {
+    // Create a TestMessageQueue to use
+    auto testQueue = std::make_unique<TestMessageQueue>();
+    TestMessageQueue* testQueuePtr = testQueue.get();
+
+    TestSNDSConsumer consumer;
+    consumer.setServiceQueue(std::move(testQueue));
+
+    // Create an ndn::Name with only one component.
+    ndn::Name dataName("/SNDS");
+    std::string content = "data";
+
+    // Create a Data packet with the name and content.
+    ndn::Data data(dataName);
+    data.setContent(std::string_view(content));
+
+    // Create an Interest.
+    ndn::Interest interest(dataName);
+
+    consumer.onData(interest, data);
+
+    // writeMessage() should *not* have been called.
+    ASSERT_TRUE(testQueuePtr->capturedMessages.empty());
+}
+
+// Test that it skips a message with the ACK tag in the payload.
+TEST_F(SNDSConsumerTestFixture, OnData_SkipsAckMessage) {
+    // Create a TestMessageQueue to use
+    auto testQueue = std::make_unique<TestMessageQueue>();
+    TestMessageQueue* testQueuePtr = testQueue.get();
+
+    TestSNDSConsumer consumer;
+    consumer.setServiceQueue(std::move(testQueue));
+
+    // Create an ndn::Name with only one component.
+    ndn::Name dataName("/SNDS/message/info");
+    std::string content = "data THIS_IS_AN_SNDS_ACK info";
+
+    // Create a Data packet with the name and content.
+    ndn::Data data(dataName);
+    data.setContent(std::string_view(content));
+
+    // Create an Interest.
+    ndn::Interest interest(dataName);
+
+    consumer.onData(interest, data);
+
+    // writeMessage() should *not* have been called.
+    ASSERT_TRUE(testQueuePtr->capturedMessages.empty());
+}
+
 // Test that it properly handles a valid data packet.
 TEST_F(SNDSConsumerTestFixture, OnData_HandlesValidMessage) {
     // Create a TestMessageQueue to use
@@ -55,7 +107,7 @@ TEST_F(SNDSConsumerTestFixture, OnData_HandlesValidMessage) {
 
     // Create a Data packet with the name and content.
     ndn::Data data(dataName);
-    data.setContent(reinterpret_cast<const uint8_t*>(content.data()), content.size());
+    data.setContent(std::string_view(content));
 
     // Create an Interest.
     ndn::Interest interest(dataName);
@@ -70,6 +122,11 @@ TEST_F(SNDSConsumerTestFixture, OnData_HandlesValidMessage) {
     auto& msgPtr = testQueuePtr->capturedMessages.front();
     ASSERT_NE(msgPtr, nullptr);
 
-    ASSERT_EQ(msgPtr->getPayload(), "content");
-    ASSERT_EQ(msgPtr->getMessageName(), "message");
+    std::string fullContent = msgPtr->getMessage();
+    std::string payloadOnly = fullContent.substr(2); // Skip header bytes
+    ASSERT_EQ(payloadOnly, content);
+
+    ASSERT_EQ(msgPtr->getName(), "message");
+    ASSERT_EQ(msgPtr->getMessageType(), SNDS_INTRA_MESSAGE_TYPE::BY_ID_RESPONSE);
+    ASSERT_EQ(msgPtr->getSender(), SNDS_CLIENT_TYPES::CONSUMER);
 }
