@@ -170,7 +170,9 @@ protected:
   std::string m_mySndsIdScopeName;      // Computed as m_sndsPrefix + m_idScopePrefix + m_mySndsId.
   std::string m_registryFilePostfix;    // e.g., "_registry"
   std::string serviceName;
-	std::string m_ackTag = "THIS_IS_AN_SNDS_ACK";
+	std::string m_ackTag = "THIS_IS_AN_SNDS_ACK\n";
+  std::string PARAM_ID_TAG = "id";
+  std::string PARAM_TYPE_TAG = "type";
 
 };
 

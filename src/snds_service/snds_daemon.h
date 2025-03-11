@@ -8,7 +8,8 @@
 #include <spdlog/spdlog.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
 #include <spdlog/sinks/basic_file_sink.h>
-#include "snds_service_base.h"  // This header declares ServiceBase and its init() method
+#include "snds_service_base.h"
+
 
 class SNDSDaemon {
 public:
