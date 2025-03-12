@@ -1,6 +1,7 @@
 #ifndef SNDS_MESSAGE_H
 #define SNDS_MESSAGE_H
 
+#include <sstream>
 #include <iostream>
 #include <cstddef> 
 
@@ -142,15 +143,28 @@ public:
     }
 
     /**
-     * @brief Prints the current message and its details (for debugging).
+     * @brief Prints the current message and its details (for debugging),
+     *        and also returns the same information as a string.
      */
-    void printDetails() const {
-        std::cout << "Message: " << message
-                << "\nType: " << this->to_string(type)
-                << "\nSender: " << this->to_string(sender_component)
-                << "\nName: " << name
-                << std::endl;
+    std::string printDetails() const
+    {
+        std::ostringstream oss;
+        oss << "Message: " << message
+            << "\nType: " << this->to_string(type)
+            << "\nSender: " << this->to_string(sender_component)
+            << "\nName: " << name
+            << std::endl;
+
+        // Convert the stream to a string.
+        std::string details = oss.str();
+
+        // Print to console.
+        std::cout << details;
+
+        // Return the string.
+        return details;
     }
+
 
 };
 

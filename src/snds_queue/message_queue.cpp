@@ -2,7 +2,14 @@
 
 std::unique_ptr<SNDS_INTRA_MESSAGE> MessageQueue::readMessage() {
     std::unique_lock<std::mutex> lock(mtx);
-    cv.wait(lock, [this] { return !queue.empty(); }); // Wait until there's at least one message
+    // Wait until the queue is not empty or shutdown is requested.
+    cv.wait(lock, [this] { return !queue.empty() || shutdownFlag.load(); });
+
+    // If shutdown is signaled and the queue is empty, return nullptr.
+    if (queue.empty()) {
+        return nullptr;
+    }
+    
     auto msg = std::move(queue.front());
     queue.pop_front();
     return msg;
@@ -10,14 +17,22 @@ std::unique_ptr<SNDS_INTRA_MESSAGE> MessageQueue::readMessage() {
 
 void MessageQueue::writeMessage(std::unique_ptr<SNDS_INTRA_MESSAGE> msg) {
     {
-        //lock is released when scope is destroyed
+        // Lock the queue before modifying it and release when we go outside of scope.
         std::lock_guard<std::mutex> lock(mtx);
         queue.push_back(std::move(msg));
     }
-    cv.notify_one(); // Notify one waiting thread
+    // Notify one waiting thread that a new message is available.
+    cv.notify_one();
 }
 
 size_t MessageQueue::size() const {
-    std::lock_guard<std::mutex> lock(mtx); // Lock the mutex
-    return queue.size(); // Return the size of the queue
+    std::lock_guard<std::mutex> lock(mtx);
+    return queue.size();
+}
+
+void MessageQueue::shutdown() {
+    // Set the shutdown flag to true.
+    shutdownFlag.store(true);
+    // Notify all threads waiting on the condition variable so they can check the shutdown state.
+    cv.notify_all();
 }

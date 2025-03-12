@@ -5,53 +5,62 @@
 #include <memory>
 #include <mutex>
 #include <condition_variable>
+#include <atomic>
 #include "snds_message.h"
 
 /**
  * @brief A thread-safe producer-consumer message queue.
  *
- * The `MessageQueue` class provides a thread-safe way to enqueue and dequeue
- * messages between producers and consumers. Internally, it uses a `std::deque`
- * to store messages and employs a `std::mutex` and `std::condition_variable`
- * for synchronization.
+ * The MessageQueue class provides a thread-safe mechanism for producers and consumers
+ * to exchange messages. Internally, it uses a std::deque to store messages along with a 
+ * std::mutex and std::condition_variable for synchronization. A shutdown flag is included 
+ * to allow the queue to break out of waiting when the service is shutting down.
  */
 class MessageQueue {
 private:
-    std::deque<std::unique_ptr<SNDS_INTRA_MESSAGE>> queue; ///< The underlying queue to hold messages.
-    mutable std::mutex mtx;                            ///< Mutex to protect access to the queue.
-    std::condition_variable cv;                        ///< Condition variable for synchronization.
+    std::deque<std::unique_ptr<SNDS_INTRA_MESSAGE>> queue; ///< The underlying queue storing messages.
+    mutable std::mutex mtx;                                ///< Mutex to protect access to the queue.
+    std::condition_variable cv;                            ///< Condition variable for synchronization.
+    std::atomic<bool> shutdownFlag { false };            ///< Flag to signal shutdown for waiting threads.
 
 public:
     /**
      * @brief Reads a message from the queue.
      *
-     * This method blocks the caller if the queue is empty until a message is
-     * available. It removes the message from the front of the queue.
+     * This function blocks until there is a message available in the queue or 
+     * until the shutdown flag is set to true. If the shutdown flag is set and the queue is empty,
+     * the function returns a nullptr.
      *
-     * @return A unique pointer to the `SNDS_Intra_Msg` read from the queue.
+     * @return A unique_ptr to a SNDS_INTRA_MESSAGE if available; otherwise, nullptr.
      */
     std::unique_ptr<SNDS_INTRA_MESSAGE> readMessage();
 
     /**
      * @brief Writes a message to the queue.
      *
-     * This method adds a message to the back of the queue and notifies one
-     * waiting consumer thread, if any.
+     * This function adds the given message to the back of the queue and notifies one 
+     * waiting consumer thread.
      *
-     * @param msg A unique pointer to the `SNDS_Intra_Msg` to add to the queue.
+     * @param msg A unique_ptr to the SNDS_INTRA_MESSAGE to add to the queue.
      */
     void writeMessage(std::unique_ptr<SNDS_INTRA_MESSAGE> msg);
 
     /**
-     * @brief Gets the current size of the queue.
+     * @brief Returns the current size of the queue.
      *
-     * This method returns the number of messages currently in the queue.
-     * It is thread-safe and locks the queue before accessing it.
+     * This function locks the queue and returns the number of messages currently stored.
      *
      * @return The number of messages in the queue.
      */
     size_t size() const;
 
+    /**
+     * @brief Signals the queue to shutdown.
+     *
+     * This function sets the shutdown flag to true and notifies all waiting threads so that 
+     * they can exit gracefully even if the queue is empty.
+     */
+    void shutdown();
 };
 
 #endif // MESSAGE_QUEUE_H
