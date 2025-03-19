@@ -118,6 +118,7 @@ set(SNDS_SERVICE_SOURCES
     ${SNDS_SERVICE_DIR}/snds_producer.cpp
     ${SNDS_SERVICE_DIR}/snds_consumer.cpp
     ${SNDS_SERVICE_DIR}/snds_digital_twin.cpp
+    ${SNDS_SERVICE_DIR}/old_snds_service.cpp
 )
 
 add_library(snds_service STATIC ${SNDS_SERVICE_SOURCES})
@@ -174,51 +175,72 @@ add_dependencies(test_snds_utils ndn-cxx-build)
 #####################################################################
 # Find and configure GoogleTest and fmt
 #####################################################################
-find_package(GTest REQUIRED)
-find_package(fmt REQUIRED)
+#find_package(GTest REQUIRED)
+#find_package(fmt REQUIRED)
+#
+######################################################################
+## Build the test executable for producer tests
+######################################################################
+#add_executable(test_snds_producer tests/test_snds_producer.cpp)
+#target_include_directories(test_snds_producer PRIVATE
+#    ${SNDS_SERVICE_DIR}
+#    ${SNDS_MESSAGE_DIR}
+#    ${SNDS_QUEUE_DIR}
+#    ${NDN_CXX_INCLUDE_DIR}
+#    ${SNDS_UTILS_DIR}
+#)
+#target_link_libraries(test_snds_producer PRIVATE
+#    gtest
+#    gtest_main
+#    snds_service
+#    message_queue
+#    ${NDN_CXX_LIBRARY_DIR}/libndn-cxx.so
+#    pthread
+#    fmt::fmt
+#)
+#add_dependencies(test_snds_producer ndn-cxx-build)
+#add_test(NAME ProducerTests COMMAND test_snds_producer)
+#
+######################################################################
+## Build the test executable for consumer tests
+######################################################################
+#add_executable(test_snds_consumer tests/test_snds_consumer.cpp)
+#target_include_directories(test_snds_consumer PRIVATE
+#    ${SNDS_SERVICE_DIR}
+#    ${SNDS_MESSAGE_DIR}
+#    ${SNDS_QUEUE_DIR}
+#    ${NDN_CXX_INCLUDE_DIR}
+#    ${SNDS_UTILS_DIR}
+#)
+#target_link_libraries(test_snds_consumer PRIVATE
+#    gtest
+#    gtest_main
+#    snds_service
+#    message_queue
+#    ${NDN_CXX_LIBRARY_DIR}/libndn-cxx.so
+#    pthread
+#    fmt::fmt
+#)
+#add_dependencies(test_snds_consumer ndn-cxx-build)
+#add_test(NAME ConsumerTests COMMAND test_snds_consumer)
 
 #####################################################################
-# Build the test executable for producer tests
+# Build the snds_service standalone executable
 #####################################################################
-add_executable(test_snds_producer tests/test_snds_producer.cpp)
-target_include_directories(test_snds_producer PRIVATE
+add_executable(old_snds_service_bin ${SNDS_SERVICE_DIR}/old_snds_service.cpp)
+
+target_include_directories(old_snds_service_bin PRIVATE
     ${SNDS_SERVICE_DIR}
-    ${SNDS_MESSAGE_DIR}
-    ${SNDS_QUEUE_DIR}
     ${NDN_CXX_INCLUDE_DIR}
+    ${cpp-httplib_SOURCE_DIR}
     ${SNDS_UTILS_DIR}
 )
-target_link_libraries(test_snds_producer PRIVATE
-    gtest
-    gtest_main
+
+target_link_libraries(old_snds_service_bin PRIVATE
     snds_service
     message_queue
     ${NDN_CXX_LIBRARY_DIR}/libndn-cxx.so
-    pthread
-    fmt::fmt
+    spdlog::spdlog
 )
-add_dependencies(test_snds_producer ndn-cxx-build)
-add_test(NAME ProducerTests COMMAND test_snds_producer)
 
-#####################################################################
-# Build the test executable for consumer tests
-#####################################################################
-add_executable(test_snds_consumer tests/test_snds_consumer.cpp)
-target_include_directories(test_snds_consumer PRIVATE
-    ${SNDS_SERVICE_DIR}
-    ${SNDS_MESSAGE_DIR}
-    ${SNDS_QUEUE_DIR}
-    ${NDN_CXX_INCLUDE_DIR}
-    ${SNDS_UTILS_DIR}
-)
-target_link_libraries(test_snds_consumer PRIVATE
-    gtest
-    gtest_main
-    snds_service
-    message_queue
-    ${NDN_CXX_LIBRARY_DIR}/libndn-cxx.so
-    pthread
-    fmt::fmt
-)
-add_dependencies(test_snds_consumer ndn-cxx-build)
-add_test(NAME ConsumerTests COMMAND test_snds_consumer)
+add_dependencies(old_snds_service_bin ndn-cxx-build)
