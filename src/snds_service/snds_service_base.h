@@ -72,7 +72,7 @@ public:
     m_logger->info("ServiceBase initialized with serviceName: {}", this->serviceName);
     // Validator setup
     try {
-        m_validator.load("../trust-schema.conf");
+        m_validator.load("./trust-schema.conf");
     } catch (const std::exception& e) {
         m_logger->error("Error loading validator configuration: {}", e.what());
     }
