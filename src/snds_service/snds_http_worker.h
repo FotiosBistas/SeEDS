@@ -43,39 +43,28 @@ private:
   std::unordered_set<std::string> pendingGetByIDreqs;
   std::unordered_set<std::string> pendingGetByTYPEreqs;
 
-  // Maps IDs to getByType requests; One ID may be in multiple getByType requests.
-  std::map<std::string, std::vector<std::string>* > pendingIDsToTypesMap;
-  // Maps type to the expected IDs.
-  std::map<std::string, std::vector<std::string>* > pendingIDsForTypeMap;
-
   void processSubscriptionRequest(const std::string& id, const std::string& url);
   void processByIDRequest(const std::string& id);
   void processByTYPERequest(const std::string& type);
 
-  // Consumer response handling functions
-
   /**
-   * @brief Parses the registry file payload and adds the ids in a vector of strings.
-   * (The inverse of SNDSProducer::getRegistryFilePayload)
-   *
-   * @param payload A vector of char containing the serialized payload.
-   * @return A vector of the string ids.
-  */
-	std::vector<std::string> getIDsFromRegistryFilePayload (const std::vector<char>& payload);
+  @brief TODO I have no clue how is this used originally I assume its something
+  like (@yannisT): 
 
-  void processRegistryFileResponse(const std::string& id, const std::string& content);
+    - Receive a sample payload:
 
-  /**
-   * @brief Cleans up the pending type state for a given id.
-   * It iterates over pendingIDsToTypesMap for this id and removes it from each
-   * corresponding entry. If a type’s vector becomes empty, it removes it.
-   *
-   * @param id The string id to remove.
-  */
-  void cleanUpPendingTypeForId(const std::string& id);
+    - Header: "##" (2 bytes, ignored)
 
-  void processByIDResponse(const std::string& id);
-  void processByTYPEResponse(const std::string& type);
+    - Next byte: number of IDs (2)
+
+    - Then, for each ID: one byte for the length and then the ID string.
+
+    - First ID: length 3, content "car"
+
+    - Second ID: length 3, content "bus"
+  */ 
+  std::vector<std::string> parseIDsFromRegistryFilePayload(std::span<const uint8_t> payload);
+
 };
 
 #endif // SNDS_HTTP_WORKER_H
