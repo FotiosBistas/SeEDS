@@ -1,4 +1,5 @@
 #include "snds_utils.h"
+#include <iostream>
 
 unsigned getSNDSNodeForSubscription(const std::string& name, int numberOfSNDSServices) {
     std::hash<std::string> hash_fn;
@@ -47,6 +48,7 @@ std::string getSNDSNodeScopeNameForSubscription(const std::string& id, const std
 }
 
 std::vector<std::string> parseIDsFromRegistryFilePayload(std::span<const uint8_t> payload) {
+
     //Points to the place where the header ends
     constexpr size_t header_size = 2; 
     if (payload.size() <= header_size) {
@@ -61,7 +63,7 @@ std::vector<std::string> parseIDsFromRegistryFilePayload(std::span<const uint8_t
     // Preallocate space in the vector
     ids.reserve(number_of_ids);
 
-    for(uint8_t i=0; i<number_of_ids; i++){
+    for(uint8_t i = 0; i < number_of_ids; i++){
         if (offset >= payload.size()) {
             throw std::out_of_range("Payload truncated before reading ID size.");
         }
@@ -70,7 +72,7 @@ std::vector<std::string> parseIDsFromRegistryFilePayload(std::span<const uint8_t
         const uint8_t size_of_id = payload[offset++];
 
         if(offset + size_of_id > payload.size()){
-            throw::std::out_of_range("Payload truncated before reading entire ID.");
+            throw std::out_of_range("Payload truncated before reading entire ID.");
         }
         // Parse the payload from the index you are currently at 
         // Until the size of the id
@@ -80,6 +82,8 @@ std::vector<std::string> parseIDsFromRegistryFilePayload(std::span<const uint8_t
         // Push back
         ids.emplace_back(id);
     }
+
+    return ids;
 }
 
 std::vector<std::byte> serializeRegistryFilePayload(const std::unordered_set<std::string>& ids){
@@ -108,7 +112,7 @@ std::vector<std::byte> serializeRegistryFilePayload(const std::unordered_set<std
 
     for(const auto& id: ids){
         payload[offset++] = static_cast<std::byte>(id.size());
-        std::memcpy(&payload, id.data(), id.size());
+        std::memcpy(payload.data() + offset, id.data(), id.size());
         offset += id.size();
     }
 

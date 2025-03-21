@@ -126,6 +126,6 @@ std::vector<std::string> parseIDsFromRegistryFilePayload(std::span<const uint8_t
  *
  * @throws std::length_error if the number of IDs exceeds 255 or any ID's length exceeds 255.
  */
-std::string createRegistryFilePayload(const std::unordered_set<std::string>& ids);
+std::vector<std::byte> serializeRegistryFilePayload(const std::unordered_set<std::string>& ids);
 
 #endif // SNDS_UTILS_H
