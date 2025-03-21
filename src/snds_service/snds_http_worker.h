@@ -3,7 +3,7 @@
 #define SNDS_HTTP_WORKER_H
 
 #include "snds_service_base.h"
-#include <algorithm>  // For std::find
+#include <algorithm>  
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
@@ -38,6 +38,9 @@ public:
 private:
   // Map for storing subscriptions: id -> list of subscriber URLs
   std::unordered_map<std::string, std::unordered_set<std::string>> subscribedBYID_users;
+  // Map Type names to vectors of IDs 
+  // TODO since IDs are unique for each type use a set @yannisT
+	std::unordered_map<std::string, std::unordered_set<std::string>> myTypesRegistryMap;
 
   // Unordered sets for deduplicating pending requests.
   std::unordered_set<std::string> pendingGetByIDreqs;
@@ -47,6 +50,7 @@ private:
   void processByIDRequest(const std::string& id);
   void processByTYPERequest(const std::string& type);
 
+  //TODO these functions below require their own data type
   /**
   @brief TODO I have no clue how is this used originally I assume its something
   like (@yannisT): 
@@ -65,6 +69,24 @@ private:
   */ 
   std::vector<std::string> parseIDsFromRegistryFilePayload(std::span<const uint8_t> payload);
 
+/**
+   * @brief Serializes a set of IDs into a binary payload.
+   *
+   * The payload is structured as follows:
+   *   [number_of_ids (1 byte)]
+   *   [id1_length (1 byte)] [id1 bytes...]
+   *   [id2_length (1 byte)] [id2 bytes...]
+   *   ...
+   *
+   * - The first byte holds the number of IDs (max 255).
+   * - Each ID is preceded by a 1-byte length (max length 255).
+   *
+   * @param ids An unordered_set of strings representing the IDs.
+   * @return A vector of std::byte containing the binary payload.
+   *
+   * @throws std::length_error if the number of IDs exceeds 255 or any ID's length exceeds 255.
+   */
+  std::string createRegistryFilePayload(const std::unordered_set<std::string>& ids);
 };
 
 #endif // SNDS_HTTP_WORKER_H

@@ -204,3 +204,36 @@ std::vector<std::string> HTTPWorker::parseIDsFromRegistryFilePayload(std::span<c
         ids.emplace_back(id);
     }
 }
+
+std::vector<std::byte> HTTPWorker::serializeRegistryFilePayload(const std::unordered_set<std::string>& ids){
+
+    //TODO huge limitation on how many IDs you can have @yannisT
+    if(ids.size() > 255){
+        throw std::length_error("Limited description size for the ID set provided.");
+    }
+
+    size_t offset = 0;
+    // We are about to create the payload
+    // so we need to know the size of the byte buffer
+    size_t payload_length = 1;
+    for(const auto& id: ids){
+        if (id.size() > 255){
+            throw std::length_error("ID exceeds the size that can be described by 1 byte (2^8).");
+        }
+        // Allocate size for describing the length of the ID and the ID itself
+        payload_length += 1 + id.size();
+    }
+
+    // Allocate needed memory for our payload
+    std::vector<std::byte> payload(payload_length);
+    // First byte should be allocated to hold the number_of_ids
+    payload[offset++] = static_cast<std::byte>(ids.size());
+
+    for(const auto& id: ids){
+        payload[offset++] = static_cast<std::byte>(id.size());
+        std::memcpy(&payload, id.data(), id.size());
+        offset += id.size();
+    }
+
+    return payload;
+}
