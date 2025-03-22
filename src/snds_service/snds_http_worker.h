@@ -43,6 +43,7 @@ private:
   // TODO since IDs are unique for each type use a set @yannisT
 	std::unordered_map<std::string, std::unordered_set<std::string>> myTypesRegistryMap;
 
+  // Used for serving subscription requests
   std::unordered_map<std::string, std::unordered_set<std::string>> pendingIDsToTypeMap;
   std::unordered_map<std::string, std::unordered_set<std::string>> pendingIDsForTypeMap;
 
