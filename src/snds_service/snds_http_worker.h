@@ -43,6 +43,9 @@ private:
   // TODO since IDs are unique for each type use a set @yannisT
 	std::unordered_map<std::string, std::unordered_set<std::string>> myTypesRegistryMap;
 
+  std::unordered_map<std::string, std::unordered_set<std::string>> pendingIDsToTypeMap;
+  std::unordered_map<std::string, std::unordered_set<std::string>> pendingIDsForTypeMap;
+
   // Unordered sets for deduplicating pending requests.
   std::unordered_set<std::string> pendingGetByIDreqs;
   std::unordered_set<std::string> pendingGetByTYPEreqs;
@@ -50,8 +53,7 @@ private:
   void processSubscriptionRequest(const std::string& id, const std::string& url);
   void processByIDRequest(const std::string& id);
   void processByTYPERequest(const std::string& type);
-
-  void processRegistryFileRequest(const std::string& payload);
+  void processRegistryFileRequest(const std::string& payload, const std::string& name);
 
 };
 

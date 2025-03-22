@@ -1,18 +1,18 @@
 #include "snds_http_worker.h"
 
 void HTTPWorker::init() {
-    m_logger->info("HTTPWorker: Starting service: {}", serviceName);
+    m_logger->info("Starting service: {}", serviceName);
     if (serviceName.empty()) {
         m_logger->warn("Warning: serviceName is EMPTY! Check constructor initialization.");
     }
-    m_logger->info("HTTPWorker thread started.");
+    m_logger->info("Thread started.");
 
     while (running.load()) {
-        m_logger->info("HTTPWorker: Reading packet...");
+        m_logger->info("Reading packet...");
 
         auto message = v_to_service.get()->readMessage();
         if (!message) {
-            m_logger->debug("HTTPWorker: Queue shutdown detected, exiting loop.");
+            m_logger->debug("Queue shutdown detected, exiting loop.");
             break;
         }
 
@@ -26,12 +26,12 @@ void HTTPWorker::init() {
 
         // If subscription flag is set but no subUrl provided, log a warning and treat as a regular request.
         if (isSub && subUrl.empty()) {
-            m_logger->warn("HTTPWorker: Subscription request with empty URL, treating as regular request.");
+            m_logger->warn("Subscription request with empty URL, treating as regular request.");
             isSub = false;
         }
 
         if (id.empty() && type.empty()) {
-            m_logger->warn("HTTPWorker: Both ID and Type parameters are empty in GET request.");
+            m_logger->warn("Both ID and Type parameters are empty in GET request.");
             continue; // Skip processing this message
         }
 
@@ -41,45 +41,45 @@ void HTTPWorker::init() {
         // Process according to sender type.
         switch (message->getSender()) {
             case SNDS_CLIENT_TYPES::HTTP_SRV: {
-                m_logger->info("HTTPWorker: Received HTTP SERVER message.");
+                m_logger->info("Received HTTP SERVER message.");
                 // First, handle subscription requests.
                 if (isSub && !id.empty()) {
-                    m_logger->info("HTTPWorker: Processing subscription request...");
+                    m_logger->info("Processing subscription request...");
                     processSubscriptionRequest(id, subUrl);
                 }
                 // Next, handle regular getByID requests.
                 if (!id.empty()) {
-                    m_logger->info("HTTPWorker: Processing ID request...");
+                    m_logger->info("Processing ID request...");
                     processByIDRequest(id);
                 }
                 // Otherwise, handle getByType requests.
                 if (!type.empty()) {
-                    m_logger->info("HTTPWorker: Processing TYPE request...");
+                    m_logger->info("Processing TYPE request...");
                     processByTYPERequest(type);
                 }
                 break;
             }
             case SNDS_CLIENT_TYPES::CONSUMER:
-                m_logger->info("HTTPWorker: Received consumer message.");
+                m_logger->info("Received consumer message.");
                 // First, handle registry file responses.
                 if (name.find(m_registryFilePostfix) != std::string::npos) {
-                    m_logger->info("HTTPWorker: Processing registry file response...");
-                    processRegistryFileRequest(content);
+                    m_logger->info("Processing registry file response...");
+                    processRegistryFileRequest(content, name);
                 }
                 // A request can be both byID and byTYPE
                 // Next, handle getById responses.
                 if (!id.empty()) {
-                    m_logger->info("HTTPWorker: Processing getByID response...");
-                    //processByIDResponse(id);
+                    m_logger->info("Processing getByIDConsumer request...");
+                    processByIDRequest(id);
                 }
                 // Otherwise, handle getByType responses.
                 if (!type.empty()) {
-                    m_logger->info("HTTPWorker: Processing getByTYPE response...");
-                    //processByTYPEResponse(type);
+                    m_logger->info("Processing getByTYPEConsumer response...");
+                    processByTYPERequest(type);
                 }
                 break;
             default:
-                m_logger->info("HTTPWorker: Received unprocessable client type...");
+                m_logger->info("Received unprocessable client type...");
                 break;
         }
     }
@@ -116,14 +116,15 @@ void HTTPWorker::processSubscriptionRequest(const std::string& id, const std::st
         m_logger->info("Pushing getByID subscription interest for ID: {}", preparedID);
 
         // Create the intra-SNDS message (using the proper constructor)
-        auto msg = std::make_unique<SNDS_INTRA_MESSAGE>(
+        auto message = std::make_unique<SNDS_INTRA_MESSAGE>(
             std::move(interestName),
             SNDS_INTRA_MESSAGE_TYPE::BY_ID_RESPONSE,
             SNDS_CLIENT_TYPES::SERVICE,
             ""
         );
 
-        v_to_consumer.get()->writeMessage(std::move(msg));
+        m_logger->debug("Sending message to consumer...{}\n", message.get()->printDetails());
+        v_to_consumer.get()->writeMessage(std::move(message));
     }
 }
 
@@ -170,18 +171,45 @@ void HTTPWorker::processByTYPERequest(const std::string& type){
     v_to_consumer.get()->writeMessage(std::move(message));
 }
 
-void HTTPWorker::processRegistryFileRequest(const std::string& payload){
+void HTTPWorker::processRegistryFileRequest(const std::string& payload, const std::string& name) {
 
+    // Parse the payload into a vector of IDs.
     std::vector<std::string> ids = parseIDsFromRegistryFilePayload(
         std::span<const uint8_t>(
             reinterpret_cast<const uint8_t*>(payload.data()),
             payload.size()
         )
-    );;
+    );
+    
+    m_logger->info("Size of ids in registry file: {}", ids.size());
+    
+    // Create a set to hold all the IDs from the registry file.
+    std::unordered_set<std::string> idSet;
+    
+    // Process each extracted ID.
+    for (auto& id : ids) {
 
-    m_logger->info("Received IDs payload in Registry File Request of size {}", ids.size());
-    for(auto& id: ids){
         ensureLeadingSlash(id);
-        //TODO continue this
+        m_logger->debug("Processing registry id: {}", id);
+        
+        // Insert the id into the set.
+        idSet.insert(id);
+        
+        // Update pendingIDsToTypesMap: for this id, add the type name.
+        pendingIDsToTypeMap[id].insert(name);
+        
+        // Create a message for this id.
+        auto message = std::make_unique<SNDS_INTRA_MESSAGE>(
+            std::string(id),  // Using the processed id. Note we need to copy here
+            SNDS_INTRA_MESSAGE_TYPE::BY_ID_RESPONSE,
+            SNDS_CLIENT_TYPES::SERVICE,
+            std::string("")   // Empty message name.
+        );
+        
+        m_logger->info("Pushing request to the consumer for id {}", id);
+        v_to_consumer.get()->writeMessage(std::move(message));
     }
+    
+    // Update pendingIDsForTypeMap with the registry file name as key and the set of ids.
+    pendingIDsForTypeMap[name] = std::move(idSet);
 }

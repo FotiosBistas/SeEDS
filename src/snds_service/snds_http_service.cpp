@@ -19,7 +19,7 @@ void SNDSHTTPService::init() {
                 SNDS_CLIENT_TYPES::HTTP_SRV,
                 ""
             );
-            m_logger->debug("Writing message {} from GET request to service queue\n", message->printDetails());
+            m_logger->debug("Writing message from GET request to service queue...\n{}", message->printDetails());
             v_to_service.get()->writeMessage(std::move(message));
             res.set_content(m_ackTag, "text/plain");
         });
@@ -35,7 +35,7 @@ void SNDSHTTPService::init() {
                 SNDS_CLIENT_TYPES::HTTP_SRV,
                 ""
             );
-            m_logger->debug("Writing message {} from POST request to service queue\n", message->printDetails());
+            m_logger->debug("Writing message from POST request to service queue...\n{}", message->printDetails());
             v_to_dt.get()->writeMessage(std::move(message));
             res.set_content(m_ackTag, "text/plain");
         });
