@@ -57,6 +57,7 @@ void DigitalTwin::init(){
         }
 
         std::string type = getFromGETRequest(content, "type");
+        m_logger->debug("Extracted Type from message {}", type);
 
         if(!type.empty()){
             m_logger->info("Received by Type get request...");

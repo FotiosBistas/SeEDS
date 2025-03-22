@@ -1,11 +1,11 @@
 #include "snds_producer.h"
 
 void SNDSProducer::init(){
-  m_logger->info("Producer: Starting service: {}", this->serviceName);
+  m_logger->info("Starting service: {}", this->serviceName);
   if (serviceName.empty()) {
       m_logger->warn("Warning: serviceName is EMPTY! Check constructor initialization.");
   }
-  m_logger->info("Producer thread started.");
+  m_logger->info("Thread started.");
 
   // Set up your initial interest filters
   std::string tmp_name = m_mySndsIdName;
@@ -63,7 +63,7 @@ void SNDSProducer::init(){
 
   // Run the loop until 'running' is false.
   while (running.load()) {
-      m_logger->debug("Producer loop iteration; running = {}", running.load());
+      m_logger->debug("Reading packet...");
       // Process events non-blockingly (or with a timeout)
       m_face.processEvents(ndn::time::milliseconds(1000)); // Process for 1 second
 
@@ -71,14 +71,14 @@ void SNDSProducer::init(){
         std::unique_ptr<SNDS_INTRA_MESSAGE> message = v_to_producer->readMessage();
 
         if (message == nullptr) {
-            m_logger->debug("Producer: Queue shutdown detected, exiting loop.");
+            m_logger->debug("Queue shutdown detected, exiting loop.");
             break;
         }
 
-      m_logger->info("Got new advertisement request. Message: {}", message.get()->printDetails());
+      m_logger->info("Got new advertisement request...\n{}", message.get()->printDetails());
       auto content = message.get()->getMessage();
       auto length = message.get()->getMessageLength();
-      tmp_name = m_sndsPrefix + std::string(content, length);
+      tmp_name = m_sndsPrefix + content.substr(0, length);
       m_logger->info("Announcing name: {}", tmp_name);
       locallyAnnouncedIDsMap[std::string(content, length)] = "SNDS_dummy_data";
 
