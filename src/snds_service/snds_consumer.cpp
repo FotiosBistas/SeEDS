@@ -1,7 +1,7 @@
 #include "snds_consumer.h"
 
 void SNDSConsumer::init(){
-    m_logger->info("Consumer: Starting service: {}", this->serviceName);
+    m_logger->info("Starting service: {}", this->serviceName);
     if (serviceName.empty()) {
         m_logger->warn("Warning: serviceName is EMPTY! Check constructor initialization.");
     }
@@ -9,27 +9,29 @@ void SNDSConsumer::init(){
     // Run the loop until 'running' is false.
     while (running.load()) {
 
-        m_logger->debug("Consumer: Reading packet...");
+        m_logger->info("Reading packet...");
         std::unique_ptr<SNDS_INTRA_MESSAGE> message = v_to_consumer->readMessage();
 
         if (message == nullptr) {
-            m_logger->debug("Consumer: Queue shutdown detected, exiting loop.");
+            m_logger->debug("Queue shutdown detected, exiting loop.");
             break;
         }
 
         auto content = message.get()->getMessage();
         auto length = message.get()->getMessageLength();
+        m_logger->debug("Extracted content from message {}", content);
+        m_logger->debug("Extracted content length from message {}", length);
 
-        std::string name = m_sndsPrefix + std::string(content, length);
+        std::string name = m_sndsPrefix + content.substr(0, length);
+        m_logger->info("Created name {}", name);
         ndn::Name interestName(name);
-        m_logger->info("Consumer: Created interest name {}", interestName.toUri());
+        m_logger->info("Created interest name {}", interestName.toUri().c_str());
         interestName.appendVersion();
         ndn::Interest interest(interestName);
         interest.setMustBeFresh(true);
-        interest.setInterestLifetime(ndn::time::milliseconds(6000)); // ✅ Correct way
+        interest.setInterestLifetime(ndn::time::milliseconds(6000)); 
+        m_logger->info("Sending actual Interest {}", interest.toUri().c_str());
 
-
-        m_logger->info("Consumer: Sending Interest: {}", message.get()->printDetails());
         m_face.expressInterest(interest,
                                 std::bind(&SNDSConsumer::onData, this,  _1, _2),
                                 std::bind(&SNDSConsumer::onNack, this, _1, _2),
