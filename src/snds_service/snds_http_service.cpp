@@ -9,9 +9,9 @@ void SNDSHTTPService::init() {
 
         // Handle GET requests at "/"
         svr.Get("/", [this](const httplib::Request& req, httplib::Response& res) {
-            m_logger->info("HTTP SERVER: Received GET request for {} with body {}", req.path, req.body);
-            m_logger->info("HTTP SERVER: Received GET request for {} with target {}", req.path, req.target);
-            m_logger->info("HTTP SERVER: Received GET request from {}", req.remote_addr);
+            m_logger->info("Received GET request for {} with body {}", req.path, req.body);
+            m_logger->info("Received GET request for {} with target {}", req.path, req.target);
+            m_logger->info("Received GET request from {}", req.remote_addr);
             // Create a new internal message based on the request target.
             std::unique_ptr<SNDS_INTRA_MESSAGE> message = std::make_unique<SNDS_INTRA_MESSAGE>(
                 std::move(std::string(req.target)),
@@ -19,15 +19,15 @@ void SNDSHTTPService::init() {
                 SNDS_CLIENT_TYPES::HTTP_SRV,
                 ""
             );
-            m_logger->debug("HTTP SERVER: Writing message {} from GET request to service queue", message->printDetails());
+            m_logger->debug("Writing message {} from GET request to service queue\n", message->printDetails());
             v_to_service.get()->writeMessage(std::move(message));
             res.set_content(m_ackTag, "text/plain");
         });
 
         // Handle POST requests at "/"
         svr.Post("/", [this](const httplib::Request& req, httplib::Response& res) {
-            m_logger->info("HTTP SERVER: Received POST request for {} with body {}", req.path, req.body);
-            m_logger->info("HTTP SERVER: Received POST request from {}", req.remote_addr);
+            m_logger->info("Received POST request for {} with body {}", req.path, req.body);
+            m_logger->info("Received POST request from {}", req.remote_addr);
             // Create a new internal message based on the request body.
             std::unique_ptr<SNDS_INTRA_MESSAGE> message = std::make_unique<SNDS_INTRA_MESSAGE>(
                 std::move(std::string(req.body)),
@@ -35,8 +35,8 @@ void SNDSHTTPService::init() {
                 SNDS_CLIENT_TYPES::HTTP_SRV,
                 ""
             );
-            m_logger->debug("HTTP SERVER: Writing message {} from POST request to service queue", message->printDetails());
-            v_to_service.get()->writeMessage(std::move(message));
+            m_logger->debug("Writing message {} from POST request to service queue\n", message->printDetails());
+            v_to_dt.get()->writeMessage(std::move(message));
             res.set_content(m_ackTag, "text/plain");
         });
 

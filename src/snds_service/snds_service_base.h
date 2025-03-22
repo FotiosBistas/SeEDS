@@ -33,7 +33,7 @@ public:
    * @param registryFilePostfix The postfix used for registry file names (default: "_registry").
    * @param ackTag The ack tag for acking data
    */
-  ServiceBase(spdlog::level::level_enum logLevel = spdlog::level::info,
+   ServiceBase(spdlog::level::level_enum logLevel = spdlog::level::info,
             std::string logFile = "ServiceBase.log",
             uint8_t numberOfSndsSrvs = 1,
             std::string sndsPrefix = "/SNDS",
@@ -59,10 +59,11 @@ public:
 
     // Logger initialization
     auto console_sink = std::make_shared<spdlog::sinks::stdout_color_sink_mt>();
-    console_sink->set_pattern("[%Y-%m-%d %H:%M:%S.%e] [%l] %v");
+    // Updated pattern includes [%n] to print the logger's name (i.e., serviceName)
+    console_sink->set_pattern("[%Y-%m-%d %H:%M:%S.%e] [%l] [%n] %v");
 
     auto file_sink = std::make_shared<spdlog::sinks::basic_file_sink_mt>(logFile, true);
-    file_sink->set_pattern("[%Y-%m-%d %H:%M:%S.%e] [%l] %v");
+    file_sink->set_pattern("[%Y-%m-%d %H:%M:%S.%e] [%l] [%n] %v");
 
     std::vector<spdlog::sink_ptr> sinks{ console_sink, file_sink };
     m_logger = std::make_shared<spdlog::logger>(this->serviceName, sinks.begin(), sinks.end());
@@ -76,7 +77,6 @@ public:
     } catch (const std::exception& e) {
         m_logger->error("Error loading validator configuration: {}", e.what());
     }
-
   }
 
   virtual ~ServiceBase() {

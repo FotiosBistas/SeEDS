@@ -318,6 +318,7 @@ private:
 		  }else{
 			  log (__FUNCTION__, "Pushing byTYPE advertisement to the consumer..");
 			  std::string idscope = getSNDSNodeScopeNameForSubscription(id);
+			  log (__FUNCTION__, "ID scope: " + idscope);
 			  std::string itemName = idscope+"/"+id;
 			  log (__FUNCTION__, itemName.c_str());
 			  SNDS_Intra_Msg* msg3 = new SNDS_Intra_Msg(DT, itemName.c_str(), itemName.length());

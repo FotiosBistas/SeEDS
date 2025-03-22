@@ -3,11 +3,13 @@
 #define SNDS_HTTP_WORKER_H
 
 #include "snds_service_base.h"
+#include "snds_utils.h"
 #include <algorithm>  
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
 #include <string>
+#include <span>
 
 class HTTPWorker : public ServiceBase {
 public:
@@ -48,6 +50,8 @@ private:
   void processSubscriptionRequest(const std::string& id, const std::string& url);
   void processByIDRequest(const std::string& id);
   void processByTYPERequest(const std::string& type);
+
+  void processRegistryFileRequest(const std::string& payload);
 
 };
 

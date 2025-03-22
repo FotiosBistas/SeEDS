@@ -48,12 +48,12 @@ void HTTPWorker::init() {
                     processSubscriptionRequest(id, subUrl);
                 }
                 // Next, handle regular getByID requests.
-                else if (!id.empty()) {
+                if (!id.empty()) {
                     m_logger->info("HTTPWorker: Processing ID request...");
                     processByIDRequest(id);
                 }
                 // Otherwise, handle getByType requests.
-                else if (!type.empty()) {
+                if (!type.empty()) {
                     m_logger->info("HTTPWorker: Processing TYPE request...");
                     processByTYPERequest(type);
                 }
@@ -64,15 +64,16 @@ void HTTPWorker::init() {
                 // First, handle registry file responses.
                 if (name.find(m_registryFilePostfix) != std::string::npos) {
                     m_logger->info("HTTPWorker: Processing registry file response...");
-                    //processRegistryFileResponse(id, content);
+                    processRegistryFileRequest(content);
                 }
+                // A request can be both byID and byTYPE
                 // Next, handle getById responses.
-                else if (!id.empty()) {
+                if (!id.empty()) {
                     m_logger->info("HTTPWorker: Processing getByID response...");
                     //processByIDResponse(id);
                 }
                 // Otherwise, handle getByType responses.
-                else if (!type.empty()) {
+                if (!type.empty()) {
                     m_logger->info("HTTPWorker: Processing getByTYPE response...");
                     //processByTYPEResponse(type);
                 }
@@ -167,4 +168,20 @@ void HTTPWorker::processByTYPERequest(const std::string& type){
     );
 
     v_to_consumer.get()->writeMessage(std::move(message));
+}
+
+void HTTPWorker::processRegistryFileRequest(const std::string& payload){
+
+    std::vector<std::string> ids = parseIDsFromRegistryFilePayload(
+        std::span<const uint8_t>(
+            reinterpret_cast<const uint8_t*>(payload.data()),
+            payload.size()
+        )
+    );;
+
+    m_logger->info("Received IDs payload in Registry File Request of size {}", ids.size());
+    for(auto& id: ids){
+        ensureLeadingSlash(id);
+        //TODO continue this
+    }
 }
