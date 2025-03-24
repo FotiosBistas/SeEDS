@@ -104,20 +104,20 @@ void SNDSProducer::onInterest(const ndn::Interest& interest) {
 
   // Give priority to type advertisements
   if (myTypesRegistryMap.find("/" + pi.command) != myTypesRegistryMap.end()) {
-    processTypeAdvertisement(&pi);
+    processTypeAdvertisement(pi);
     return;
   }
 
   if (pi.command.compare(m_mySndsIdScopeName) == 0) {
     //TODO this needs to be done differently
     if(name.size() == 5){
-      processSubscription(&pi);
+      processSubscription(pi);
       return;
     }
 
     //TODO this needs to be done differently
     if(name.size() == 4){
-      processNotification(&pi);
+      processNotification(pi);
       return;
     }
 
@@ -152,7 +152,7 @@ void SNDSProducer::processTypeAdvertisement(ParsedInterest& interest) {
     return;
   }
 
-  m_logger->info("Type advertisement: command (registry) = {0}, ID = {1}", pi.command, id_for_type);
+  m_logger->info("Type advertisement: command (registry) = {0}, ID = {1}", type, id_for_type);
 
   // Look up the content type (with a preceding slash) in the registry map.
   auto iter = myTypesRegistryMap.find(type);
@@ -169,13 +169,13 @@ void SNDSProducer::processTypeAdvertisement(ParsedInterest& interest) {
 
   if (!inserted) {
     m_logger->warn("ID already registered for type {}. Skipping...", type);
-    std::string warnMsg = "WARNING::ID already registered for type {" + type+ "}";
-    sendData(interest.getName(), warnMsg);
+    std::string warn_message = "WARNING::ID already registered for type {" + type+ "}";
+    sendData(interest.toString(), warn_message);
     return;
   }
 
   m_logger->info("Registered new ID {0} for type {1}. Sending ACK.", id_for_type, type);
-  sendData(interest.getName(), m_ackTag);
+  sendData(interest.toString(), m_ackTag);
 }
 
 void SNDSProducer::processSubscription(ParsedInterest& interest) {
@@ -187,9 +187,9 @@ void SNDSProducer::processSubscription(ParsedInterest& interest) {
   }
 
   // TODO this needs to be modified
-  m_logger->info("Got interest indicating new SUBSCRIPTION getByid for {0} from SNDS_NODE {1}", interest.getParam(0), interest.getParam(1));
-  std::string prepared_name    = interest.getParam(0);
-  std::string prepared_snds_id = interest.getParam(1);
+  std::string prepared_name    = interest.getParam(0).value_or("Missing parameter");
+  std::string prepared_snds_id = interest.getParam(1).value_or("Missing parameter");
+  m_logger->info("Got interest indicating new SUBSCRIPTION getByid for {0} from SNDS_NODE {1}", prepared_name, prepared_snds_id);
   ensureLeadingSlash(prepared_name);
   ensureLeadingSlash(prepared_snds_id);
 
@@ -202,18 +202,18 @@ void SNDSProducer::processSubscription(ParsedInterest& interest) {
 
   if (inserted) {
       m_logger->info("New subscription: {} subscribed to {}", prepared_snds_id, prepared_name);
-      sendData(interest.getName(), m_ackTag + " to_new_subscription");
+      sendData(interest.toString(), m_ackTag + " to_new_subscription");
   }
 }
 
-void SNDSProducer::handleNotification(ParsedInterest& interest){
+void SNDSProducer::processNotification(ParsedInterest& interest){
   // Expect one parameter: ID.
   if(interest.params.empty()) {
     m_logger->warn("Missing parameters for interest. Ignoring.");
     return;
   }
 
-  std::string prepared_name = pi.getParam(0);
+  std::string prepared_name = interest.getParam(0).value_or("Missing parameter");
   ensureLeadingSlash(prepared_name);
   m_logger->info("Subscription notification for name {}.", prepared_name);
 
@@ -221,7 +221,7 @@ void SNDSProducer::handleNotification(ParsedInterest& interest){
 
   if(iterator == subscribedBYID_SNDSnodes.end()){
     m_logger->info("No subscribers found for ID {}.", prepared_name);
-    sendData(interest.getName(), m_ackTag + " to_notification_for_new_subscription");
+    sendData(interest.toString(), m_ackTag + " to_notification_for_new_subscription");
     return;
   }
 
@@ -287,11 +287,8 @@ void SNDSProducer::processRegistryRequest(const ndn::Name& name, const ndn::Inte
     return;
   }
 
-  // Serialize the registry data into a payload using the modern method.
-  std::vector<char> payloadVec = getRegistryFilePayload(iter->second);
-
-  // Convert the vector<char> to a std::string.
-  std::string payload(payloadVec.begin(), payloadVec.end());
+  std::vector<std::byte> byteVec = serializeRegistryFilePayload(iter->second);
+  std::string payload(reinterpret_cast<const char*>(byteVec.data()), byteVec.size());
 
   m_logger->info("Sending registry file payload for type \"{}\".", baseType);
   sendData(interest.getName(), payload);

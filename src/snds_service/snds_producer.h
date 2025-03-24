@@ -24,7 +24,7 @@ public:
                   serviceName)            // Then pass the serviceName
   {
       m_logger->info("SNDSProducer initialized with serviceName: {}", this->serviceName);
-      myTypesRegistryMap["/CAR"] = std::vector<std::string>{};
+      myTypesRegistryMap["/CAR"] = std::unordered_set<std::string>{};
   }
 
   void init();
@@ -98,47 +98,6 @@ public:
   void advertise() {
     m_logger->info("Advertising SNDSProducer with ID: {}", m_mySndsIdName);
     // Use inherited members such as m_face, m_mySndsIdName, etc.
-  }
-
-  // Getters and setters for private members
-
-  inline const std::unordered_map<std::string, std::vector<std::string>>& getMyTypesRegistryMap() const {
-    return myTypesRegistryMap;
-  }
-
-  // Used in testing to inject sample data
-  inline std::unordered_map<std::string, std::vector<std::string>>& getMutableMyTypesRegistryMap() {
-    return myTypesRegistryMap;
-  }
-
-  inline void setMyTypesRegistryMap(const std::unordered_map<std::string, std::vector<std::string>>& map) {
-    myTypesRegistryMap = map;
-  }
-
-  inline const std::unordered_map<std::string, std::vector<std::string>>& getSubscribedById() const {
-    return subscribedBYID_SNDSnodes;
-  }
-
-  // Used in testing to inject sample data
-  inline std::unordered_map<std::string, std::vector<std::string>>& getMutableSubscribedById() {
-    return subscribedBYID_SNDSnodes;
-  }
-
-  inline void setSubscribedById(const std::unordered_map<std::string, std::vector<std::string>>& map) {
-    subscribedBYID_SNDSnodes = map;
-  }
-
-  inline const std::unordered_map<std::string, std::string>& getLocallyAnnouncedIds() const {
-    return locallyAnnouncedIDsMap;
-  }
-
-  // Used in testing to inject sample data
-  inline std::unordered_map<std::string, std::string>& getMutableLocallyAnnouncedIds() {
-    return locallyAnnouncedIDsMap;
-  }
-
-  inline void setLocallyAnnouncedIds(const std::unordered_map<std::string, std::string>& map) {
-    locallyAnnouncedIDsMap = map;
   }
 
 private:
