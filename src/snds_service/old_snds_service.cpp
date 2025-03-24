@@ -490,6 +490,7 @@ private:
 					log(__FUNCTION__, "Got successfully data for previous requestByID. Removing state");
 					pendingGetByIDreqsVec.erase(iter);
 				}
+				// this will get us the types for an ID
 				auto iter2  = pendingIDsToTypesMap.find(name); // name is id, e.g., car1
 				if (iter2 != pendingIDsToTypesMap.end()){
 					handled = true;

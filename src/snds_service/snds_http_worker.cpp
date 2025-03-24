@@ -134,7 +134,7 @@ void HTTPWorker::processSubscriptionRequest(const std::string& id, const std::st
 void HTTPWorker::processByIDRequest(const std::string& id, const bool subscription){
 
     if(subscription){
-        processByIDRequestSub(id);
+        processByIDResponse(id);
         return;
     }
 
@@ -158,9 +158,9 @@ void HTTPWorker::processByIDRequest(const std::string& id, const bool subscripti
     v_to_consumer.get()->writeMessage(std::move(message));
 }
 
-void HTTPWorker::processByIDRequestSub(const std::string& id){
-    m_logger->info("Subscription request received...");
-    if(pendingGetByIDreqs.erase(id) > 0){
+void HTTPWorker::processByIDResponse(const std::string& name){
+    m_logger->info("Subscription response received...");
+    if(pendingGetByIDreqs.erase(name) > 0){
         m_logger->info("Got successfully data for previous requestByID. Removing state...");
         return; 
     }
@@ -169,7 +169,7 @@ void HTTPWorker::processByIDRequestSub(const std::string& id){
 void HTTPWorker::processByTYPERequest(const std::string& type, const bool subscription){
 
     if(subscription){
-        processByTYPERequestSub(type);
+        processByTYPEResponse(type);
         return;
     }
 
@@ -194,21 +194,50 @@ void HTTPWorker::processByTYPERequest(const std::string& type, const bool subscr
     v_to_consumer.get()->writeMessage(std::move(message));
 }
 
-void HTTPWorker::processByTYPERequestSub(const std::string& type){
+void HTTPWorker::processByTYPEResponse(const std::string& name){
     //TODO yes here type is an ID
     // i'm not sure why
     m_logger->info("Subscription request received...");
-    if(!pendingTypesForIDMap.contains(type)){
-        m_logger->info("Type {} is not in pendingIDsToTypeMap", type);
+    if(!pendingTypesForIDMap.contains(name)){
+        m_logger->info("Name {} is not in pendingTypesForIDMap", name);
         return; 
     }
+    // This gets us the types for an ID
+    auto& types = pendingTypesForIDMap.at(name);
+    std::vector<std::string> typesToErase;
 
-    const auto& types = pendingTypesForIDMap.at(type);
 
     for(const auto& type: types){
 
+        // yes now you use the type to get the IDs
         auto& ids = pendingIDsForTypeMap.at(type);
-        //TODO continue to remove this type
+        if(ids.erase(name) < 0){
+            m_logger->info("Could not find id {0} for type {1}", name, type);
+            //TODO I guess this was originally used for debugging purposes
+            m_logger->error("State inconsistency...");
+            return;
+        }
+
+        if(ids.empty()){
+            m_logger->info("Successfully removed name {0} from the pendingIDsForType for type {1}", name, type);
+            // There are no more pending ids for the type
+            // Can safely erase without check since we got the ids
+            pendingTypesForIDMap.erase(type);
+            // Mark this type to remove from ID
+            typesToErase.push_back(type);      
+
+        }
+    }
+
+    // Now remove the empty types from the set for this ID
+    for (const auto& type : typesToErase) {
+        m_logger->debug("Removing type {0} from pendingTypesForIDMap for name {1}", type, name);
+        types.erase(type);
+    }
+
+    if (types.empty()){
+        // Can safely remove without check 
+        pendingTypesForIDMap.erase(name);
     }
 }
 
@@ -236,8 +265,8 @@ void HTTPWorker::processRegistryFileRequest(const std::string& payload, const st
         // Insert the id into the set.
         idSet.insert(id);
         
-        // Update pendingIDsToTypesMap: for this id, add the type name.
-        pendingIDsToTypeMap[id].insert(name);
+        // Update pendingTypesForIDMap: for this id, add the type name.
+        pendingTypesForIDMap[id].insert(name);
         
         // Create a message for this id.
         auto message = std::make_unique<SNDS_INTRA_MESSAGE>(

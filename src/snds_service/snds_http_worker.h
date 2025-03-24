@@ -54,8 +54,8 @@ private:
   void processSubscriptionRequest(const std::string& id, const std::string& url);
   void processByIDRequest(const std::string& id, const bool subscription = false);
   void processByTYPERequest(const std::string& type, const bool subscription = false);
-  void processByIDRequestSub(const std::string& id);
-  void processByTYPERequestSub(const std::string& type);
+  void processByIDResponse(const std::string& name);
+  void processByTYPEResponse(const std::string& name);
   void processRegistryFileRequest(const std::string& payload, const std::string& name);
 
 };
