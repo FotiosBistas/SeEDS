@@ -127,12 +127,13 @@ void SNDSProducer::onInterest(const ndn::Interest& interest) {
 
   // If the command contains the registry postfix, handle registry requests.
   if (pi.command.find(m_registryFilePostfix) != std::string::npos) {
-    processRegistryRequest(name, interest);
+    processRegistryRequest(pi);
     return;
   }
 
+  //TODO I don't think this is correct
   if (pi.params.empty()) {
-    processLocalIdRequest(name, interest);
+    processLocalIdRequest(pi);
     return;
   }
 
@@ -206,6 +207,29 @@ void SNDSProducer::processSubscription(ParsedInterest& interest) {
   }
 }
 
+void SNDSProducer::processRegistryRequest(ParsedInterest& interest) {
+
+  std::string name = interest.command;
+  // Parse the incoming Interest name.
+  m_logger->info("Registry request received: name = {}", name);
+
+  // Remove the registry postfix from the command to get the base type.
+  std::string base_type = name.substr(0, name.find(m_registryFilePostfix));
+
+  // Look up the registry for the base type (the keys in myTypesRegistryMap are stored with a leading slash).
+  auto iter = myTypesRegistryMap.find("/" + base_type);
+  if (iter == myTypesRegistryMap.end()) {
+    m_logger->warn("Unknown registry for type {}.", base_type);
+    return;
+  }
+
+  std::vector<std::byte> byte_vector = serializeRegistryFilePayload(iter->second);
+  std::string payload(reinterpret_cast<const char*>(byte_vector.data()), byte_vector.size());
+
+  m_logger->info("Sending registry file payload for type {}.", base_type);
+  sendData(interest.toString(), payload);
+}
+
 void SNDSProducer::processNotification(ParsedInterest& interest){
   // Expect one parameter: ID.
   if(interest.params.empty()) {
@@ -244,52 +268,22 @@ void SNDSProducer::processNotification(ParsedInterest& interest){
 
 }
 
-void SNDSProducer::processLocalIdRequest(const ndn::Name& name, const ndn::Interest& interest) {
-  // Parse the Interest into a structured format.
-  ParsedInterest pi = parseInterestName(name);
+void SNDSProducer::processLocalIdRequest(ParsedInterest& interest) {
+  std::string local_id = interest.command;
+  // Parse the incoming Interest name.
+  m_logger->info("Local ID request received: id = {}", local_id);
 
   // In local ID requests, we assume the command field itself is the requested ID.
   // Ensure it has a leading slash.
-  std::string localID = pi.command;
-  ensureLeadingSlash(localID);
+  ensureLeadingSlash(local_id);
 
   // Look up the local ID in the locally announced IDs map.
-  auto it = locallyAnnouncedIDsMap.find(localID);
+  auto it = locallyAnnouncedIDsMap.find(local_id);
   if (it != locallyAnnouncedIDsMap.end()) {
-    m_logger->info("Local ID request for \"{}\" found. Sending associated data.", localID);
-    sendData(interest.getName(), it->second);
-  }
-  else {
-    m_logger->warn("Interest for unknown local ID \"{}\".", localID);
-
-    // Build a string with available IDs for debugging.
-    std::string availableIDs;
-    for (const auto& pair : locallyAnnouncedIDsMap) {
-      availableIDs += " " + pair.first;
-    }
-    m_logger->info("Available IDs: {}", availableIDs);
-  }
-}
-
-
-void SNDSProducer::processRegistryRequest(const ndn::Name& name, const ndn::Interest& interest) {
-  // Parse the incoming Interest name.
-  ParsedInterest pi = parseInterestName(name);
-  m_logger->info("Registry request received: command = \"{}\"", pi.command);
-
-  // Remove the registry postfix from the command to get the base type.
-  std::string baseType = pi.command.substr(0, pi.command.find(m_registryFilePostfix));
-
-  // Look up the registry for the base type (the keys in myTypesRegistryMap are stored with a leading slash).
-  auto iter = myTypesRegistryMap.find("/" + baseType);
-  if (iter == myTypesRegistryMap.end()) {
-    m_logger->warn("Unknown registry for type \"{}\".", baseType);
+    m_logger->info("Local ID request for {} found. Sending associated data.", local_id);
+    sendData(interest.toString(), it->second);
     return;
   }
-
-  std::vector<std::byte> byteVec = serializeRegistryFilePayload(iter->second);
-  std::string payload(reinterpret_cast<const char*>(byteVec.data()), byteVec.size());
-
-  m_logger->info("Sending registry file payload for type \"{}\".", baseType);
-  sendData(interest.getName(), payload);
 }
+
+

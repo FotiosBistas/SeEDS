@@ -30,7 +30,7 @@ public:
   void init();
 
   void onInterest(const ndn::Interest& interest);
-  void processRegistryRequest(const ndn::Name& name, const ndn::Interest& interest);
+  void processRegistryRequest(ParsedInterest& interest);
   /**
    * @brief Processes an Interest that advertises a new content type.
    *
@@ -79,21 +79,7 @@ public:
    * @param name The full Interest name.
    * @param interest The Interest packet.
    */
-  void processLocalIdRequest(const ndn::Name& name, const ndn::Interest& interest);
-
-  /**
-   * @brief Ensures that the given string begins with a forward slash ('/').
-   *
-   * If the provided string is non-empty and does not start with '/',
-   * this function prepends a '/' to the string.
-   *
-   * @param nm The name string to modify.
-  */
-  inline void ensureLeadingSlash(std::string& nm) {
-      if (nm.empty() || nm.front() != '/') {
-          nm.insert(nm.begin(), '/');
-      }
-  }
+  void processLocalIdRequest(ParsedInterest& interest);
 
   void advertise() {
     m_logger->info("Advertising SNDSProducer with ID: {}", m_mySndsIdName);
