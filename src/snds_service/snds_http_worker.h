@@ -44,7 +44,7 @@ private:
 	std::unordered_map<std::string, std::unordered_set<std::string>> myTypesRegistryMap;
 
   // Used for serving subscription requests
-  std::unordered_map<std::string, std::unordered_set<std::string>> pendingIDsToTypeMap;
+  std::unordered_map<std::string, std::unordered_set<std::string>> pendingTypesForIDMap;
   std::unordered_map<std::string, std::unordered_set<std::string>> pendingIDsForTypeMap;
 
   // Unordered sets for deduplicating pending requests.
@@ -52,8 +52,10 @@ private:
   std::unordered_set<std::string> pendingGetByTYPEreqs;
 
   void processSubscriptionRequest(const std::string& id, const std::string& url);
-  void processByIDRequest(const std::string& id);
-  void processByTYPERequest(const std::string& type);
+  void processByIDRequest(const std::string& id, const bool subscription = false);
+  void processByTYPERequest(const std::string& type, const bool subscription = false);
+  void processByIDRequestSub(const std::string& id);
+  void processByTYPERequestSub(const std::string& type);
   void processRegistryFileRequest(const std::string& payload, const std::string& name);
 
 };

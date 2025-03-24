@@ -60,6 +60,7 @@ void HTTPWorker::init() {
                 break;
             }
             case SNDS_CLIENT_TYPES::CONSUMER:
+                //Note here that all the responses have to do with the name
                 m_logger->info("Received consumer message.");
                 // First, handle registry file responses.
                 if (name.find(m_registryFilePostfix) != std::string::npos) {
@@ -70,12 +71,12 @@ void HTTPWorker::init() {
                 // Next, handle getById responses.
                 if (!id.empty()) {
                     m_logger->info("Processing getByIDConsumer request...");
-                    processByIDRequest(id);
+                    processByIDRequest(name, true);
                 }
                 // Otherwise, handle getByType responses.
                 if (!type.empty()) {
                     m_logger->info("Processing getByTYPEConsumer response...");
-                    processByTYPERequest(type);
+                    processByTYPERequest(name, true);
                 }
                 break;
             default:
@@ -110,11 +111,13 @@ void HTTPWorker::processSubscriptionRequest(const std::string& id, const std::st
         std::string preparedID = id; // Copy for modification
         ensureLeadingSlash(preparedID);
 
+        m_logger->info("Pushing getByID subscription interest for ID: {}", preparedID);
+
         // Build the interest name using the scope name and the prepared ID.
         std::string interestName = getSNDSNodeScopeNameForSubscription(preparedID, m_idScopePrefix, m_numberOfSndsSrvs) + preparedID;
 
-        m_logger->info("Pushing getByID subscription interest for ID: {}", preparedID);
 
+        m_logger->info("Created interest name: {}", interestName);
         // Create the intra-SNDS message (using the proper constructor)
         auto message = std::make_unique<SNDS_INTRA_MESSAGE>(
             std::move(interestName),
@@ -128,7 +131,13 @@ void HTTPWorker::processSubscriptionRequest(const std::string& id, const std::st
     }
 }
 
-void HTTPWorker::processByIDRequest(const std::string& id){
+void HTTPWorker::processByIDRequest(const std::string& id, const bool subscription){
+
+    if(subscription){
+        processByIDRequestSub(id);
+        return;
+    }
+
     auto [_, newRequest] = pendingGetByIDreqs.insert(id);
     if(!newRequest){
         m_logger->info("Duplicate getByID request for ID: {} ignored.", id);
@@ -149,7 +158,21 @@ void HTTPWorker::processByIDRequest(const std::string& id){
     v_to_consumer.get()->writeMessage(std::move(message));
 }
 
-void HTTPWorker::processByTYPERequest(const std::string& type){
+void HTTPWorker::processByIDRequestSub(const std::string& id){
+    m_logger->info("Subscription request received...");
+    if(pendingGetByIDreqs.erase(id) > 0){
+        m_logger->info("Got successfully data for previous requestByID. Removing state...");
+        return; 
+    }
+}
+
+void HTTPWorker::processByTYPERequest(const std::string& type, const bool subscription){
+
+    if(subscription){
+        processByTYPERequestSub(type);
+        return;
+    }
+
     auto [_, newRequest] = pendingGetByTYPEreqs.insert(type);
 
     if (!newRequest){
@@ -169,6 +192,24 @@ void HTTPWorker::processByTYPERequest(const std::string& type){
     );
 
     v_to_consumer.get()->writeMessage(std::move(message));
+}
+
+void HTTPWorker::processByTYPERequestSub(const std::string& type){
+    //TODO yes here type is an ID
+    // i'm not sure why
+    m_logger->info("Subscription request received...");
+    if(!pendingTypesForIDMap.contains(type)){
+        m_logger->info("Type {} is not in pendingIDsToTypeMap", type);
+        return; 
+    }
+
+    const auto& types = pendingTypesForIDMap.at(type);
+
+    for(const auto& type: types){
+
+        auto& ids = pendingIDsForTypeMap.at(type);
+        //TODO continue to remove this type
+    }
 }
 
 void HTTPWorker::processRegistryFileRequest(const std::string& payload, const std::string& name) {
