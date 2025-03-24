@@ -135,6 +135,7 @@ public:
   virtual bool sendData(const ndn::Name& name, std::string payload) {
     auto data = std::make_shared<ndn::Data>();
     data->setName(name);
+    data->setFreshnessPeriod(10_s);
     data->setContent(std::move(payload));
     m_keyChain.sign(*data);
     m_face.put(*data);

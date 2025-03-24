@@ -39,9 +39,6 @@ public:
 private:
   // Map for storing subscriptions: id -> list of subscriber URLs
   std::unordered_map<std::string, std::unordered_set<std::string>> subscribedBYID_users;
-  // Map Type names to vectors of IDs 
-  // TODO since IDs are unique for each type use a set @yannisT
-	std::unordered_map<std::string, std::unordered_set<std::string>> myTypesRegistryMap;
 
   // Used for serving subscription requests
   std::unordered_map<std::string, std::unordered_set<std::string>> pendingTypesForIDMap;
