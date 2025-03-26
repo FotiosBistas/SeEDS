@@ -77,6 +77,20 @@ public:
     } catch (const std::exception& e) {
         m_logger->error("Error loading validator configuration: {}", e.what());
     }
+
+    m_logger->info("========== {} Configuration ==========", this->serviceName);
+    m_logger->info("Log Level: {}", spdlog::level::to_string_view(logLevel));
+    m_logger->info("Log File: {}", logFile);
+    m_logger->info("Number of SNDS Services: {}", m_numberOfSndsSrvs);
+    m_logger->info("SNDS Prefix: {}", m_sndsPrefix);
+    m_logger->info("My SNDS ID: {}", m_mySndsId);
+    m_logger->info("ID Scope Prefix: {}", m_idScopePrefix);
+    m_logger->info("Registry File Postfix: {}", m_registryFilePostfix);
+    m_logger->info("ACK Tag: {}", m_ackTag);
+    m_logger->info("Service Name: {}", this->serviceName);
+    m_logger->info("Computed m_mySndsIdName: {}", m_mySndsIdName);
+    m_logger->info("Computed m_mySndsIdScopeName: {}", m_mySndsIdScopeName);
+    m_logger->info("===============================================");
   }
 
   virtual ~ServiceBase() {

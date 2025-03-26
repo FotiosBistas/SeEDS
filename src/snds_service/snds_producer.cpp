@@ -102,13 +102,14 @@ void SNDSProducer::onInterest(const ndn::Interest& interest) {
 
   ParsedInterest pi = parseInterestName(name);
 
+  m_logger->info("Parsed interest: {}", pi.toString());
   // Give priority to type advertisements
   if (myTypesRegistryMap.find("/" + pi.command) != myTypesRegistryMap.end()) {
     processTypeAdvertisement(pi);
     return;
   }
-
-  if (pi.command.compare(m_mySndsIdScopeName) == 0) {
+  //TODO needs to check with @yannisT
+  if ((m_idScopePrefix + m_mySndsId).compare("/" + pi.command) == 0) {
     //TODO this needs to be done differently
     if(name.size() == 5){
       processSubscription(pi);
@@ -137,7 +138,7 @@ void SNDSProducer::onInterest(const ndn::Interest& interest) {
     return;
   }
 
-  m_logger->info("Interest left unprocessed. No matching handler found.");
+  m_logger->warn("Interest left unprocessed. No matching handler found.");
 }
 
 void SNDSProducer::processTypeAdvertisement(ParsedInterest& interest) {
