@@ -172,12 +172,12 @@ void SNDSProducer::processTypeAdvertisement(ParsedInterest& interest) {
   if (!inserted) {
     m_logger->warn("ID already registered for type {}. Skipping...", type);
     std::string warn_message = "WARNING::ID already registered for type {" + type+ "}";
-    sendData(interest.toString(), warn_message);
+    sendData(toName(interest), warn_message);
     return;
   }
 
   m_logger->info("Registered new ID {0} for type {1}. Sending ACK.", id_for_type, type);
-  sendData(interest.toString(), m_ackTag);
+  sendData(toName(interest), m_ackTag);
 }
 
 void SNDSProducer::processSubscription(ParsedInterest& interest) {
@@ -204,7 +204,7 @@ void SNDSProducer::processSubscription(ParsedInterest& interest) {
 
   if (inserted) {
       m_logger->info("New subscription: {} subscribed to {}", prepared_snds_id, prepared_name);
-      sendData(interest.toString(), m_ackTag + " to_new_subscription");
+      sendData(toName(interest), m_ackTag + " to_new_subscription");
   }
 }
 
@@ -228,7 +228,7 @@ void SNDSProducer::processRegistryRequest(ParsedInterest& interest) {
   std::string payload(reinterpret_cast<const char*>(byte_vector.data()), byte_vector.size());
 
   m_logger->info("Sending registry file payload for type {}.", base_type);
-  sendData(interest.toString(), payload);
+  sendData(toName(interest), payload);
 }
 
 void SNDSProducer::processNotification(ParsedInterest& interest){
@@ -246,7 +246,7 @@ void SNDSProducer::processNotification(ParsedInterest& interest){
 
   if(iterator == subscribedBYID_SNDSnodes.end()){
     m_logger->info("No subscribers found for ID {}.", prepared_name);
-    sendData(interest.toString(), m_ackTag + " to_notification_for_new_subscription");
+    sendData(toName(interest), m_ackTag + " to_notification_for_new_subscription");
     return;
   }
 
@@ -282,7 +282,7 @@ void SNDSProducer::processLocalIdRequest(ParsedInterest& interest) {
   auto it = locallyAnnouncedIDsMap.find(local_id);
   if (it != locallyAnnouncedIDsMap.end()) {
     m_logger->info("Local ID request for {} found. Sending associated data.", local_id);
-    sendData(interest.toString(), it->second);
+    sendData(toName(interest), it->second);
     return;
   }
 }

@@ -71,4 +71,38 @@ inline ParsedInterest parseInterestName(const ndn::Name& name) {
     return pi;
 }
 
+/**
+ * @brief Reconstructs the full NDN name from a ParsedInterest object.
+ *
+ * For example:
+ *   ParsedInterest with:
+ *     prefix  = "/SNDS"
+ *     command = "CAR"
+ *     params  = ["car1", "123"]
+ *
+ * Produces:
+ *     /SNDS/CAR/car1/123
+ *
+ * @return ndn::Name The reconstructed NDN name.
+ */
+inline ndn::Name toName(const ParsedInterest& pi) {
+    ndn::Name name;
+
+    // Handle the prefix (supports multi-component prefixes like "/SNDS/service")
+    if (!pi.prefix.empty()) {
+        ndn::Name prefixName(pi.prefix);
+        name.append(prefixName);
+    }
+
+    if (!pi.command.empty()) {
+        name.append(pi.command);
+    }
+
+    for (const auto& param : pi.params) {
+        name.append(param);
+    }
+
+    return name;
+}
+
 #endif 
