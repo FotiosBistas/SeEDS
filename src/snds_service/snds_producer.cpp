@@ -80,7 +80,7 @@ void SNDSProducer::init(){
       auto length = message.get()->getMessageLength();
       tmp_name = m_sndsPrefix + content.substr(0, length);
       m_logger->info("Announcing name: {}", tmp_name);
-      locallyAnnouncedIDsMap[std::string(content, length)] = "SNDS_dummy_data";
+      locallyAnnouncedIDsMap[content] = "SNDS_dummy_data";
 
       m_face.setInterestFilter(tmp_name,
           std::bind(&SNDSProducer::onInterest, this, std::placeholders::_2),
