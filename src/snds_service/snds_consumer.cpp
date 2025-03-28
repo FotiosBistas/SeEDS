@@ -63,6 +63,8 @@ void SNDSConsumer::onData(const ndn::Interest&, const ndn::Data& data) {
 
     // Extract the second component of the Data name, which is used as the intra-message name.
     std::string message_name = data.getName().at(1).toUri();
+    // TODO currently this sends only IDs
+    message_name = "id=" + message_name;
 
     m_logger->info("In Function: {0} sending name {1} to VTOService {2}", __FUNCTION__, message_name, payload);
     // Create a new intra-service message with the payload.
@@ -74,5 +76,6 @@ void SNDSConsumer::onData(const ndn::Interest&, const ndn::Data& data) {
     );
 
     // Dispatch the intra-service message to the service queue for further processing.
+    m_logger->info("In Function: {0} sending message to VTOService Queue...\n{1}", __FUNCTION__, message.get()->printDetails());
     v_to_service->writeMessage(std::move(message));
 }

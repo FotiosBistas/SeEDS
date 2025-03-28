@@ -19,8 +19,8 @@ void HTTPWorker::init() {
         // Retrieve the message content and extract parameters using snds_utils.
         const std::string content = message->getMessage();
         const std::string name    = message->getName();
-        const std::string id      = getFromGETRequest(content, PARAM_ID_TAG);
-        const std::string type    = getFromGETRequest(content, PARAM_TYPE_TAG);
+        std::string id      = getFromGETRequest(content, PARAM_ID_TAG);
+        std::string type    = getFromGETRequest(content, PARAM_TYPE_TAG);
         std::string subUrl        = getURLfromSubscription(content);
         bool isSub                = isSubscriptionRequest(content);
 
@@ -31,8 +31,12 @@ void HTTPWorker::init() {
         }
 
         if (id.empty() && type.empty()) {
-            m_logger->warn("Both ID and Type parameters are empty in GET request.");
-            continue; // Skip processing this message
+            m_logger->warn("Both ID and Type parameters are empty in GET request. Hopefully name is filled...");
+            //TODO currently this is a message only received by Consumer
+            // sends back the ID to remove it from pending IDs
+            id      = getFromGETRequest(name, PARAM_ID_TAG);
+            type    = getFromGETRequest(name, PARAM_TYPE_TAG);
+            //continue; // Skip processing this message
         }
 
         m_logger->debug("Extracted ID: {}", id);
@@ -159,8 +163,12 @@ void HTTPWorker::processByIDRequest(const std::string& id, const bool subscripti
 }
 
 void HTTPWorker::processByIDResponse(const std::string& name){
-    m_logger->info("Subscription response received...");
-    if(pendingGetByIDreqs.erase(name) > 0){
+    m_logger->info("Subscription response with name {} received...", name);
+    auto temp = std::string(name);
+    removeIdPrefix(temp);
+    m_logger->debug("Checking if PendingGetByIDreqs contains {}...", temp);
+
+    if(pendingGetByIDreqs.erase(temp) > 0){
         m_logger->info("Got successfully data for previous requestByID. Removing state...");
         return; 
     }
@@ -197,7 +205,10 @@ void HTTPWorker::processByTYPERequest(const std::string& type, const bool subscr
 void HTTPWorker::processByTYPEResponse(const std::string& name){
     //TODO yes here type is an ID
     // i'm not sure why
-    m_logger->info("Subscription request received...");
+    m_logger->info("Subscription request received for name {}...", name);
+    auto temp = std::string(name);
+    removeIdPrefix(temp);
+    ensureLeadingSlash(temp);
     if(!pendingTypesForIDMap.contains(name)){
         m_logger->info("Name {} is not in pendingTypesForIDMap", name);
         return; 

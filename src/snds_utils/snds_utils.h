@@ -11,6 +11,9 @@
 #include <stdexcept>    // for std::length_error, std::invalid_argument, std::out_of_range
 #include <unordered_set>
 
+void removeIdPrefix(std::string& input);
+void removeTypePrefix(std::string& input);
+
 /**
  * @brief Computes the responsible SNDS node ID for a given subscription name.
  *

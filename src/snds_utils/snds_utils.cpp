@@ -7,6 +7,20 @@ unsigned getSNDSNodeForSubscription(const std::string& name, int numberOfSNDSSer
     return hash_value % numberOfSNDSServices;
 }
 
+void removeIdPrefix(std::string& input) {
+    constexpr std::string_view prefix = "id=";
+    if (input.compare(0, prefix.size(), prefix) == 0) {
+        input.erase(0, prefix.size());
+    }
+}
+
+void removeTypePrefix(std::string& input) {
+    constexpr std::string_view prefix = "type=";
+    if (input.compare(0, prefix.size(), prefix) == 0) {
+        input.erase(0, prefix.size());
+    }
+}
+
 std::string getFromGETRequest(std::string_view url, std::string_view tag) {
     constexpr std::string_view delimiter = "&";
     constexpr std::string_view assignSymbol = "=";
