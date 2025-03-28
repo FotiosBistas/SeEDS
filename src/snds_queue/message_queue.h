@@ -35,6 +35,8 @@ public:
      */
     std::unique_ptr<SNDS_INTRA_MESSAGE> readMessage();
 
+    std::unique_ptr<SNDS_INTRA_MESSAGE> tryReadMessage(); // Non-blocking
+
     /**
      * @brief Writes a message to the queue.
      *

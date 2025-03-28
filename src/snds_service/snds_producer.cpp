@@ -47,12 +47,13 @@ void SNDSProducer::init(){
   // Optionally register a certificate filter (if needed)
   ndn::security::Certificate cert;
   try {
-      cert = m_keyChain.getPib().getDefaultIdentity().getDefaultKey().getDefaultCertificate();
-      m_certServeHandle = m_face.setInterestFilter(
-          ndn::security::extractIdentityFromCertName(cert.getName()),
-          [this, cert] (auto&&...) { m_face.put(cert); }, // Ensure correct lambda signature
-          std::bind(&SNDSProducer::onRegisterFailed, this, std::placeholders::_1, std::placeholders::_2)
-      );
+    cert = m_keyChain.getPib().getDefaultIdentity().getDefaultKey().getDefaultCertificate();
+    m_certServeHandle = m_face.setInterestFilter(
+      ndn::security::extractIdentityFromCertName(cert.getName()),
+      [this, cert] (auto&&...) {
+        m_face.put(cert);
+      },
+    std::bind(&SNDSProducer::onRegisterFailed, this, _1, _2));
   } catch (const ndn::security::pib::Pib::Error &e) {
       m_logger->error("No default identity found: {}", e.what());
       return;
@@ -63,17 +64,24 @@ void SNDSProducer::init(){
 
   // Run the loop until 'running' is false.
   while (running.load()) {
-      m_logger->debug("Reading packet...");
+      // m_logger->debug("Reading packet...");
       // Process events non-blockingly (or with a timeout)
-      m_face.processEvents(ndn::time::milliseconds(1000)); // Process for 1 second
+      m_face.processEvents(ndn::time::seconds(2)); // Process for 1 second
 
-        // Check if there are messages to process for advertisement
-        std::unique_ptr<SNDS_INTRA_MESSAGE> message = v_to_producer->readMessage();
+      //// Check if there are messages to process for advertisement
+      //std::unique_ptr<SNDS_INTRA_MESSAGE> message = v_to_producer->readMessage();
 
-        if (message == nullptr) {
-            m_logger->debug("Queue shutdown detected, exiting loop.");
-            break;
-        }
+      //if (message == nullptr) {
+      //    m_logger->debug("Queue shutdown detected, exiting loop.");
+      //    break;
+      //}
+
+      // Check if there are messages to process for advertisement
+      std::unique_ptr<SNDS_INTRA_MESSAGE> message = v_to_producer->tryReadMessage();
+
+      if (message == nullptr) {
+        continue;
+      }
 
       m_logger->info("Got new advertisement request...\n{}", message.get()->printDetails());
       auto content = message.get()->getMessage();
@@ -95,10 +103,10 @@ void SNDSProducer::onInterest(const ndn::Interest& interest) {
   ndn::Name name = interest.getName();
   m_logger->info("Received in function: {0}, name: {1}", __FUNCTION__, name.toUri());
 
-  if (name.size() < 2) {
-    m_logger->warn("Interest name {} in {} is too short. Ignoring...", name.toUri(), __FUNCTION__);
-    return;
-  }
+  //if (name.size() < 2) {
+  //  m_logger->warn("Interest name {} in {} is too short. Ignoring...", name.toUri(), __FUNCTION__);
+  //  return;
+  //}
 
   ParsedInterest pi = parseInterestName(name);
 
@@ -133,10 +141,8 @@ void SNDSProducer::onInterest(const ndn::Interest& interest) {
   }
 
   //TODO I don't think this is correct
-  if (pi.params.empty()) {
-    processLocalIdRequest(pi);
-    return;
-  }
+  //TODO figure out the new if statement here
+  processLocalIdRequest(pi);
 
   m_logger->warn("Interest left unprocessed. No matching handler found.");
 }

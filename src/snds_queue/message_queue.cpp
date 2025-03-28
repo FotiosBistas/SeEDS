@@ -15,6 +15,18 @@ std::unique_ptr<SNDS_INTRA_MESSAGE> MessageQueue::readMessage() {
     return msg;
 }
 
+std::unique_ptr<SNDS_INTRA_MESSAGE> MessageQueue::tryReadMessage() {
+    std::lock_guard<std::mutex> lock(mtx);
+
+    if (queue.empty()) {
+        return nullptr;
+    }
+
+    auto msg = std::move(queue.front());
+    queue.pop_front();
+    return msg;
+}
+
 void MessageQueue::writeMessage(std::unique_ptr<SNDS_INTRA_MESSAGE> msg) {
     {
         // Lock the queue before modifying it and release when we go outside of scope.
