@@ -78,11 +78,38 @@ if(NOT nfd_POPULATED)
 endif()
 
 #####################################################################
+# Fetch and build ndn-tools
+#####################################################################
+FetchContent_Declare(
+  ndn-tools
+  GIT_REPOSITORY https://github.com/named-data/ndn-tools.git
+  GIT_TAG master
+  SOURCE_DIR ${CMAKE_BINARY_DIR}/ndn-tools/
+)
+
+FetchContent_GetProperties(ndn-tools)
+if(NOT ndn-tools_POPULATED)
+  FetchContent_Populate(ndn-tools)
+
+  add_custom_target(ndn-tools-build ALL
+    COMMAND ${CMAKE_COMMAND} -E env
+      PKG_CONFIG_PATH=${CMAKE_BINARY_DIR}/ndn-cxx/install/lib/pkgconfig
+      ./waf configure
+    COMMAND ./waf
+    COMMAND sudo ./waf install
+    DEPENDS ndn-cxx-build
+    WORKING_DIRECTORY ${ndn-tools_SOURCE_DIR}
+    COMMENT "Building ndn-tools via waf"
+  )
+endif()
+
+#####################################################################
 # Export environment paths for NFD and ndn-cxx
 #####################################################################
 set(NFD_BIN_DIR "${CMAKE_BINARY_DIR}/NFD/install/bin")
 set(NDN_CXX_BIN_DIR "${CMAKE_BINARY_DIR}/ndn-cxx/install/bin")
 set(NDN_CXX_LIB_DIR "${CMAKE_BINARY_DIR}/ndn-cxx/install/lib")
+set(NDN_TOOLS_BIN_DIR "${CMAKE_BINARY_DIR}/ndn-tools/install/bin")
 set(BASHRC "$ENV{HOME}/.bashrc")
 
 # Only update .bashrc if needed
@@ -92,6 +119,11 @@ file(READ "${BASHRC}" BASHRC_CONTENT)
 if(NOT BASHRC_CONTENT MATCHES "${NFD_BIN_DIR}")
   file(APPEND "${BASHRC}" "\n# Added by SeEDS CMake for local NFD build\n")
   file(APPEND "${BASHRC}" "export PATH=\$PATH:${NFD_BIN_DIR}:${NDN_CXX_BIN_DIR}\n")
+endif()
+
+
+if(NOT BASHRC_CONTENT MATCHES "${NDN_TOOLS_BIN_DIR}")
+  file(APPEND "${BASHRC}" "export PATH=\$PATH:${NDN_TOOLS_BIN_DIR}\n")
 endif()
 
 # Append LD_LIBRARY_PATH
