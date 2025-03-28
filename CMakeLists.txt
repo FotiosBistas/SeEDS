@@ -4,7 +4,17 @@ cmake_minimum_required(VERSION 3.10)
 # Project name and language
 project(SeEDS LANGUAGES CXX)
 
-enable_testing()
+find_package(PkgConfig REQUIRED)
+
+# Find libpcap
+pkg_check_modules(PCAP REQUIRED libpcap)
+include_directories(${PCAP_INCLUDE_DIRS})
+link_directories(${PCAP_LIBRARY_DIRS})
+
+# Find libsystemd
+pkg_check_modules(SYSTEMD REQUIRED libsystemd)
+include_directories(${SYSTEMD_INCLUDE_DIRS})
+link_directories(${SYSTEMD_LIBRARY_DIRS})
 
 # Specify the C++ standard
 set(CMAKE_CXX_STANDARD 20)
@@ -20,25 +30,50 @@ FetchContent_Declare(
   ndn-cxx
   GIT_REPOSITORY https://github.com/named-data/ndn-cxx.git
   GIT_TAG master
-  SOURCE_DIR ${CMAKE_BINARY_DIR}/ndn-cxx/src
+  SOURCE_DIR ${CMAKE_BINARY_DIR}/ndn-cxx/
 )
 
 FetchContent_GetProperties(ndn-cxx)
 if(NOT ndn-cxx_POPULATED)
   FetchContent_Populate(ndn-cxx)
 
-  # Add custom target to build and install ndn-cxx using the waf build system
   add_custom_target(ndn-cxx-build ALL
-    COMMAND python3 ${ndn-cxx_SOURCE_DIR}/waf configure --prefix=${ndn-cxx_BINARY_DIR}/install
-    COMMAND python3 ${ndn-cxx_SOURCE_DIR}/waf
-    COMMAND python3 ${ndn-cxx_SOURCE_DIR}/waf install
+    COMMAND ./waf configure --prefix=${CMAKE_BINARY_DIR}/ndn-cxx/install
+    COMMAND ./waf
+    COMMAND ./waf install
     WORKING_DIRECTORY ${ndn-cxx_SOURCE_DIR}
+    COMMENT "Building ndn-cxx via waf"
   )
 endif()
 
-# Set ndn-cxx include and library directories.
-set(NDN_CXX_INCLUDE_DIR ${ndn-cxx_BINARY_DIR}/install/include)
-set(NDN_CXX_LIBRARY_DIR ${ndn-cxx_BINARY_DIR}/install/lib)
+set(NDN_CXX_INCLUDE_DIR ${CMAKE_BINARY_DIR}/ndn-cxx/install/include)
+set(NDN_CXX_LIBRARY_DIR ${CMAKE_BINARY_DIR}/ndn-cxx/install/lib)
+#####################################################################
+# Fetch and build NFD
+#####################################################################
+FetchContent_Declare(
+  nfd
+  GIT_REPOSITORY https://github.com/named-data/NFD.git
+  GIT_TAG master
+  GIT_SUBMODULES_RECURSE TRUE
+)
+
+FetchContent_GetProperties(nfd)
+if(NOT nfd_POPULATED)
+  FetchContent_Populate(nfd)
+
+  message(STATUS "NFD source dir: ${nfd_SOURCE_DIR}")
+
+  add_custom_target(nfd-build ALL
+    COMMAND ${CMAKE_COMMAND} -E env PKG_CONFIG_PATH=${CMAKE_BINARY_DIR}/ndn-cxx/install/lib/pkgconfig
+            ./waf configure --prefix=${CMAKE_BINARY_DIR}/NFD/install
+    COMMAND ./waf
+    COMMAND ./waf install
+    WORKING_DIRECTORY ${nfd_SOURCE_DIR}
+    COMMENT "Building NFD via waf"
+  )
+
+endif()
 
 #####################################################################
 # Fetch and add spdlog (thread-safe logging library)
@@ -244,3 +279,49 @@ target_link_libraries(old_snds_service_bin PRIVATE
 )
 
 add_dependencies(old_snds_service_bin ndn-cxx-build)
+
+#####################################################################
+# Build standalone consumer executable
+#####################################################################
+add_executable(consumer_bin ${CMAKE_SOURCE_DIR}/src/consumer.cpp)
+
+target_include_directories(consumer_bin PRIVATE
+    ${SNDS_SERVICE_DIR}
+    ${SNDS_QUEUE_DIR}
+    ${SNDS_MESSAGE_DIR}
+    ${NDN_CXX_INCLUDE_DIR}
+    ${cpp-httplib_SOURCE_DIR}
+    ${SNDS_UTILS_DIR}
+)
+
+target_link_libraries(consumer_bin PRIVATE
+    snds_service
+    message_queue
+    ${NDN_CXX_LIBRARY_DIR}/libndn-cxx.so
+    spdlog::spdlog
+)
+
+add_dependencies(consumer_bin ndn-cxx-build)
+
+#####################################################################
+# Build standalone producer executable
+#####################################################################
+add_executable(producer_bin ${CMAKE_SOURCE_DIR}/src/producer.cpp)
+
+target_include_directories(producer_bin PRIVATE
+    ${SNDS_SERVICE_DIR}
+    ${SNDS_QUEUE_DIR}
+    ${SNDS_MESSAGE_DIR}
+    ${NDN_CXX_INCLUDE_DIR}
+    ${cpp-httplib_SOURCE_DIR}
+    ${SNDS_UTILS_DIR}
+)
+
+target_link_libraries(producer_bin PRIVATE
+    snds_service
+    message_queue
+    ${NDN_CXX_LIBRARY_DIR}/libndn-cxx.so
+    spdlog::spdlog
+)
+
+add_dependencies(producer_bin ndn-cxx-build)
