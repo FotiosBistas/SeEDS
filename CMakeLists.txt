@@ -51,6 +51,7 @@ set(NDN_CXX_LIBRARY_DIR ${CMAKE_BINARY_DIR}/ndn-cxx/install/lib)
 #####################################################################
 # Fetch and build NFD
 #####################################################################
+
 FetchContent_Declare(
   nfd
   GIT_REPOSITORY https://github.com/named-data/NFD.git
@@ -69,6 +70,7 @@ if(NOT nfd_POPULATED)
             ./waf configure --prefix=${CMAKE_BINARY_DIR}/NFD/install
     COMMAND ./waf
     COMMAND ./waf install
+    DEPENDS ndn-cxx-build
     WORKING_DIRECTORY ${nfd_SOURCE_DIR}
     COMMENT "Building NFD via waf"
   )
@@ -108,6 +110,15 @@ endif()
 message(STATUS "✅ Exported NFD and ndn-cxx to PATH and LD_LIBRARY_PATH in ~/.bashrc")
 message(STATUS "👉 Please run: source ~/.bashrc")
 
+# Ensure nfd.conf exists by copying from nfd.conf.sample
+set(NFD_CONF_DIR "${CMAKE_BINARY_DIR}/NFD/install/etc/ndn")
+set(NFD_CONF_SRC "${NFD_CONF_DIR}/nfd.conf.sample")
+set(NFD_CONF_DEST "${NFD_CONF_DIR}/nfd.conf")
+
+if(EXISTS "${NFD_CONF_SRC}" AND NOT EXISTS "${NFD_CONF_DEST}")
+  file(COPY "${NFD_CONF_SRC}" DESTINATION "${NFD_CONF_DIR}")
+  file(RENAME "${NFD_CONF_SRC}" "${NFD_CONF_DEST}")
+endif()
 
 # Add convenience shell script to launch NFD with correct LD_LIBRARY_PATH
 set(NFD_RUNNER_PATH "${CMAKE_BINARY_DIR}/run-nfd.sh")
@@ -118,10 +129,14 @@ file(APPEND "${NFD_RUNNER_PATH}" "export LD_LIBRARY_PATH=\$LD_LIBRARY_PATH:${NDN
 file(APPEND "${NFD_RUNNER_PATH}" "exec ${CMAKE_BINARY_DIR}/NFD/install/bin/nfd \"\$@\"\n")
 
 # Set executable permissions (755)
-file(CALL "${CMAKE_COMMAND}" -E chmod +x "${NFD_RUNNER_PATH}")
+file(CHMOD "${NFD_RUNNER_PATH}" PERMISSIONS
+  OWNER_READ OWNER_WRITE OWNER_EXECUTE
+  GROUP_READ GROUP_EXECUTE
+  WORLD_READ WORLD_EXECUTE
+)
 
 message(STATUS "🛠  Created helper script to run NFD: ${NFD_RUNNER_PATH}")
-message(STATUS "👉  You can run it like this: ./run-nfd.sh")
+message(STATUS "👉  You can run it like this: sudo ./run-nfd.sh")
 
 
 #####################################################################
