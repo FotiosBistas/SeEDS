@@ -10,6 +10,7 @@
 #include <span>         // for std::span (C++20)
 #include <stdexcept>    // for std::length_error, std::invalid_argument, std::out_of_range
 #include <unordered_set>
+#include <spdlog/spdlog.h>
 
 void removeIdPrefix(std::string& input);
 void removeTypePrefix(std::string& input);
@@ -110,7 +111,7 @@ like (@yannisT):
 
 - Second ID: length 3, content "bus"
 */ 
-std::vector<std::string> parseIDsFromRegistryFilePayload(std::span<const uint8_t> payload);
+std::vector<std::string> parseIDsFromRegistryFilePayload(std::span<const uint8_t> payload, std::shared_ptr<spdlog::logger> logger = nullptr);
 
 /**
  * @brief Serializes a set of IDs into a binary payload.

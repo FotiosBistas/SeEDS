@@ -61,44 +61,74 @@ std::string getSNDSNodeScopeNameForSubscription(const std::string& id, const std
     return prefix + std::to_string(nodeIndex);
 }
 
-std::vector<std::string> parseIDsFromRegistryFilePayload(std::span<const uint8_t> payload) {
-
+std::vector<std::string> parseIDsFromRegistryFilePayload(
+    std::span<const uint8_t> payload,
+    std::shared_ptr<spdlog::logger> logger) 
+{
     //Points to the place where the header ends
     constexpr size_t header_size = 2; 
     if (payload.size() <= header_size) {
+        if (logger) {
+            logger->error("Payload too short to contain header. Size: {}", payload.size());
+        }         
         throw std::invalid_argument("Payload too short to contain header.");
     }
 
     size_t offset = header_size;
+
     // TODO 2^8 maximum IDS good idea?
     // Use uint8_t here to ensure you can read only 1 byte
     const uint8_t number_of_ids = payload[offset++];
+
+    if (logger) {
+        logger->debug("Number of IDs in payload: {}", number_of_ids);
+    } 
+
     std::vector<std::string> ids;
     // Preallocate space in the vector
     ids.reserve(number_of_ids);
 
-    for(uint8_t i = 0; i < number_of_ids; i++){
+    for (uint8_t i = 0; i < number_of_ids; i++) {
         if (offset >= payload.size()) {
+            if (logger) {
+                logger->error("Payload truncated before reading ID size. Offset: {}, Size: {}", offset, payload.size());
+            }             
             throw std::out_of_range("Payload truncated before reading ID size.");
         }
+
         // Request should contain the size of the ID after
         // For example if the size is 3 we should read 3 bytes
         const uint8_t size_of_id = payload[offset++];
 
-        if(offset + size_of_id > payload.size()){
+        if (logger) {
+            logger->debug("Reading ID #{} with size {}", i + 1, size_of_id);
+        } 
+
+        if (offset + size_of_id > payload.size()) {
+            if (logger) {
+                logger->error("Payload truncated before reading entire ID. Offset: {}, Needed: {}, Size: {}", offset, size_of_id, payload.size());
+            }             
             throw std::out_of_range("Payload truncated before reading entire ID.");
         }
+
         // Parse the payload from the index you are currently at 
         // Until the size of the id
-        std::string_view id(reinterpret_cast<const char*>(payload.data()+offset), size_of_id);
+        std::string_view id(reinterpret_cast<const char*>(payload.data() + offset), size_of_id);
+
         // Advance the index
         offset = offset + size_of_id;
+
         // Push back
         ids.emplace_back(id);
+
+        if (logger) {
+            logger->info("Parsed ID #{}: {}", i + 1, id);
+        }     
     }
 
     return ids;
 }
+
 
 std::vector<std::byte> serializeRegistryFilePayload(const std::unordered_set<std::string>& ids){
 

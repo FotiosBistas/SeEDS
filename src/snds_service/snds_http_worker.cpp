@@ -259,7 +259,8 @@ void HTTPWorker::processRegistryFileRequest(const std::string& payload, const st
         std::span<const uint8_t>(
             reinterpret_cast<const uint8_t*>(payload.data()),
             payload.size()
-        )
+        ),
+        m_logger
     );
     
     m_logger->info("Size of ids in registry file: {}", ids.size());

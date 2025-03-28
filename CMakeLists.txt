@@ -237,7 +237,12 @@ set(SNDS_UTILS_SOURCES
 )
 
 add_library(snds_utils STATIC ${SNDS_UTILS_SOURCES})
-target_include_directories(snds_utils PUBLIC ${SNDS_UTILS_DIR})
+target_include_directories(snds_utils PUBLIC
+  ${SNDS_UTILS_DIR}
+  ${spdlog_SOURCE_DIR}/include
+)
+target_link_libraries(snds_utils PUBLIC spdlog::spdlog)
+
 
 #####################################################################
 # Build the snds_service static library (excluding main.cpp)

@@ -144,7 +144,7 @@ void SNDSProducer::onInterest(const ndn::Interest& interest) {
   //TODO figure out the new if statement here
   processLocalIdRequest(pi);
 
-  m_logger->warn("Interest left unprocessed. No matching handler found.");
+  //m_logger->warn("Interest left unprocessed. No matching handler found.");
 }
 
 void SNDSProducer::processTypeAdvertisement(ParsedInterest& interest) {
@@ -231,6 +231,7 @@ void SNDSProducer::processRegistryRequest(ParsedInterest& interest) {
   }
 
   std::vector<std::byte> byte_vector = serializeRegistryFilePayload(iter->second);
+
   std::string payload(reinterpret_cast<const char*>(byte_vector.data()), byte_vector.size());
 
   m_logger->info("Sending registry file payload for type {}.", base_type);
@@ -288,7 +289,7 @@ void SNDSProducer::processLocalIdRequest(ParsedInterest& interest) {
   auto it = locallyAnnouncedIDsMap.find(local_id);
   if (it != locallyAnnouncedIDsMap.end()) {
     m_logger->info("Local ID request for {} found. Sending associated data.", local_id);
-    sendData(toName(interest), it->second);
+    sendData(toName(interest), "id="+it->second);
     return;
   }
 }

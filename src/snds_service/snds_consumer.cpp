@@ -47,7 +47,7 @@ void SNDSConsumer::onData(const ndn::Interest&, const ndn::Data& data) {
 
     // Convert the data content into a string.
     std::string payload(reinterpret_cast<const char*>(data.getContent().data()), data.getContent().size());
-    m_logger->info("Data packet payload: \"{}\"", payload);
+    m_logger->info("Data packet payload: {0} in function {1}", payload, __FUNCTION__);
 
     // Ensure the Data name has at least two components.
     if (data.getName().size() < 2) {
@@ -76,6 +76,5 @@ void SNDSConsumer::onData(const ndn::Interest&, const ndn::Data& data) {
     );
 
     // Dispatch the intra-service message to the service queue for further processing.
-    m_logger->info("In Function: {0} sending message to VTOService Queue...\n{1}", __FUNCTION__, message.get()->printDetails());
     v_to_service->writeMessage(std::move(message));
 }
