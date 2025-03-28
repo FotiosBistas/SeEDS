@@ -29,6 +29,7 @@ void SNDSConsumer::init(){
         interestName.appendVersion();
         ndn::Interest interest(interestName);
         interest.setMustBeFresh(true);
+        interest.setCanBePrefix(true);
         interest.setInterestLifetime(ndn::time::milliseconds(6000)); 
         m_logger->info("Sending actual Interest {}", interest.toUri().c_str());
 

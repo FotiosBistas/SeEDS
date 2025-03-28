@@ -1,6 +1,0 @@
-[submodule "external/ndn-cxx"]
-	path = external/ndn-cxx
-	url = https://github.com/named-data/ndn-cxx.git
-[submodule "external/NFD"]
-	path = external/NFD
-	url = https://github.com/named-data/NFD.git
