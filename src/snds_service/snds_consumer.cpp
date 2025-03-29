@@ -61,6 +61,23 @@ void SNDSConsumer::onData(const ndn::Interest&, const ndn::Data& data) {
         return;
     }
 
+    if (data.getName().toUri().find(m_registryFilePostfix) != std::string::npos){
+        m_logger->info("Received Registry Request");
+        std::string message_name = data.getName().at(1).toUri();
+        message_name = "type=" + message_name;
+        m_logger->info("In Function: {0} sending name {1} to VTOService {2}", __FUNCTION__, message_name, payload);
+        // Create a new intra-service message with the payload.
+        auto message = std::make_unique<SNDS_INTRA_MESSAGE>(
+            std::move(payload),
+            SNDS_INTRA_MESSAGE_TYPE::BY_TYPE_RESPONSE, //TODO not sure this is correct
+            SNDS_CLIENT_TYPES::CONSUMER,
+            message_name.c_str()
+        );
+        // Dispatch the intra-service message to the service queue for further processing.
+        v_to_service->writeMessage(std::move(message));
+        return;
+    }
+
     // Extract the second component of the Data name, which is used as the intra-message name.
     std::string message_name = data.getName().at(1).toUri();
     // TODO currently this sends only IDs

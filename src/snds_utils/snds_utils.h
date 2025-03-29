@@ -132,4 +132,17 @@ std::vector<std::string> parseIDsFromRegistryFilePayload(std::span<const uint8_t
  */
 std::vector<std::byte> serializeRegistryFilePayload(const std::unordered_set<std::string>& ids);
 
+/**
+ * @brief Checks whether a binary payload is marked as a registry response.
+ *
+ * This function looks for a leading byte equal to 'R' (0x52) as a magic identifier.
+ * You can extend it later to support more types with additional marker bytes.
+ *
+ * @param payload A span of bytes containing the full payload.
+ * @return true if it's a registry response, false otherwise.
+ */
+inline bool isRegistryPayload(std::span<const std::byte> payload) {
+    return payload.size() >= 1 && payload[0] == std::byte{'R'};
+}
+
 #endif // SNDS_UTILS_H

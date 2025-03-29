@@ -230,7 +230,10 @@ void SNDSProducer::processRegistryRequest(ParsedInterest& interest) {
     return;
   }
 
-  std::vector<std::byte> byte_vector = serializeRegistryFilePayload(iter->second);
+  std::vector<std::byte> byte_vector;
+  byte_vector.push_back(std::byte{'R'});  // registry response marker
+  byte_vector.push_back(std::byte{0x00}); // reserved/future use
+  byte_vector = serializeRegistryFilePayload(iter->second);
 
   std::string payload(reinterpret_cast<const char*>(byte_vector.data()), byte_vector.size());
 

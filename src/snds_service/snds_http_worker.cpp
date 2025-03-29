@@ -19,8 +19,8 @@ void HTTPWorker::init() {
         // Retrieve the message content and extract parameters using snds_utils.
         const std::string content = message->getMessage();
         const std::string name    = message->getName();
-        std::string id      = getFromGETRequest(content, PARAM_ID_TAG);
-        std::string type    = getFromGETRequest(content, PARAM_TYPE_TAG);
+        std::string id            = getFromGETRequest(content, PARAM_ID_TAG);
+        std::string type          = getFromGETRequest(content, PARAM_TYPE_TAG);
         std::string subUrl        = getURLfromSubscription(content);
         bool isSub                = isSubscriptionRequest(content);
 
@@ -204,51 +204,53 @@ void HTTPWorker::processByTYPERequest(const std::string& type, const bool subscr
 
 void HTTPWorker::processByTYPEResponse(const std::string& name){
     //TODO yes here type is an ID
+    // in the end I guess not
     // i'm not sure why
     m_logger->info("Subscription request received for name {}...", name);
     auto temp = std::string(name);
-    removeIdPrefix(temp);
-    ensureLeadingSlash(temp);
-    if(!pendingTypesForIDMap.contains(name)){
-        m_logger->info("Name {} is not in pendingTypesForIDMap", name);
+    //removeTypePrefix(temp);
+    //ensureLeadingSlash(temp);
+    if(!pendingIDsForTypeMap.contains(name)){
+        m_logger->info("Name {} is not in pendingIDsForTypeMap", name);
         return; 
     }
+    m_logger->info("Name {} is in pendingIDsForTypeMap", name);
     // This gets us the types for an ID
-    auto& types = pendingTypesForIDMap.at(name);
-    std::vector<std::string> typesToErase;
+    auto& ids = pendingIDsForTypeMap.at(name);
+    std::vector<std::string> idsToErase;
 
 
-    for(const auto& type: types){
+    for(const auto& id: ids){
 
-        // yes now you use the type to get the IDs
-        auto& ids = pendingIDsForTypeMap.at(type);
-        if(ids.erase(name) < 0){
-            m_logger->info("Could not find id {0} for type {1}", name, type);
+        auto& types = pendingTypesForIDMap.at(id);
+        if(types.erase(name) < 0){
+            m_logger->info("Could not find name {0} for id {1}", name, id);
             //TODO I guess this was originally used for debugging purposes
             m_logger->error("State inconsistency...");
             return;
         }
 
-        if(ids.empty()){
-            m_logger->info("Successfully removed name {0} from the pendingIDsForType for type {1}", name, type);
-            // There are no more pending ids for the type
+        if(types.empty()){
+            m_logger->info("Successfully removed name {0} from the pendingTypesforID for ID {1}", name, id);
+            // There are no more pending types for the id
             // Can safely erase without check since we got the ids
-            pendingTypesForIDMap.erase(type);
+            pendingTypesForIDMap.erase(id);
             // Mark this type to remove from ID
-            typesToErase.push_back(type);      
+            idsToErase.push_back(id);      
 
         }
     }
 
     // Now remove the empty types from the set for this ID
-    for (const auto& type : typesToErase) {
-        m_logger->debug("Removing type {0} from pendingTypesForIDMap for name {1}", type, name);
-        types.erase(type);
+    for (const auto& id: idsToErase) {
+        m_logger->debug("Removing ID {0} from pendingIDsForTypeMap for name {1}", id, name);
+        ids.erase(id);
     }
 
-    if (types.empty()){
+    if (ids.empty()){
+        m_logger->info("Removing name {} from pendingIDsForType since IDs are empty", name);
         // Can safely remove without check 
-        pendingTypesForIDMap.erase(name);
+        pendingIDsForTypeMap.erase(name);
     }
 }
 
