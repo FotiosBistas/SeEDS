@@ -144,8 +144,7 @@ void HTTPWorker::processByIDRequest(const std::string& id, const bool subscripti
 
     auto [_, newRequest] = pendingGetByIDreqs.insert(id);
     if(!newRequest){
-        m_logger->info("Duplicate getByID request for ID: {} ignored.", id);
-        return;
+        m_logger->info("Duplicate getByID request for ID: {} redoing operation.", id);
     }
 
     std::string modifiableId = id;  // Create a modifiable copy
@@ -169,7 +168,15 @@ void HTTPWorker::processByIDResponse(const std::string& name){
     m_logger->debug("Checking if PendingGetByIDreqs contains {}...", temp);
 
     if(pendingGetByIDreqs.erase(temp) > 0){
-        m_logger->info("Got successfully data for previous requestByID. Removing state...");
+        m_logger->info("Got successfull data for previous requestByID. Removing state...");
+        auto message = std::make_unique<SNDS_INTRA_MESSAGE>(
+            "erase=id=" + std::string(temp),
+            SNDS_INTRA_MESSAGE_TYPE::GENERIC,
+            SNDS_CLIENT_TYPES::SERVICE,
+            ""
+        );
+
+        v_to_dt->writeMessage(std::move(message));
         return; 
     }
 }
@@ -185,7 +192,6 @@ void HTTPWorker::processByTYPERequest(const std::string& type, const bool subscr
 
     if (!newRequest){
         m_logger->info("Duplicate getByType request for type: {} ignored.", type);
-        return;
     }
 
     std::string fullType = type + m_registryFilePostfix;
@@ -245,6 +251,15 @@ void HTTPWorker::processByTYPEResponse(const std::string& name){
     for (const auto& id: idsToErase) {
         m_logger->debug("Removing ID {0} from pendingIDsForTypeMap for name {1}", id, name);
         ids.erase(id);
+
+        auto message = std::make_unique<SNDS_INTRA_MESSAGE>(
+            "erase=id=" + std::string(id),
+            SNDS_INTRA_MESSAGE_TYPE::GENERIC,
+            SNDS_CLIENT_TYPES::SERVICE,
+            ""
+        );
+
+        v_to_dt->writeMessage(std::move(message));
     }
 
     if (ids.empty()){

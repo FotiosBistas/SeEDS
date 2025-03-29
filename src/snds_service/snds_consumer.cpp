@@ -61,6 +61,11 @@ void SNDSConsumer::onData(const ndn::Interest&, const ndn::Data& data) {
         return;
     }
 
+    if (payload.find(WARNING_ALREADY_REGISTERED) != std::string::npos){
+        m_logger->info("Got warning for already registered type in {}", __FUNCTION__);
+        return;
+    }
+
     if (data.getName().toUri().find(m_registryFilePostfix) != std::string::npos){
         m_logger->info("Received Registry Request");
         std::string message_name = data.getName().at(1).toUri();

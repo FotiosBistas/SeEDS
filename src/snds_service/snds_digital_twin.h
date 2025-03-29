@@ -26,5 +26,5 @@ public:
 
     void init();
 private:
-	std::vector<std::string> announcedIDsVec; //stores local annnounced ids
+	std::unordered_set<std::string> announcedIDsVec; //stores local annnounced ids
 };

@@ -188,6 +188,8 @@ protected:
 	std::string m_ackTag = "THIS_IS_AN_SNDS_ACK\n";
   std::string PARAM_ID_TAG = "id";
   std::string PARAM_TYPE_TAG = "type";
+  std::string WARNING_ALREADY_REGISTERED = "WARNING_ALREADY_REGISTERED";
+  std::string ERASE_PREFIX = "erase=";
 
 };
 

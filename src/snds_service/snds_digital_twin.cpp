@@ -30,10 +30,23 @@ void DigitalTwin::init(){
         m_logger->debug("Extracted id from message {}", id);
         m_logger->debug("Extracted idScope from message {}", idScope);
 
+        if(content.find(ERASE_PREFIX) != std::string::npos){
+            m_logger->info("Received erase ID command for ID {}...", id);
+            ensureLeadingSlash(id);
+            if(announcedIDsVec.erase(id) > 0){
+                m_logger->debug("Successfully removed ID {}", id);
+            };
+            continue;
+        }
+
         if(!id.empty()){
             m_logger->info("Received by ID get request...");
             ensureLeadingSlash(id);
-            announcedIDsVec.push_back(id);
+            auto [_, new_request] = announcedIDsVec.insert(id);
+            if(!new_request){
+                m_logger->debug("ID {} is already in the announcedIDsVec. Skipping...", id);
+                continue;
+            }
             m_logger->debug("Pushed ID {} to the announced IDs vector...", id);
             auto message1 = std::make_unique<SNDS_INTRA_MESSAGE>(
                 std::string(id),

@@ -177,7 +177,7 @@ void SNDSProducer::processTypeAdvertisement(ParsedInterest& interest) {
 
   if (!inserted) {
     m_logger->warn("ID already registered for type {}. Skipping...", type);
-    std::string warn_message = "WARNING::ID already registered for type {" + type+ "}";
+    std::string warn_message = "WARNING_ALREADY_REGISTERED::ID already registered for type {" + type+ "}";
     sendData(toName(interest), warn_message);
     return;
   }
