@@ -242,11 +242,6 @@ void SNDSProducer::processRegistryRequest(ParsedInterest& interest) {
 }
 
 void SNDSProducer::processNotification(ParsedInterest& interest){
-  // Expect one parameter: ID.
-  if(interest.params.empty()) {
-    m_logger->warn("Missing parameters for interest. Ignoring.");
-    return;
-  }
 
   std::string prepared_name = interest.getParam(0).value_or("Missing parameter");
   ensureLeadingSlash(prepared_name);

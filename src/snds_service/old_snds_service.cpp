@@ -574,7 +574,9 @@ private:
 						//send interest to responsible (for this ID) SNDS node
 						std::string prepared_id = _id; //TODO: make sure all names are "prepared" at all times..
 						prepareName(prepared_id); 
+						log(__FUNCTION__, "Before adding the scopes: " + prepared_id);
 						std::string int_name = getSNDSNodeScopeNameForSubscription(prepared_id)+prepared_id+ID_SCOPE_PREFIX+MY_SNDS_ID;
+						log(__FUNCTION__, "Sending Interest Name to consumer: " + int_name);
 						SNDS_Intra_Msg* msg1 = new SNDS_Intra_Msg(SERVICE, int_name.c_str(), int_name.length());
 						log (__FUNCTION__, "Pushing byID  (ID: \""+_id+"\") request to SNDS node.");
 						writeIntraSNDSMessage(v_to_consumer, m_to_consumer, c_to_consumer, msg1);

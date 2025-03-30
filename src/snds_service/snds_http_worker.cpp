@@ -41,6 +41,8 @@ void HTTPWorker::init() {
 
         m_logger->debug("Extracted ID: {}", id);
         m_logger->debug("Extracted TYPE: {}", type);
+        m_logger->debug("Extracted subURL: {}", subUrl);
+        m_logger->debug("Extracted isSub: {}", isSub);
 
         // Process according to sender type.
         switch (message->getSender()) {
@@ -104,7 +106,7 @@ void HTTPWorker::processSubscriptionRequest(const std::string& id, const std::st
     bool isNewSubscription = subs.insert(subURL).second;
 
     if (isNewSubscription) {
-        m_logger->info("Stored subscription for ID: {}", id);
+        m_logger->info("Stored new subscription for ID: {}", id);
     } else {
         m_logger->info("Duplicate subscription for ID: {} ignored.", id);
     }
@@ -118,7 +120,8 @@ void HTTPWorker::processSubscriptionRequest(const std::string& id, const std::st
         m_logger->info("Pushing getByID subscription interest for ID: {}", preparedID);
 
         // Build the interest name using the scope name and the prepared ID.
-        std::string interestName = getSNDSNodeScopeNameForSubscription(preparedID, m_idScopePrefix, m_numberOfSndsSrvs) + preparedID;
+        // NOTE: you need to append you own SNDS ID that you want to subscribe to
+        std::string interestName = getSNDSNodeScopeNameForSubscription(preparedID, m_idScopePrefix, m_numberOfSndsSrvs) + preparedID + m_idScopePrefix + m_mySndsId;
 
 
         m_logger->info("Created interest name: {}", interestName);
@@ -130,7 +133,7 @@ void HTTPWorker::processSubscriptionRequest(const std::string& id, const std::st
             ""
         );
 
-        m_logger->debug("Sending message to consumer...{}\n", message.get()->printDetails());
+        m_logger->debug("Sending message to consumer...\n{}", message.get()->printDetails());
         v_to_consumer.get()->writeMessage(std::move(message));
     }
 }
