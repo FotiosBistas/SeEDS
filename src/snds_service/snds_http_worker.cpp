@@ -106,9 +106,9 @@ void HTTPWorker::processSubscriptionRequest(const std::string& id, const std::st
     bool isNewSubscription = subs.insert(subURL).second;
 
     if (isNewSubscription) {
-        m_logger->info("Stored new subscription for ID: {}", id);
+        m_logger->info("Stored new subscription for ID: {0} and URL {1}", id, subURL);
     } else {
-        m_logger->info("Duplicate subscription for ID: {} ignored.", id);
+        m_logger->info("Duplicate subscription for ID: {0} and URL {1}. Ignored...", id, subURL);
     }
 
     // Only send the subscription interest if this is the first subscription for the ID.

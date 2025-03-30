@@ -774,6 +774,7 @@ private:
 						for (unsigned t=0; t<sdndsidvec->size(); t++){
 							log(__FUNCTION__, "Need to notify SNDS node: "+ sdndsidvec->at(t));
 							std::string itemName = sdndsidvec->at(t)+prepared_name;
+							log(__FUNCTION__, "Notifying for name: " + itemName);
 							SNDS_Intra_Msg* msg3 = new SNDS_Intra_Msg(ON_INTEREST, itemName.c_str(), itemName.length());
 							writeIntraSNDSMessage(v_to_consumer, m_to_consumer, c_to_consumer, msg3);
 						}

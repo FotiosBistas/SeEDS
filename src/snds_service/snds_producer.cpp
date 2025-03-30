@@ -188,11 +188,6 @@ void SNDSProducer::processTypeAdvertisement(ParsedInterest& interest) {
 
 void SNDSProducer::processSubscription(ParsedInterest& interest) {
 
-  // Expect one parameter: ID.
-  if(interest.params.empty()) {
-    m_logger->warn("Missing parameters for interest. Ignoring.");
-    return;
-  }
 
   // TODO this needs to be modified
   std::string prepared_name    = interest.getParam(0).value_or("Missing parameter");
@@ -200,8 +195,6 @@ void SNDSProducer::processSubscription(ParsedInterest& interest) {
   m_logger->info("Got interest indicating new SUBSCRIPTION getByid for {0} from SNDS_NODE {1}", prepared_name, prepared_snds_id);
   ensureLeadingSlash(prepared_name);
   ensureLeadingSlash(prepared_snds_id);
-
-  m_logger->info("New subscription: ID {0}, SNDS_NODE {1}.", prepared_name, prepared_snds_id);
 
   auto& subscribers = subscribedBYID_SNDSnodes[prepared_name];
 
@@ -272,6 +265,7 @@ void SNDSProducer::processNotification(ParsedInterest& interest){
     v_to_consumer->writeMessage(std::move(message));
   }
 
+  sendData(toName(interest), m_ackTag + " notification_for_new_subscription");
 }
 
 void SNDSProducer::processLocalIdRequest(ParsedInterest& interest) {
