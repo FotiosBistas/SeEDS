@@ -32,10 +32,4 @@ $ curl -i -X GET http://localhost:8080/?id=car1
 
 For subscriptions append the "isSub=true&suburl=MYURL" at the url. Add quotes to all variables e.g., /?"id=car1&isSub=true&suburl=MYURL"
 
-
-==================
-Bugs
-==================
-
-SeqFAULT: Request byType without prior publication leads to seq-fault when making the registry file.
-Unhandled packet: Acks for subscriptions are not handled.
+$ curl -i -X GET http://localhost:8080/?id=car1&isSub=true&suburl=MYURL
