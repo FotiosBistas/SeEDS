@@ -318,6 +318,7 @@ private:
 		  }else{
 			  log (__FUNCTION__, "Pushing byTYPE advertisement to the consumer..");
 			  std::string idscope = getSNDSNodeScopeNameForSubscription(id);
+			  log (__FUNCTION__, "ID scope: " + idscope);
 			  std::string itemName = idscope+"/"+id;
 			  log (__FUNCTION__, itemName.c_str());
 			  SNDS_Intra_Msg* msg3 = new SNDS_Intra_Msg(DT, itemName.c_str(), itemName.length());
@@ -489,6 +490,7 @@ private:
 					log(__FUNCTION__, "Got successfully data for previous requestByID. Removing state");
 					pendingGetByIDreqsVec.erase(iter);
 				}
+				// this will get us the types for an ID
 				auto iter2  = pendingIDsToTypesMap.find(name); // name is id, e.g., car1
 				if (iter2 != pendingIDsToTypesMap.end()){
 					handled = true;
@@ -572,7 +574,9 @@ private:
 						//send interest to responsible (for this ID) SNDS node
 						std::string prepared_id = _id; //TODO: make sure all names are "prepared" at all times..
 						prepareName(prepared_id); 
+						log(__FUNCTION__, "Before adding the scopes: " + prepared_id);
 						std::string int_name = getSNDSNodeScopeNameForSubscription(prepared_id)+prepared_id+ID_SCOPE_PREFIX+MY_SNDS_ID;
+						log(__FUNCTION__, "Sending Interest Name to consumer: " + int_name);
 						SNDS_Intra_Msg* msg1 = new SNDS_Intra_Msg(SERVICE, int_name.c_str(), int_name.length());
 						log (__FUNCTION__, "Pushing byID  (ID: \""+_id+"\") request to SNDS node.");
 						writeIntraSNDSMessage(v_to_consumer, m_to_consumer, c_to_consumer, msg1);
@@ -628,7 +632,7 @@ private:
 		while (true) {
 			///TODO: socket has to be reopened from scratch each packet, otherwise I can only receive post or get packets.. Need to investigate it..
 			boost::asio::io_context io_context;
-			tcp::acceptor acceptor(io_context, {tcp::v4(), 8080});
+			tcp::acceptor acceptor(io_context, {tcp::v4(), 10000});
 			tcp::socket socket(io_context);
 			acceptor.accept(socket);
 
@@ -770,6 +774,7 @@ private:
 						for (unsigned t=0; t<sdndsidvec->size(); t++){
 							log(__FUNCTION__, "Need to notify SNDS node: "+ sdndsidvec->at(t));
 							std::string itemName = sdndsidvec->at(t)+prepared_name;
+							log(__FUNCTION__, "Notifying for name: " + itemName);
 							SNDS_Intra_Msg* msg3 = new SNDS_Intra_Msg(ON_INTEREST, itemName.c_str(), itemName.length());
 							writeIntraSNDSMessage(v_to_consumer, m_to_consumer, c_to_consumer, msg3);
 						}

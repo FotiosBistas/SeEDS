@@ -1,9 +1,19 @@
 #ifndef SNDS_UTILS_H
 #define SNDS_UTILS_H
 
+#include <vector>
 #include <string>
-#include <string_view>
-#include <functional>  // For std::hash
+#include <unordered_set>
+#include <cstddef>      // for std::byte
+#include <cstdint>      // for uint8_t
+#include <cstring>      // for std::memcpy
+#include <span>         // for std::span (C++20)
+#include <stdexcept>    // for std::length_error, std::invalid_argument, std::out_of_range
+#include <unordered_set>
+#include <spdlog/spdlog.h>
+
+void removeIdPrefix(std::string& input);
+void removeTypePrefix(std::string& input);
 
 /**
  * @brief Computes the responsible SNDS node ID for a given subscription name.
@@ -82,6 +92,57 @@ inline bool isSubscriptionRequest(const std::string &url) {
 inline std::string getURLfromSubscription(const std::string &url) {
     constexpr std::string_view SUBURLtag = "suburl";
     return getFromGETRequest(url, SUBURLtag);
+}
+
+//TODO these functions below require their own data type
+/**
+ @brief TODO I have no clue how is this used originally I assume its something
+like (@yannisT): 
+
+- Receive a sample payload:
+
+- Header: "##" (2 bytes, ignored)
+
+- Next byte: number of IDs (2)
+
+- Then, for each ID: one byte for the length and then the ID string.
+
+- First ID: length 3, content "car"
+
+- Second ID: length 3, content "bus"
+*/ 
+std::vector<std::string> parseIDsFromRegistryFilePayload(std::span<const uint8_t> payload, std::shared_ptr<spdlog::logger> logger = nullptr);
+
+/**
+ * @brief Serializes a set of IDs into a binary payload.
+ *
+ * The payload is structured as follows:
+ *   [number_of_ids (1 byte)]
+ *   [id1_length (1 byte)] [id1 bytes...]
+ *   [id2_length (1 byte)] [id2 bytes...]
+ *   ...
+ *
+ * - The first byte holds the number of IDs (max 255).
+ * - Each ID is preceded by a 1-byte length (max length 255).
+ *
+ * @param ids An unordered_set of strings representing the IDs.
+ * @return A vector of std::byte containing the binary payload.
+ *
+ * @throws std::length_error if the number of IDs exceeds 255 or any ID's length exceeds 255.
+ */
+std::vector<std::byte> serializeRegistryFilePayload(const std::unordered_set<std::string>& ids);
+
+/**
+ * @brief Checks whether a binary payload is marked as a registry response.
+ *
+ * This function looks for a leading byte equal to 'R' (0x52) as a magic identifier.
+ * You can extend it later to support more types with additional marker bytes.
+ *
+ * @param payload A span of bytes containing the full payload.
+ * @return true if it's a registry response, false otherwise.
+ */
+inline bool isRegistryPayload(std::span<const std::byte> payload) {
+    return payload.size() >= 1 && payload[0] == std::byte{'R'};
 }
 
 #endif // SNDS_UTILS_H

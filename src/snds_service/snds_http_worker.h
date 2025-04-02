@@ -3,11 +3,13 @@
 #define SNDS_HTTP_WORKER_H
 
 #include "snds_service_base.h"
-#include <algorithm>  // For std::find
+#include "snds_utils.h"
+#include <algorithm>  
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
 #include <string>
+#include <span>
 
 class HTTPWorker : public ServiceBase {
 public:
@@ -37,14 +39,25 @@ public:
 private:
   // Map for storing subscriptions: id -> list of subscriber URLs
   std::unordered_map<std::string, std::unordered_set<std::string>> subscribedBYID_users;
+  // <type, vector<urls>> maps subscribed types to User URLs
+  // TODO this is not used anywhere
+	std::unordered_map<std::string, std::unordered_set<std::string>> subscribedBYTYPE_users;
+
+  // Used for serving subscription requests
+  std::unordered_map<std::string, std::unordered_set<std::string>> pendingTypesForIDMap;
+  std::unordered_map<std::string, std::unordered_set<std::string>> pendingIDsForTypeMap;
 
   // Unordered sets for deduplicating pending requests.
   std::unordered_set<std::string> pendingGetByIDreqs;
   std::unordered_set<std::string> pendingGetByTYPEreqs;
 
   void processSubscriptionRequest(const std::string& id, const std::string& url);
-  void processByIDRequest(const std::string& id);
-  void processByTYPERequest(const std::string& type);
+  void processByIDRequest(const std::string& id, const bool subscription = false);
+  void processByTYPERequest(const std::string& type, const bool subscription = false);
+  void processByIDResponse(const std::string& name);
+  void processByTYPEResponse(const std::string& name);
+  void processRegistryFileRequest(const std::string& payload, const std::string& name);
+
 };
 
 #endif // SNDS_HTTP_WORKER_H

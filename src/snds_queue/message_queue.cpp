@@ -9,7 +9,19 @@ std::unique_ptr<SNDS_INTRA_MESSAGE> MessageQueue::readMessage() {
     if (queue.empty()) {
         return nullptr;
     }
-    
+
+    auto msg = std::move(queue.front());
+    queue.pop_front();
+    return msg;
+}
+
+std::unique_ptr<SNDS_INTRA_MESSAGE> MessageQueue::tryReadMessage() {
+    std::lock_guard<std::mutex> lock(mtx);
+
+    if (queue.empty()) {
+        return nullptr;
+    }
+
     auto msg = std::move(queue.front());
     queue.pop_front();
     return msg;

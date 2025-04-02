@@ -35,6 +35,8 @@ public:
      */
     std::unique_ptr<SNDS_INTRA_MESSAGE> readMessage();
 
+    std::unique_ptr<SNDS_INTRA_MESSAGE> tryReadMessage(); // Non-blocking
+
     /**
      * @brief Writes a message to the queue.
      *
@@ -43,7 +45,7 @@ public:
      *
      * @param msg A unique_ptr to the SNDS_INTRA_MESSAGE to add to the queue.
      */
-    void writeMessage(std::unique_ptr<SNDS_INTRA_MESSAGE> msg);
+    virtual void writeMessage(std::unique_ptr<SNDS_INTRA_MESSAGE> msg);
 
     /**
      * @brief Returns the current size of the queue.

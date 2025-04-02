@@ -1,3 +1,36 @@
+# Compile the project
+
+The below cmake configuration will compile: 
+
+- NFD
+- NFD-tools 
+- ndn-cxx ( the simple version )
+
+
+```
+mkdir build
+cd build
+cmake ..
+make
+```
+
+
+Note that you might need to install the following dependencies: 
+
+```
+sudo apt install libsqlite3-dev
+sudo apt install libpcap-dev
+sudo apt install libsystemd
+sudo apt install libboost-all-dev
+```
+
+Also you probably need to use: 
+
+```
+sudo make
+```
+
+To be able to run NFD.
 # ndn-cxx examples
 
 By default, the examples in `examples/` folder are not built. To enable them, use

@@ -33,7 +33,7 @@ public:
    * @param registryFilePostfix The postfix used for registry file names (default: "_registry").
    * @param ackTag The ack tag for acking data
    */
-  ServiceBase(spdlog::level::level_enum logLevel = spdlog::level::info,
+   ServiceBase(spdlog::level::level_enum logLevel = spdlog::level::info,
             std::string logFile = "ServiceBase.log",
             uint8_t numberOfSndsSrvs = 1,
             std::string sndsPrefix = "/SNDS",
@@ -59,10 +59,11 @@ public:
 
     // Logger initialization
     auto console_sink = std::make_shared<spdlog::sinks::stdout_color_sink_mt>();
-    console_sink->set_pattern("[%Y-%m-%d %H:%M:%S.%e] [%l] %v");
+    // Updated pattern includes [%n] to print the logger's name (i.e., serviceName)
+    console_sink->set_pattern("[%Y-%m-%d %H:%M:%S.%e] [%l] [%n] %v");
 
     auto file_sink = std::make_shared<spdlog::sinks::basic_file_sink_mt>(logFile, true);
-    file_sink->set_pattern("[%Y-%m-%d %H:%M:%S.%e] [%l] %v");
+    file_sink->set_pattern("[%Y-%m-%d %H:%M:%S.%e] [%l] [%n] %v");
 
     std::vector<spdlog::sink_ptr> sinks{ console_sink, file_sink };
     m_logger = std::make_shared<spdlog::logger>(this->serviceName, sinks.begin(), sinks.end());
@@ -72,11 +73,24 @@ public:
     m_logger->info("ServiceBase initialized with serviceName: {}", this->serviceName);
     // Validator setup
     try {
-        m_validator.load("../trust-schema.conf");
+        m_validator.load("./trust-schema.conf");
     } catch (const std::exception& e) {
         m_logger->error("Error loading validator configuration: {}", e.what());
     }
 
+    m_logger->info("========== {} Configuration ==========", this->serviceName);
+    m_logger->info("Log Level: {}", spdlog::level::to_string_view(logLevel));
+    m_logger->info("Log File: {}", logFile);
+    m_logger->info("Number of SNDS Services: {}", m_numberOfSndsSrvs);
+    m_logger->info("SNDS Prefix: {}", m_sndsPrefix);
+    m_logger->info("My SNDS ID: {}", m_mySndsId);
+    m_logger->info("ID Scope Prefix: {}", m_idScopePrefix);
+    m_logger->info("Registry File Postfix: {}", m_registryFilePostfix);
+    m_logger->info("ACK Tag: {}", m_ackTag);
+    m_logger->info("Service Name: {}", this->serviceName);
+    m_logger->info("Computed m_mySndsIdName: {}", m_mySndsIdName);
+    m_logger->info("Computed m_mySndsIdScopeName: {}", m_mySndsIdScopeName);
+    m_logger->info("===============================================");
   }
 
   virtual ~ServiceBase() {
@@ -90,10 +104,12 @@ public:
   virtual void onData(const ndn::Interest&, const ndn::Data& data) {
     // Log the receipt of the Data packet.
     m_logger->info("Received Data with name: {0} in function {1}", data.getName().toUri(), __FUNCTION__);
+
   }
 
   virtual void onNack(const ndn::Interest& interest, const ndn::lp::Nack& nack) {
-    m_logger->info("Received Nack (reason: {})", static_cast<int>(nack.getReason()));
+    m_logger->info("Received Nack (reason: {}) for Interest: {}",
+      static_cast<int>(nack.getReason()), interest.getName().toUri());
   }
 
   virtual void onTimeout(const ndn::Interest& interest) {
@@ -101,6 +117,7 @@ public:
   }
 
   virtual void onRegisterFailed(const ndn::Name& prefix, const std::string& reason){
+    m_logger->error("Failed to register prefix: {0} with the local forwarder ({1})", prefix.toUri(), reason);
     m_logger->error("Failed to register prefix: {0} with the local forwarder ({1})", prefix.toUri(), reason);
 		m_face.shutdown();
   }
@@ -129,9 +146,10 @@ public:
   /**
    * @brief Utility method to send a Data packet with the specified name and payload.
    */
-  inline bool sendData(const ndn::Name& name, std::string payload) {
+  virtual bool sendData(const ndn::Name& name, std::string payload) {
     auto data = std::make_shared<ndn::Data>();
     data->setName(name);
+    data->setFreshnessPeriod(ndn::time::seconds(10));
     data->setContent(std::move(payload));
     m_keyChain.sign(*data);
     m_face.put(*data);
@@ -148,7 +166,7 @@ protected:
   std::atomic<bool> running { true };
 
   // Declare message queues as static, so they are common to all instances.
-  // Using std::unique_ptr for RAII management. 
+  // Using std::unique_ptr for RAII management.
   // TODO this is terrible and should be changed
   static std::unique_ptr<MessageQueue> v_to_proxy;
   static std::unique_ptr<MessageQueue> v_to_dt;
@@ -167,9 +185,11 @@ protected:
   std::string m_mySndsIdScopeName;      // Computed as m_sndsPrefix + m_idScopePrefix + m_mySndsId.
   std::string m_registryFilePostfix;    // e.g., "_registry"
   std::string serviceName;
-	std::string m_ackTag = "THIS_IS_AN_SNDS_ACK\n";
+	std::string m_ackTag = "THIS_IS_AN_SNDS_ACK\r\n";
   std::string PARAM_ID_TAG = "id";
   std::string PARAM_TYPE_TAG = "type";
+  std::string WARNING_ALREADY_REGISTERED = "WARNING_ALREADY_REGISTERED";
+  std::string ERASE_PREFIX = "erase=";
 
 };
 
