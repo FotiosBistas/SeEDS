@@ -16,6 +16,17 @@ pkg_check_modules(SYSTEMD REQUIRED libsystemd)
 include_directories(${SYSTEMD_INCLUDE_DIRS})
 link_directories(${SYSTEMD_LIBRARY_DIRS})
 
+find_package(Boost REQUIRED)
+
+# Include Boost headers
+include_directories(${Boost_INCLUDE_DIRS})
+
+# Find SQLite3
+pkg_check_modules(SQLITE3 REQUIRED sqlite3)
+
+include_directories(${SQLITE3_INCLUDE_DIRS})
+link_directories(${SQLITE3_LIBRARY_DIRS})
+
 # Specify the C++ standard
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
