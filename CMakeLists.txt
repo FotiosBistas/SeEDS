@@ -4,13 +4,6 @@ cmake_minimum_required(VERSION 3.10)
 # Project name and language
 project(SeEDS LANGUAGES CXX)
 
-# ---------------------------------------------
-# Force all libraries to go into ${CMAKE_INSTALL_PREFIX}/lib (not lib64)
-include(GNUInstallDirs)
-set(CMAKE_INSTALL_LIBDIR "lib" CACHE PATH
-    "Install all libraries under PREFIX/lib instead of lib64")
-# ---------------------------------------------
-
 find_package(PkgConfig REQUIRED)
 
 # Find libpcap
@@ -48,7 +41,7 @@ FetchContent_Declare(
   ndn-cxx
   GIT_REPOSITORY https://github.com/named-data/ndn-cxx.git
   GIT_TAG master
-  SOURCE_DIR ${CMAKE_BINARY_DIR}/ndn-cxx/
+  GIT_SHALLOW    TRUE
 )
 
 FetchContent_GetProperties(ndn-cxx)
@@ -56,30 +49,16 @@ if(NOT ndn-cxx_POPULATED)
   FetchContent_Populate(ndn-cxx)
 
   add_custom_target(ndn-cxx-build ALL
+    COMMAND ./waf configure --prefix=${CMAKE_BINARY_DIR}/ndn-cxx/install
     COMMAND ./waf configure
-          --prefix=${CMAKE_BINARY_DIR}/ndn-cxx/install
-          --libdir=${CMAKE_BINARY_DIR}/ndn-cxx/install/lib
+        --prefix=${CMAKE_BINARY_DIR}/ndn-cxx/install
+        --libdir=${CMAKE_BINARY_DIR}/ndn-cxx/install/lib
     COMMAND ./waf
     COMMAND ./waf install
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different
-          ${ndn-cxx_SOURCE_DIR}/examples/trust-schema.conf
-          ${CMAKE_BINARY_DIR}/trust-schema.conf
     WORKING_DIRECTORY ${ndn-cxx_SOURCE_DIR}
     COMMENT "Building ndn-cxx via waf"
   )
 endif()
-
-# ——————————————————————————————————————
-# Copy trust-schema.conf into top-level build/ so our tools can find it
-add_custom_command(
-  TARGET ndn-cxx-build
-  POST_BUILD
-  COMMAND ${CMAKE_COMMAND} -E copy_if_different
-    "${ndn-cxx_SOURCE_DIR}/examples/trust-schema.conf"
-    "${CMAKE_BINARY_DIR}/trust-schema.conf"
-  COMMENT "Copying trust-schema.conf into build dir"
-)
-# ——————————————————————————————————————
 
 set(NDN_CXX_INCLUDE_DIR ${CMAKE_BINARY_DIR}/ndn-cxx/install/include)
 set(NDN_CXX_LIBRARY_DIR ${CMAKE_BINARY_DIR}/ndn-cxx/install/lib)
@@ -92,6 +71,7 @@ FetchContent_Declare(
   GIT_REPOSITORY https://github.com/named-data/NFD.git
   GIT_TAG master
   GIT_SUBMODULES_RECURSE TRUE
+  GIT_SHALLOW          TRUE
 )
 
 FetchContent_GetProperties(nfd)
@@ -102,14 +82,9 @@ if(NOT nfd_POPULATED)
 
   add_custom_target(nfd-build ALL
     COMMAND ${CMAKE_COMMAND} -E env PKG_CONFIG_PATH=${CMAKE_BINARY_DIR}/ndn-cxx/install/lib/pkgconfig
-          ./waf configure
-            --prefix=${CMAKE_BINARY_DIR}/NFD/install
-            --libdir=${CMAKE_BINARY_DIR}/NFD/install/lib
+            ./waf configure --prefix=${CMAKE_BINARY_DIR}/NFD/install
     COMMAND ./waf
     COMMAND ./waf install
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different
-          ${CMAKE_BINARY_DIR}/NFD/install/etc/ndn/nfd.conf.sample
-          ${CMAKE_BINARY_DIR}/NFD/install/etc/ndn/nfd.conf
     DEPENDS ndn-cxx-build
     WORKING_DIRECTORY ${nfd_SOURCE_DIR}
     COMMENT "Building NFD via waf"
@@ -124,7 +99,7 @@ FetchContent_Declare(
   ndn-tools
   GIT_REPOSITORY https://github.com/named-data/ndn-tools.git
   GIT_TAG master
-  SOURCE_DIR ${CMAKE_BINARY_DIR}/ndn-tools/
+  GIT_SHALLOW    TRUE
 )
 
 FetchContent_GetProperties(ndn-tools)
@@ -135,8 +110,6 @@ if(NOT ndn-tools_POPULATED)
     COMMAND ${CMAKE_COMMAND} -E env
       PKG_CONFIG_PATH=${CMAKE_BINARY_DIR}/ndn-cxx/install/lib/pkgconfig
       ./waf configure
-        --prefix=${CMAKE_BINARY_DIR}/ndn-tools/install
-        --libdir=${CMAKE_BINARY_DIR}/ndn-tools/install/lib
     COMMAND ./waf
     COMMAND sudo ./waf install
     DEPENDS ndn-cxx-build
@@ -175,11 +148,10 @@ endif()
 
 # Copy nfd.conf.sample → nfd.conf if it doesn’t exist yet
 set(NFD_CONF_SRC "${CMAKE_BINARY_DIR}/NFD/install/etc/ndn/nfd.conf.sample")
-set(NFD_CONF_DIR "${CMAKE_BINARY_DIR}/NFD/install/etc/ndn")
-set(NFD_CONF_DEST "${NFD_CONF_DIR}/nfd.conf")
+set(NFD_CONF_DEST "${CMAKE_BINARY_DIR}/NFD/install/etc/ndn/nfd.conf")
 if(EXISTS "${NFD_CONF_SRC}" AND NOT EXISTS "${NFD_CONF_DEST}")
-  file(COPY "${NFD_CONF_SRC}" DESTINATION "${NFD_CONF_DIR}")
-  file(RENAME "${NFD_CONF_DIR}/nfd.conf.sample" "${NFD_CONF_DEST}")
+  file(COPY "${NFD_CONF_SRC}" DESTINATION "${CMAKE_BINARY_DIR}/NFD/install/etc/ndn")
+  file(RENAME "${CMAKE_BINARY_DIR}/NFD/install/etc/ndn/nfd.conf.sample" "${NFD_CONF_DEST}")
 endif()
 
 message(STATUS "✅ Exported NFD and ndn-cxx to PATH and LD_LIBRARY_PATH in ~/.bashrc")
