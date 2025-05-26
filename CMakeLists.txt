@@ -41,7 +41,7 @@ FetchContent_Declare(
   ndn-cxx
   GIT_REPOSITORY https://github.com/named-data/ndn-cxx.git
   GIT_TAG master
-  SOURCE_DIR ${CMAKE_BINARY_DIR}/ndn-cxx/
+  GIT_SHALLOW    TRUE
 )
 
 FetchContent_GetProperties(ndn-cxx)
@@ -50,6 +50,9 @@ if(NOT ndn-cxx_POPULATED)
 
   add_custom_target(ndn-cxx-build ALL
     COMMAND ./waf configure --prefix=${CMAKE_BINARY_DIR}/ndn-cxx/install
+    COMMAND ./waf configure
+        --prefix=${CMAKE_BINARY_DIR}/ndn-cxx/install
+        --libdir=${CMAKE_BINARY_DIR}/ndn-cxx/install/lib
     COMMAND ./waf
     COMMAND ./waf install
     WORKING_DIRECTORY ${ndn-cxx_SOURCE_DIR}
@@ -68,6 +71,7 @@ FetchContent_Declare(
   GIT_REPOSITORY https://github.com/named-data/NFD.git
   GIT_TAG master
   GIT_SUBMODULES_RECURSE TRUE
+  GIT_SHALLOW          TRUE
 )
 
 FetchContent_GetProperties(nfd)
@@ -95,7 +99,7 @@ FetchContent_Declare(
   ndn-tools
   GIT_REPOSITORY https://github.com/named-data/ndn-tools.git
   GIT_TAG master
-  SOURCE_DIR ${CMAKE_BINARY_DIR}/ndn-tools/
+  GIT_SHALLOW    TRUE
 )
 
 FetchContent_GetProperties(ndn-tools)
