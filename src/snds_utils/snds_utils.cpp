@@ -1,6 +1,8 @@
 #include "snds_utils.h"
 #include <iostream>
 
+#include <arpa/inet.h>
+
 unsigned getSNDSNodeForSubscription(const std::string& name, int numberOfSNDSServices) {
     std::hash<std::string> hash_fn;
     size_t hash_value = hash_fn(name);
@@ -65,65 +67,47 @@ std::vector<std::string> parseIDsFromRegistryFilePayload(
     std::span<const uint8_t> payload,
     std::shared_ptr<spdlog::logger> logger) 
 {
-    //Points to the place where the header ends
-    constexpr size_t header_size = 2; 
-    if (payload.size() <= header_size) {
-        if (logger) {
-            logger->error("Payload too short to contain header. Size: {}", payload.size());
-        }         
-        throw std::invalid_argument("Payload too short to contain header.");
+    // We expect at least 2 bytes for the 16-bit “number_of_ids”
+    if (payload.size() < 2) {
+        if (logger) logger->error("Registry payload too short to read ID count.");
+        throw std::out_of_range("Registry payload too short.");
     }
 
-    size_t offset = header_size;
+    size_t offset = 0;
 
-    // TODO 2^8 maximum IDS good idea?
-    // Use uint8_t here to ensure you can read only 1 byte
-    const uint8_t number_of_ids = payload[offset++];
+    // 1) Read the 2-byte count (big-endian)
+    uint16_t netCount;
+    std::memcpy(&netCount, payload.data() + offset, 2);
+    uint16_t count = ntohs(netCount);
+    offset += 2;
 
-    if (logger) {
-        logger->debug("Number of IDs in payload: {}", number_of_ids);
-    } 
+    if (logger) logger->debug("Number of IDs in payload: {}", count);
 
     std::vector<std::string> ids;
-    // Preallocate space in the vector
-    ids.reserve(number_of_ids);
+    ids.reserve(count);
 
-    for (uint8_t i = 0; i < number_of_ids; i++) {
-        if (offset >= payload.size()) {
-            if (logger) {
-                logger->error("Payload truncated before reading ID size. Offset: {}, Size: {}", offset, payload.size());
-            }             
-            throw std::out_of_range("Payload truncated before reading ID size.");
+    // 2) For each ID, read 2-byte length, then read that many bytes
+    for (uint16_t i = 0; i < count; i++) {
+        if (offset + 2 > payload.size()) {
+        if (logger) logger->error("Payload truncated before reading ID length. Offset={} size={}", offset, payload.size());
+        throw std::out_of_range("Payload truncated before reading ID length.");
+        }
+        uint16_t netLen;
+        std::memcpy(&netLen, payload.data() + offset, 2);
+        uint16_t len = ntohs(netLen);
+        offset += 2;
+
+        if (logger) logger->debug("Reading ID #{} with length {}", i + 1, len);
+
+        if (offset + len > payload.size()) {
+        if (logger) logger->error("Payload truncated before reading ID bytes. Offset={} needed={} size={}", offset, len, payload.size());
+        throw std::out_of_range("Payload truncated before reading ID bytes.");
         }
 
-        // Request should contain the size of the ID after
-        // For example if the size is 3 we should read 3 bytes
-        const uint8_t size_of_id = payload[offset++];
-
-        if (logger) {
-            logger->debug("Reading ID #{} with size {}", i + 1, size_of_id);
-        } 
-
-        if (offset + size_of_id > payload.size()) {
-            if (logger) {
-                logger->error("Payload truncated before reading entire ID. Offset: {}, Needed: {}, Size: {}", offset, size_of_id, payload.size());
-            }             
-            throw std::out_of_range("Payload truncated before reading entire ID.");
-        }
-
-        // Parse the payload from the index you are currently at 
-        // Until the size of the id
-        std::string_view id(reinterpret_cast<const char*>(payload.data() + offset), size_of_id);
-
-        // Advance the index
-        offset = offset + size_of_id;
-
-        // Push back
-        ids.emplace_back(id);
-
-        if (logger) {
-            logger->info("Parsed ID #{}: {}", i + 1, id);
-        }     
+        // Extract the ID string
+        std::string id(reinterpret_cast<const char*>(payload.data() + offset), len);
+        ids.emplace_back(std::move(id));
+        offset += len;
     }
 
     return ids;
@@ -132,33 +116,42 @@ std::vector<std::string> parseIDsFromRegistryFilePayload(
 
 std::vector<std::byte> serializeRegistryFilePayload(const std::unordered_set<std::string>& ids){
 
-    //TODO huge limitation on how many IDs you can have @yannisT
-    if(ids.size() > 255){
-        throw std::length_error("Limited description size for the ID set provided.");
+    // 1) Check that count fits in a 16-bit unsigned integer
+    if (ids.size() > 0xFFFF) {
+        throw std::length_error("Too many IDs (must be ≤ 65 535).");
     }
 
-    size_t offset = 0;
-    // We are about to create the payload
-    // so we need to know the size of the byte buffer
-    size_t payload_length = 1;
-    for(const auto& id: ids){
-        if (id.size() > 255){
-            throw std::length_error("ID exceeds the size that can be described by 1 byte (2^8).");
+    // 2) Compute total buffer size:
+    //    2 bytes for “number of IDs”, plus for each ID: 2 bytes for “length” + actual bytes.
+    size_t totalSize = 2;  // space for 16-bit count
+    for (const auto& id : ids) {
+        if (id.size() > 0xFFFF) {
+            throw std::length_error("Single ID exceeds 65 535 bytes.");
         }
-        // Allocate size for describing the length of the ID and the ID itself
-        payload_length += 1 + id.size();
+    totalSize += 2;          // 2 bytes for the ID length
+    totalSize += id.size();  // plus the ID’s characters
     }
 
-    // Allocate needed memory for our payload
-    std::vector<std::byte> payload(payload_length);
-    // First byte should be allocated to hold the number_of_ids
-    payload[offset++] = static_cast<std::byte>(ids.size());
+    std::vector<std::byte> buffer(totalSize);
+    size_t pos = 0;
 
-    for(const auto& id: ids){
-        payload[offset++] = static_cast<std::byte>(id.size());
-        std::memcpy(payload.data() + offset, id.data(), id.size());
-        offset += id.size();
+    // 3) Write “number of IDs” as uint16_t in network byte order
+    uint16_t count = static_cast<uint16_t>(ids.size());
+    uint16_t netCount = htons(count);
+    std::memcpy(buffer.data() + pos, &netCount, 2);
+    pos += 2;
+
+    // 4) For each ID, write (uint16_t length, then bytes)
+    for (const auto& id : ids) {
+        uint16_t len = static_cast<uint16_t>(id.size());
+        uint16_t netLen = htons(len);
+        std::memcpy(buffer.data() + pos, &netLen, 2);
+        pos += 2;
+
+        std::memcpy(buffer.data() + pos, id.data(), id.size());
+        pos += id.size();
     }
 
-    return payload;
+    // At this point pos == totalSize
+    return buffer;
 }
