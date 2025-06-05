@@ -1,6 +1,6 @@
 #include <iostream>
 #include <iomanip> // for std::hex, std::setw, std::setfill
-#include <arpa/inet.h> // for ntohs()
+
 #include "snds_utils.h"
 
 int main()
@@ -61,25 +61,21 @@ int main()
     // Test parsing function:
     // ========================
     // Construct a binary payload as a vector<uint8_t>:
-    // Format: [count (2 bytes)][id1_length (2 bytes)][id1 bytes…][id2_length (2 bytes)][id2 bytes…]
-    // - count: 2 bytes (big-endian) = 2
-    // - ID 1: length 2-byte (big-endian) = 3, then "car"
-    // - ID 2: length 2-byte (big-endian) = 3, then "bus"
-    //
-    // In hex, the payload is:
-    //   00 02       ← count = 2
-    //   00 03 63 61 72  ← length=3, "car"
-    //   00 03 62 75 73  ← length=3, "bus"
+    // Format: [header][number_of_ids][id_len][id_bytes]...
+    // Header: 2 bytes (e.g., 0xAA, 0xBB), then:
+    // Number of IDs: 2
+    // ID 1: length 3, "car"
+    // ID 2: length 3, "bus"
 
     try
     {
-        
         std::vector<uint8_t> testPayload = {
-            0x00, 0x02,             // count = 2 (big-endian)
-            0x00, 0x03, 'c','a','r',// first ID ("car")
-            0x00, 0x03, 'b','u','s' // second ID ("bus")
+            0xAA, 0xBB,          // Header (ignored)
+            0x00, 0x02,               // Number of IDs = 2 (big-endian)
+            0x00, 0x03, 'c', 'a', 'r',// First ID length = 3, then "car"
+            0x00, 0x03, 'b', 'u', 's' // Second ID length = 3, then "bus"
         };
-        auto extractedIDs = parseIDsFromRegistryFilePayload(std::span<const uint8_t>(testPayload), nullptr);
+        auto extractedIDs = parseIDsFromRegistryFilePayload(std::span<const uint8_t>(testPayload));
 
         std::cout << "Extracted IDs from payload:" << std::endl;
         for (const auto &id : extractedIDs)
@@ -115,45 +111,23 @@ int main()
         std::cout << std::dec << std::endl
                   << std::endl; // Reset to decimal
 
-        // Re-parse the serialized payload by reading 2-byte count/lengths,
-        // to confirm correctness.
-        const uint8_t *data = reinterpret_cast<const uint8_t *>(serializedPayload.data());
-        size_t dataLen = serializedPayload.size();
+        // Re-parse the serialized payload to confirm correctness.
         size_t offset = 0;
-
-        if (dataLen < 2) {
-            std::cerr << "Payload too short to read count\n";
-            return 1;
-        }
-
-        // Read first 2 bytes as big-endian count
-        uint16_t netCount;
-        std::memcpy(&netCount, data + offset, 2);
-        uint16_t numIDs = ntohs(netCount);
+        // --- read two bytes for number_of_ids (big-endian) ---
+        uint16_t numIDs = (static_cast<uint16_t>(std::to_integer<uint8_t>(serializedPayload[offset])) << 8)
+                        |  static_cast<uint16_t>(std::to_integer<uint8_t>(serializedPayload[offset + 1]));
         offset += 2;
-        std::cout << "Number of IDs: " << numIDs << std::endl;
-
+        std::cout << "Number of IDs: " << static_cast<int>(numIDs) << std::endl;
         for (uint16_t i = 0; i < numIDs; ++i)
         {
-            if (offset + 2 > dataLen) {
-                std::cerr << "Payload truncated before reading ID length\n";
-                return 1;
-            }
-            uint16_t netLen;
-            std::memcpy(&netLen, data + offset, 2);
-            uint16_t idLength = ntohs(netLen);
+            // --- Read two bytes for the next ID length ---
+            uint16_t idLength = (static_cast<uint16_t>(std::to_integer<uint8_t>(serializedPayload[offset])) << 8)
+                              |  static_cast<uint16_t>(std::to_integer<uint8_t>(serializedPayload[offset + 1]));
             offset += 2;
-
-            if (offset + idLength > dataLen) {
-                std::cerr << "Payload truncated before reading ID bytes\n";
-                return 1;
-            }
-
-            std::string idStr(reinterpret_cast<const char *>(data + offset), idLength);
+            std::string id(reinterpret_cast<const char *>(serializedPayload.data() + offset), idLength);
             offset += idLength;
-            std::cout << "ID " << (i + 1) << ": " << idStr << std::endl;
+            std::cout << "ID " << static_cast<int>(i + 1) << ": " << id << std::endl;
         }
-
     }
     catch (const std::exception &ex)
     {
