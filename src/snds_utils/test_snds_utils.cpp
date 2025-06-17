@@ -71,9 +71,9 @@ int main()
     {
         std::vector<uint8_t> testPayload = {
             0xAA, 0xBB,          // Header (ignored)
-            0x02,                // Number of IDs
-            0x03, 'c', 'a', 'r', // First ID ("car")
-            0x03, 'b', 'u', 's'  // Second ID ("bus")
+            0x00, 0x02,               // Number of IDs = 2 (big-endian)
+            0x00, 0x03, 'c', 'a', 'r',// First ID length = 3, then "car"
+            0x00, 0x03, 'b', 'u', 's' // Second ID length = 3, then "bus"
         };
         auto extractedIDs = parseIDsFromRegistryFilePayload(std::span<const uint8_t>(testPayload));
 
@@ -113,13 +113,17 @@ int main()
 
         // Re-parse the serialized payload to confirm correctness.
         size_t offset = 0;
-        uint8_t numIDs = std::to_integer<uint8_t>(serializedPayload[offset]);
-        offset++;
+        // --- read two bytes for number_of_ids (big-endian) ---
+        uint16_t numIDs = (static_cast<uint16_t>(std::to_integer<uint8_t>(serializedPayload[offset])) << 8)
+                        |  static_cast<uint16_t>(std::to_integer<uint8_t>(serializedPayload[offset + 1]));
+        offset += 2;
         std::cout << "Number of IDs: " << static_cast<int>(numIDs) << std::endl;
-        for (uint8_t i = 0; i < numIDs; ++i)
+        for (uint16_t i = 0; i < numIDs; ++i)
         {
-            uint8_t idLength = std::to_integer<uint8_t>(serializedPayload[offset]);
-            offset++;
+            // --- Read two bytes for the next ID length ---
+            uint16_t idLength = (static_cast<uint16_t>(std::to_integer<uint8_t>(serializedPayload[offset])) << 8)
+                              |  static_cast<uint16_t>(std::to_integer<uint8_t>(serializedPayload[offset + 1]));
+            offset += 2;
             std::string id(reinterpret_cast<const char *>(serializedPayload.data() + offset), idLength);
             offset += idLength;
             std::cout << "ID " << static_cast<int>(i + 1) << ": " << id << std::endl;

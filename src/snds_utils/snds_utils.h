@@ -117,18 +117,18 @@ std::vector<std::string> parseIDsFromRegistryFilePayload(std::span<const uint8_t
  * @brief Serializes a set of IDs into a binary payload.
  *
  * The payload is structured as follows:
- *   [number_of_ids (1 byte)]
- *   [id1_length (1 byte)] [id1 bytes...]
- *   [id2_length (1 byte)] [id2 bytes...]
+ *   [number_of_ids (2 bytes, big‐endian)]
+ *   [id1_length (2 bytes, big‐endian)] [id1 bytes...]
+ *   [id2_length (2 bytes, big‐endian)] [id2 bytes...]
  *   ...
  *
- * - The first byte holds the number of IDs (max 255).
- * - Each ID is preceded by a 1-byte length (max length 255).
+ * - The first 2 bytes hold the number of IDs (max 65 535).
+ * - Each ID is preceded by a 2-byte length (max length 65 535).
  *
  * @param ids An unordered_set of strings representing the IDs.
  * @return A vector of std::byte containing the binary payload.
  *
- * @throws std::length_error if the number of IDs exceeds 255 or any ID's length exceeds 255.
+ * @throws std::length_error if the number of IDs exceeds 65 535 or any ID's length exceeds 65 535.
  */
 std::vector<std::byte> serializeRegistryFilePayload(const std::unordered_set<std::string>& ids);
 
