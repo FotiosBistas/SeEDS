@@ -31,7 +31,30 @@ link_directories(${SQLITE3_LIBRARY_DIRS})
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-# Include FetchContent module
+
+# Include External Project module
+include(ExternalProject)
+
+#####################################################################
+# Fetch and build mongo-cxx
+#####################################################################
+set(MONGO_CXX_VERSION "r4.1.0")
+set(MONGO_CXX_INSTALL_DIR ${CMAKE_BINARY_DIR}/mongo-cxx-driver-install)
+ExternalProject_Add(mongo-cxx-driver
+  URL https://github.com/mongodb/mongo-cxx-driver/releases/download/${MONGO_CXX_VERSION}/mongo-cxx-driver-${MONGO_CXX_VERSION}.tar.gz
+  PREFIX ${CMAKE_BINARY_DIR}/mongo-cxx-driver
+  SOURCE_DIR ${CMAKE_BINARY_DIR}/mongo-cxx-driver-src
+  BINARY_DIR ${CMAKE_BINARY_DIR}/mongo-cxx-driver-src/build
+  CMAKE_ARGS
+    -DCMAKE_BUILD_TYPE=Release
+    -DCMAKE_CXX_STANDARD=17
+    -DCMAKE_INSTALL_PREFIX=${MONGO_CXX_INSTALL_DIR}
+  BUILD_COMMAND ${CMAKE_COMMAND} --build .
+  INSTALL_COMMAND ${CMAKE_COMMAND} --build . --target install
+  DOWNLOAD_EXTRACT_TIMESTAMP TRUE
+)
+
+# Include Fetch Content module 
 include(FetchContent)
 
 #####################################################################
@@ -296,6 +319,8 @@ target_include_directories(snds_daemon_bin PRIVATE
     ${SNDS_SERVICE_DIR}
     ${NDN_CXX_INCLUDE_DIR}
     ${SNDS_UTILS_DIR}
+    ${BSONCXX_LIBRARIES}
+    ${MONGOCXX_LIBRARIES}
 )
 target_link_libraries(snds_daemon_bin PRIVATE
     snds_service
