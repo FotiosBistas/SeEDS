@@ -26,6 +26,7 @@ Broker::Broker(
 
     mongocxx::client client(uri);
     this->client = std::move(client); 
+    //this->database = client["SeEDS"];
 }
 
 Broker::~Broker() = default;
@@ -85,40 +86,57 @@ void Broker::add(const std::string& body){
         auto view = jsonData.view();
         if(!view["type"] || !view["id"]){
             logger->error("Missing 'type' or 'id' in request body");
-            return;
+            throw std::runtime_error("Missing 'type' or 'id' in request body");
         }
         bsoncxx::document::element type(view["type"]);
         bsoncxx::document::element docId(view["id"]);
 
         logger->debug("Received type: {} and id: {}", type.get_value().get_string(), docId.get_value().get_string());
 
+        auto now = std::chrono::system_clock::now();
+        auto timestamp = std::chrono::duration_cast<std::chrono::seconds>(now.time_since_epoch()).count();
+        std::string timestamp_str = std::to_string(timestamp);
+
+
+        // Construct compound _id { id: ..., timestamp: ... }
+        auto compound_id = bsoncxx::builder::basic::make_document(
+            bsoncxx::builder::basic::kvp("id", docId.get_value()),
+            bsoncxx::builder::basic::kvp("timestamp", timestamp_str)
+        );
+        
+
         bsoncxx::builder::basic::document doc_builder;
 
         doc_builder.append(
-            bsoncxx::builder::basic::concatenate(
-                jsonData.view()
-        ));
+            bsoncxx::builder::basic::kvp("_id", compound_id.view())
+        );
 
-        doc_builder.append(
-            bsoncxx::builder::basic::kvp(
-                "_id", 
-                docId.get_value()
-            ),
-            bsoncxx::builder::basic::kvp(
-                "timestamp", 
-                bsoncxx::types::b_date(std::chrono::system_clock::now()
-            )
-        ));
+        for(auto&& element: view){
+            if(element.key() != "type" && element.key() != "id"){
+                doc_builder.append(
+                    bsoncxx::builder::basic::kvp(element.key(), element.get_value())
+                );
+            }
+        }
 
+        logger->debug("Constructed document: {}", bsoncxx::to_json(doc_builder));
+
+        //auto collection = this->client["SeEDS"][type.key()];
+        //auto result = collection.update_one(
+        //    filter.view(), 
+        //    update.view(), 
+        //    mongocxx::options::update{}.upsert(true)
+        //);
+        //if (result && result->modified_count() + result->upserted_count() == 1) {
+        //    logger->info("Document for '{}' updated or inserted successfully.", id);
+        //} else {
+        //    logger->warn("No document modified or inserted.");
+        //}
+        //return result;
     }catch(const std::exception& e){
         logger->error("Error: {}", e.what());
-        throw;
+        throw e;
     }
-
-
-    //auto collection = this->client["SeEDS"][type.key()];
-    //auto result = collection.insert_one(doc_builder.view());
-    //return result;
 }
 
 void Broker::get(){}

@@ -1,4 +1,5 @@
 #pragma once
+
 #include "httplib.h"
 #include <spdlog/spdlog.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
@@ -39,6 +40,7 @@ private:
     int port;
 
     mongocxx::client client; 
+    mongocxx::database database;
 
     static std::atomic<bool> shouldShutdown;
 
