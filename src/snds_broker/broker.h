@@ -11,14 +11,34 @@
 
 class Broker{
 public: 
+
     Broker(
         const std::string& logFile = "Broker.log",
         const std::string& brokerName = "Broker",
+        const std::string& ipAddress = "0.0.0.0",
+        const int          port = 8080,
         const spdlog::level::level_enum logLevel = spdlog::level::info
     );
+
+    inline static void initiateShutdown(){
+        shouldShutdown.store(true);
+    };
+
+    inline static void handleSigint(int){
+        initiateShutdown();
+    };
+
+
     ~Broker();
     void listen();
 private:
+
+    std::string logFile;
+    std::string ipAddress;
+    int port;
+
+    static std::atomic<bool> shouldShutdown;
+
     std::shared_ptr<spdlog::logger> logger;
     //TODO is this correct?
     // or should the broker be determined dynamically?
