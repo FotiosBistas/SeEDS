@@ -51,7 +51,7 @@ private:
     std::unordered_map<std::string, std::string> service_locations;
 
 
-    void add(const std::string& body);
+    std::optional<mongocxx::v_noabi::result::insert_one> add_one(const std::string& body);
     void get();
     void remove();
     void patch();

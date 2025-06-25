@@ -49,16 +49,19 @@ void Broker::listen(){
 
         svr.Post("/add", [this](const httplib::Request& req, httplib::Response& res){
             logger->info("Received /add request: {}", req.body);
-            add(req.body);
-            //if (result) {
-            //    res.status = 200;
-            //    res.set_content("{\"status\": \"success\"}", "application/json");
-            //} else {
-            //    res.status = 500;
-            //    res.set_content("{\"status\": \"failed to insert\"}", "application/json");
-            //}
+            auto result = add_one(req.body);
+            if (result) {
+                auto count = result->result().inserted_count();
+                logger->info("Successfully inserted {} documents", count);
+                res.status = 200;
+                std::string response_json = fmt::format("{{\"status\": \"success\", \"inserted_count\": {}}}\n", count);
+                res.set_content(response_json, "application/json");
+            } else {
+                logger->error("Insert failed with no result returned.");
+                res.status = 500;
+                res.set_content("{\"status\": \"failed to insert\"}\n", "application/json");
+            }
         });
-
         // Start the HTTP loop on all interfaces, port 8080.
         std::thread httpThread([&](){
             logger->info("HTTP server listening on {}:{}", ipAddress, port);
@@ -80,13 +83,13 @@ void Broker::listen(){
     };
 }
 
-void Broker::add(const std::string& body){
+std::optional<mongocxx::v_noabi::result::insert_one> Broker::add_one(const std::string& body){
     try{
         auto jsonData = bsoncxx::from_json(body);
         auto view = jsonData.view();
         if(!view["type"] || !view["id"]){
             logger->error("Missing 'type' or 'id' in request body");
-            throw std::runtime_error("Missing 'type' or 'id' in request body");
+            return std::nullopt;
         }
         bsoncxx::document::element type(view["type"]);
         bsoncxx::document::element docId(view["id"]);
@@ -118,18 +121,14 @@ void Broker::add(const std::string& body){
                 );
             }
         }
-
         logger->debug("Constructed document: {}", bsoncxx::to_json(doc_builder));
-
         auto type_str = type.get_string().value;
-
-
         auto collection = this->client[database][type_str];
         auto result = collection.insert_one(doc_builder.extract());
-        //return result;
+        return result;
     }catch(const std::exception& e){
         logger->error("Error: {}", e.what());
-        throw e;
+        return std::nullopt;
     }
 }
 
