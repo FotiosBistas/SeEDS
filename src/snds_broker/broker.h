@@ -15,7 +15,8 @@ public:
 
     Broker(
         const mongocxx::uri& uri,
-        const spdlog::level::level_enum logLevel = spdlog::level::debug,
+        const std::string& database,
+        const spdlog::level::level_enum logLevel = spdlog::level::info,
         const std::string& logFile = "Broker.log",
         const std::string& brokerName = "Broker",
         const std::string& ipAddress = "0.0.0.0",
@@ -37,10 +38,10 @@ private:
 
     std::string logFile;
     std::string ipAddress;
+    std::string database;
     int port;
 
     mongocxx::client client; 
-    mongocxx::database database;
 
     static std::atomic<bool> shouldShutdown;
 

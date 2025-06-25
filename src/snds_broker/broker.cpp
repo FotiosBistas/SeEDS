@@ -4,12 +4,13 @@ std::atomic<bool> Broker::shouldShutdown{false};
 
 Broker::Broker(
     const mongocxx::uri& uri,
+    const std::string& database,
     const spdlog::level::level_enum logLevel,
     const std::string& logFile,
     const std::string& brokerName,
     const std::string& ipAddress,
     const int          port
-):ipAddress(ipAddress), port(port){
+):ipAddress(ipAddress), port(port), database(database){
 
     // Logger initialization
     auto console_sink = std::make_shared<spdlog::sinks::stdout_color_sink_mt>();
@@ -26,7 +27,6 @@ Broker::Broker(
 
     mongocxx::client client(uri);
     this->client = std::move(client); 
-    //this->database = client["SeEDS"];
 }
 
 Broker::~Broker() = default;
@@ -121,17 +121,11 @@ void Broker::add(const std::string& body){
 
         logger->debug("Constructed document: {}", bsoncxx::to_json(doc_builder));
 
-        //auto collection = this->client["SeEDS"][type.key()];
-        //auto result = collection.update_one(
-        //    filter.view(), 
-        //    update.view(), 
-        //    mongocxx::options::update{}.upsert(true)
-        //);
-        //if (result && result->modified_count() + result->upserted_count() == 1) {
-        //    logger->info("Document for '{}' updated or inserted successfully.", id);
-        //} else {
-        //    logger->warn("No document modified or inserted.");
-        //}
+        auto type_str = type.get_string().value;
+
+
+        auto collection = this->client[database][type_str];
+        auto result = collection.insert_one(doc_builder.extract());
         //return result;
     }catch(const std::exception& e){
         logger->error("Error: {}", e.what());
