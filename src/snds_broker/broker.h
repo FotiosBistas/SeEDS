@@ -13,11 +13,12 @@ class Broker{
 public: 
 
     Broker(
+        const mongocxx::uri& uri,
+        const spdlog::level::level_enum logLevel = spdlog::level::debug,
         const std::string& logFile = "Broker.log",
         const std::string& brokerName = "Broker",
         const std::string& ipAddress = "0.0.0.0",
-        const int          port = 8080,
-        const spdlog::level::level_enum logLevel = spdlog::level::info
+        const int          port = 8080
     );
 
     inline static void initiateShutdown(){
@@ -37,6 +38,8 @@ private:
     std::string ipAddress;
     int port;
 
+    mongocxx::client client; 
+
     static std::atomic<bool> shouldShutdown;
 
     std::shared_ptr<spdlog::logger> logger;
@@ -45,7 +48,7 @@ private:
     std::unordered_map<std::string, std::string> service_locations;
 
 
-    void add();
+    void add(const std::string& body);
     void get();
     void remove();
     void patch();

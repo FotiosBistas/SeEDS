@@ -3,11 +3,12 @@
 std::atomic<bool> Broker::shouldShutdown{false};
 
 Broker::Broker(
+    const mongocxx::uri& uri,
+    const spdlog::level::level_enum logLevel,
     const std::string& logFile,
     const std::string& brokerName,
     const std::string& ipAddress,
-    const int          port,
-    const spdlog::level::level_enum logLevel
+    const int          port
 ):ipAddress(ipAddress), port(port){
 
     // Logger initialization
@@ -22,6 +23,9 @@ Broker::Broker(
     logger = std::make_shared<spdlog::logger>(brokerName, sinks.begin(), sinks.end());
     spdlog::register_logger(logger);
     logger->set_level(logLevel);
+
+    mongocxx::client client(uri);
+    this->client = std::move(client); 
 }
 
 Broker::~Broker() = default;
@@ -43,7 +47,15 @@ void Broker::listen(){
         });
 
         svr.Post("/add", [this](const httplib::Request& req, httplib::Response& res){
-            logger->info("Received HTTP request for {}, with target {}", req.body, req.target);
+            logger->info("Received /add request: {}", req.body);
+            add(req.body);
+            //if (result) {
+            //    res.status = 200;
+            //    res.set_content("{\"status\": \"success\"}", "application/json");
+            //} else {
+            //    res.status = 500;
+            //    res.set_content("{\"status\": \"failed to insert\"}", "application/json");
+            //}
         });
 
         // Start the HTTP loop on all interfaces, port 8080.
@@ -67,7 +79,47 @@ void Broker::listen(){
     };
 }
 
-void Broker::add(){}
+void Broker::add(const std::string& body){
+    try{
+        auto jsonData = bsoncxx::from_json(body);
+        auto view = jsonData.view();
+        if(!view["type"] || !view["id"]){
+            logger->error("Missing 'type' or 'id' in request body");
+            return;
+        }
+        bsoncxx::document::element type(view["type"]);
+        bsoncxx::document::element docId(view["id"]);
+
+        logger->debug("Received type: {} and id: {}", type.get_value().get_string(), docId.get_value().get_string());
+
+        bsoncxx::builder::basic::document doc_builder;
+
+        doc_builder.append(
+            bsoncxx::builder::basic::concatenate(
+                jsonData.view()
+        ));
+
+        doc_builder.append(
+            bsoncxx::builder::basic::kvp(
+                "_id", 
+                docId.get_value()
+            ),
+            bsoncxx::builder::basic::kvp(
+                "timestamp", 
+                bsoncxx::types::b_date(std::chrono::system_clock::now()
+            )
+        ));
+
+    }catch(const std::exception& e){
+        logger->error("Error: {}", e.what());
+        throw;
+    }
+
+
+    //auto collection = this->client["SeEDS"][type.key()];
+    //auto result = collection.insert_one(doc_builder.view());
+    //return result;
+}
 
 void Broker::get(){}
 
