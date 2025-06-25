@@ -1,0 +1,36 @@
+{
+  "configurations": [
+    {
+      "name": "Linux",
+      "includePath": [
+        "${workspaceFolder}/**",
+
+        // MongoDB C++ Driver
+        "${workspaceFolder}/build/mongo-cxx-driver-install/include",
+        "${workspaceFolder}/build/mongo-cxx-driver-install/include/bsoncxx/v_noabi",
+        "${workspaceFolder}/build/mongo-cxx-driver-install/include/mongocxx/v_noabi",
+
+        // spdlog and cpp-httplib
+        "${workspaceFolder}/build/_deps/spdlog-src/include",
+        "${workspaceFolder}/build/_deps/cpp-httplib-src",
+
+        // Boost (if needed)
+        "/usr/include",  // or change to ${BOOST_INCLUDEDIR} if custom
+
+        // System libraries (e.g., libpcap, sqlite3, systemd)
+        "/usr/include/pcap",
+        "/usr/include/sqlite3",
+        "/usr/include/systemd",
+
+        // ndn-cxx
+        "${workspaceFolder}/build/ndn-cxx/install/include"
+      ],
+      "defines": [],
+      "compilerPath": "/usr/bin/g++",
+      "cStandard": "c17",
+      "cppStandard": "c++20",
+      "intelliSenseMode": "linux-gcc-x64"
+    }
+  ],
+  "version": 4
+}
