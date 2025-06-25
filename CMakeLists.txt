@@ -39,7 +39,7 @@ include(ExternalProject)
 # Fetch and build mongo-cxx
 #####################################################################
 set(MONGO_CXX_VERSION "r4.1.0")
-set(MONGO_CXX_INSTALL_DIR ${CMAKE_BINARY_DIR}/mongo-cxx-driver-install)
+set(MONGO_CXX_INSTALL_DIR "${CMAKE_BINARY_DIR}/mongo-cxx-driver-install")
 ExternalProject_Add(mongo-cxx-driver
   URL https://github.com/mongodb/mongo-cxx-driver/releases/download/${MONGO_CXX_VERSION}/mongo-cxx-driver-${MONGO_CXX_VERSION}.tar.gz
   PREFIX ${CMAKE_BINARY_DIR}/mongo-cxx-driver
@@ -54,9 +54,12 @@ ExternalProject_Add(mongo-cxx-driver
   DOWNLOAD_EXTRACT_TIMESTAMP TRUE
 )
 
+
 # MongoDB C++ Driver include and lib directories
-set(MONGOCXX_INCLUDE_DIRS "${MONGO_CXX_INSTALL_DIR}/include/mongocxx/v_noabi")
-set(BSONCXX_INCLUDE_DIRS  "${MONGO_CXX_INSTALL_DIR}/include/bsoncxx/v_noabi")
+set(MONGOCXX_INCLUDE_DIRS "${MONGO_CXX_INSTALL_DIR}/include/")
+set(BSONCXX_INCLUDE_DIRS  "${MONGO_CXX_INSTALL_DIR}/include/")
+set(BSONCXX_V_NOABI_INCLUDE_DIR "${MONGO_CXX_INSTALL_DIR}/include/bsoncxx/v_noabi")
+set(MONGOCXX_V_NOABI_INCLUDE_DIR "${MONGO_CXX_INSTALL_DIR}/include/mongocxx/v_noabi")
 set(MONGO_CXX_LIBRARY_DIR "${MONGO_CXX_INSTALL_DIR}/lib")
 
 # Libraries
@@ -258,22 +261,25 @@ set(SNDS_BROKER_DIR  ${CMAKE_SOURCE_DIR}/src/snds_broker)
 #####################################################################
 # Build the snds_broker static library (MongoDB driver required)
 #####################################################################
+
 set(SNDS_BROKER_SOURCES
     ${SNDS_BROKER_DIR}/broker.cpp
 )
 
+# Broker library
 add_library(snds_broker STATIC ${SNDS_BROKER_SOURCES})
 
-target_include_directories(snds_broker PUBLIC
+target_include_directories(snds_broker PRIVATE
     ${SNDS_BROKER_DIR}
-    ${MONGOCXX_INCLUDE_DIRS}
-    ${BSONCXX_INCLUDE_DIRS}
     ${cpp-httplib_SOURCE_DIR}
+    ${MONGO_CXX_INSTALL_DIR}/include
+    ${MONGO_CXX_INSTALL_DIR}/include/bsoncxx/v_noabi
+    ${MONGO_CXX_INSTALL_DIR}/include/mongocxx/v_noabi
 )
 
 target_link_libraries(snds_broker PRIVATE
-    ${MONGOCXX_LIBRARIES}
-    ${BSONCXX_LIBRARIES}
+    ${MONGO_CXX_INSTALL_DIR}/lib/libbsoncxx.so
+    ${MONGO_CXX_INSTALL_DIR}/lib/libmongocxx.so
     spdlog::spdlog
 )
 
