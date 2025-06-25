@@ -48,6 +48,7 @@ ExternalProject_Add(mongo-cxx-driver
   CMAKE_ARGS
     -DCMAKE_BUILD_TYPE=Release
     -DCMAKE_CXX_STANDARD=17
+    -DBUILD_SHARED_LIBS=ON 
     -DCMAKE_INSTALL_PREFIX=${MONGO_CXX_INSTALL_DIR}
   BUILD_COMMAND ${CMAKE_COMMAND} --build .
   INSTALL_COMMAND ${CMAKE_COMMAND} --build . --target install
@@ -266,10 +267,14 @@ set(SNDS_BROKER_SOURCES
     ${SNDS_BROKER_DIR}/broker.cpp
 )
 
+set(SNDS_BROKER_MAIN
+    ${SNDS_BROKER_DIR}/broker_main.cpp
+)
+
 # Broker library
 add_library(snds_broker STATIC ${SNDS_BROKER_SOURCES})
 
-target_include_directories(snds_broker PRIVATE
+target_include_directories(snds_broker PUBLIC
     ${SNDS_BROKER_DIR}
     ${cpp-httplib_SOURCE_DIR}
     ${MONGO_CXX_INSTALL_DIR}/include
@@ -277,13 +282,26 @@ target_include_directories(snds_broker PRIVATE
     ${MONGO_CXX_INSTALL_DIR}/include/mongocxx/v_noabi
 )
 
-target_link_libraries(snds_broker PRIVATE
+target_link_libraries(snds_broker PUBLIC
     ${MONGO_CXX_INSTALL_DIR}/lib/libbsoncxx.so
     ${MONGO_CXX_INSTALL_DIR}/lib/libmongocxx.so
     spdlog::spdlog
 )
 
-add_dependencies(snds_broker mongo-cxx-driver)
+add_executable(snds_broker_bin ${SNDS_BROKER_MAIN})
+
+# Include the header dirs it needs
+target_include_directories(snds_broker_bin PRIVATE
+    ${SNDS_BROKER_DIR}
+    ${cpp-httplib_SOURCE_DIR}
+)
+
+# Link in the broker lib plus its deps
+target_link_libraries(snds_broker_bin PRIVATE
+  snds_broker
+)
+
+add_dependencies(snds_broker_bin mongo-cxx-driver)
 
 #####################################################################
 # Build the message_queue static library

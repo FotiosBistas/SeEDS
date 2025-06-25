@@ -11,8 +11,13 @@
 
 class Broker{
 public: 
-    Broker();
+    Broker(
+        const std::string& logFile = "Broker.log",
+        const std::string& brokerName = "Broker",
+        const spdlog::level::level_enum logLevel = spdlog::level::info
+    );
     ~Broker();
+    void listen();
 private:
     std::shared_ptr<spdlog::logger> logger;
     //TODO is this correct?
@@ -20,5 +25,8 @@ private:
     std::unordered_map<std::string, std::string> service_locations;
 
 
-    void listen();
+    void add();
+    void get();
+    void remove();
+    void patch();
 };
