@@ -31,6 +31,12 @@ public:
         const int          port = 8080
     );
 
+
+    std::vector<std::string> split(std::string_view s, const std::string& delimiter);
+    std::pair<std::chrono::_V2::system_clock::time_point, bsoncxx::types::b_date> parse_timestamp(std::string_view date);
+    bsoncxx::builder::basic::array create_date_pipeline(const std::chrono::_V2::system_clock::time_point& base_date, const bsoncxx::types::b_date& parsed_date);
+    std::string get_from_database(const Timeframe& frame, bsoncxx::v_noabi::document::view json_data);
+
     inline static void initiateShutdown(){
         shouldShutdown.store(true);
     };

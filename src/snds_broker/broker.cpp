@@ -31,6 +31,151 @@ Broker::Broker(
 
 Broker::~Broker() = default;
 
+std::vector<std::string> Broker::split(std::string_view s, const std::string& delimiter){
+    std::vector<std::string> tokens;
+    size_t start = 0;
+    size_t end;
+    while ((end = s.find(delimiter, start)) != std::string::npos) {
+        tokens.emplace_back(s.substr(start, end - start));
+        start = end + delimiter.length();
+    }
+    // Add the last token missed from the loop
+    tokens.emplace_back(s.substr(start));
+    return tokens;
+};
+
+
+std::pair<std::chrono::_V2::system_clock::time_point, bsoncxx::types::b_date> Broker::parse_timestamp(std::string_view date){
+    std::tm tm = {};
+    std::istringstream ss(date.data());
+    ss >> std::get_time(&tm, "%Y-%m-%dT%H:%M:%SZ");
+    if (ss.fail()) {
+        throw std::invalid_argument("Failed to parse date string: " + std::string(date));
+    }
+    auto target_tp = std::chrono::system_clock::from_time_t(std::mktime(&tm));
+    auto target_date = bsoncxx::types::b_date(target_tp);
+    return {target_tp, target_date};
+}
+
+
+bsoncxx::builder::basic::array Broker::create_date_pipeline(
+    const std::chrono::_V2::system_clock::time_point& base_date,
+    const bsoncxx::types::b_date& parsed_date
+){
+    auto five_minutes = std::chrono::minutes(5);
+    auto lower_bound = bsoncxx::types::b_date(base_date - five_minutes);
+    auto upper_bound = bsoncxx::types::b_date(base_date + five_minutes);
+
+    bsoncxx::builder::basic::array time_diff_array;
+    time_diff_array.append("$time");
+    time_diff_array.append(parsed_date);
+
+    bsoncxx::builder::basic::array pipeline;
+    pipeline.append(
+        bsoncxx::builder::basic::make_document(
+            bsoncxx::builder::basic::kvp("$match",
+                bsoncxx::builder::basic::make_document(
+                    bsoncxx::builder::basic::kvp("timestamp",
+                        bsoncxx::builder::basic::make_document(
+                            bsoncxx::builder::basic::kvp("$gte", lower_bound),
+                            bsoncxx::builder::basic::kvp("$lte", upper_bound)
+                        )
+                    )
+                )
+            )
+        )
+    );
+
+    pipeline.append(
+        bsoncxx::builder::basic::make_document(
+            bsoncxx::builder::basic::kvp("$project",
+                bsoncxx::builder::basic::make_document(
+                    bsoncxx::builder::basic::kvp("description", 1),
+                    bsoncxx::builder::basic::kvp("", 1),
+                    bsoncxx::builder::basic::kvp("time_dist",
+                        bsoncxx::builder::basic::make_document(
+                            bsoncxx::builder::basic::kvp("$abs",
+                                bsoncxx::builder::basic::make_document(
+                                    bsoncxx::builder::basic::kvp("$subtract", time_diff_array)
+                                )
+                            )
+                        )
+                    )
+                )
+            )
+        )
+    );
+
+    // Sort by time distance
+    pipeline.append(
+        bsoncxx::builder::basic::make_document(
+            bsoncxx::builder::basic::kvp("$sort",
+                bsoncxx::builder::basic::make_document(
+                    bsoncxx::builder::basic::kvp("time_dist", 1)
+                )
+            )
+        )
+    );
+
+    // Limit to closest
+    pipeline.append(
+        bsoncxx::builder::basic::make_document(
+            bsoncxx::builder::basic::kvp("$limit", 1)
+        )
+    );
+
+    return pipeline;
+}
+
+std::string Broker::get_from_database(const Timeframe& frame, bsoncxx::v_noabi::document::view json_data){
+
+    //type and ID are always specified by the get handler
+    std::string_view type = json_data["type"].get_value().get_string().value;
+    std::string_view id = json_data["id"].get_value().get_string().value;
+
+    //date might not be specified
+    std::string_view date;
+    if(!json_data["date"].get_value().get_string().value.empty()){
+        date = std::move(json_data["date"].get_value().get_string().value);
+    }else{
+        date = "";
+    }
+
+    int32_t count = json_data["count"].get_value().get_int32();
+
+    logger->info("Processsing ID: {}, and type: {}", id, type);
+    switch(frame){
+        case Timeframe::NOW: {
+
+            auto collection = this->client[this->database][type];
+
+            if(!date.empty()){
+                auto [base_timestamp, parsed_timestamp] = parse_timestamp(date);
+
+                auto pipeline = create_date_pipeline(base_timestamp, parsed_timestamp);
+            }
+
+            auto search = bsoncxx::builder::basic::make_document(
+                bsoncxx::builder::basic::kvp("_id", id)
+            );
+            auto result = collection.find_one(search.view());
+            if(result){
+                logger->info("Received document from Timeframe::Now: {}", bsoncxx::to_json(*result));
+                return bsoncxx::to_json(*result);
+            }else{
+                logger->error("Could not retrieve ID from the database..."); 
+                return "";
+            }
+        }
+        case Timeframe::BEFORE:{
+            logger->debug("Date received: {}", date);
+            return "";
+        }
+        case Timeframe::AFTER:
+            logger->debug("Date received: {}", date);
+            return "";
+    }
+};
 
 void Broker::listen(){
     std::signal(SIGINT, handleSigint);
@@ -148,15 +293,13 @@ std::optional<InsertOrReplaceResult> Broker::add_one(const std::string& body, co
         logger->debug("Received type: {} and id: {}", type.get_value().get_string(), docId.get_value().get_string());
 
         auto now = std::chrono::system_clock::now();
-        auto timestamp = std::chrono::duration_cast<std::chrono::seconds>(now.time_since_epoch()).count();
-        std::string timestamp_str = std::to_string(timestamp);
-
+        bsoncxx::types::b_date bson_date(now);
 
         bsoncxx::builder::basic::document id_builder;
         if (versioned) {
             id_builder.append(
                 bsoncxx::builder::basic::kvp("_id", docId.get_value()),
-                bsoncxx::builder::basic::kvp("timestamp", timestamp_str)
+                bsoncxx::builder::basic::kvp("timestamp", bson_date)
             );
         }         
 
@@ -172,12 +315,16 @@ std::optional<InsertOrReplaceResult> Broker::add_one(const std::string& body, co
         }
 
         for(auto&& element: view){
-            if(element.key() != "type" && element.key() != "id"){
+            if(element.key() != "type"){
                 doc_builder.append(
                     bsoncxx::builder::basic::kvp(element.key(), element.get_value())
                 );
             }
         }
+        // insert timestamp anyway
+        doc_builder.append(
+            bsoncxx::builder::basic::kvp("timestamp", bson_date)
+        );
 
         logger->debug("Constructed ID document: {}", bsoncxx::to_json(doc_builder));
 
@@ -222,49 +369,6 @@ std::vector<std::string> Broker::get(const std::string& request){
         bsoncxx::document::element timeframe(view["timeframe"]);
 
         auto timeframe_view = timeframe.get_value().get_string().value;
-        auto split = [](std::string_view s, const std::string& delimiter) -> std::vector<std::string> {
-            std::vector<std::string> tokens;
-            size_t start = 0;
-            size_t end;
-        
-            while ((end = s.find(delimiter, start)) != std::string::npos) {
-                tokens.emplace_back(s.substr(start, end - start));
-                start = end + delimiter.length();
-            }
-            // Add the last token missed from the loop
-            tokens.emplace_back(s.substr(start));
-        
-            return tokens;
-        };
-
-        auto request = [this](const Timeframe& frame, bsoncxx::v_noabi::document::view json_data) -> std::string {
-
-            std::string_view type = json_data["type"].get_value().get_string().value;
-            std::string_view id = json_data["id"].get_value().get_string().value;
-
-            logger->info("Processsing ID: {}, and type: {}", id, type);
-            switch(frame){
-                case Timeframe::NOW: {
-                    auto collection = this->client[this->database][type];
-                    auto search = bsoncxx::builder::basic::make_document(
-                        bsoncxx::builder::basic::kvp("_id", id)
-                    );
-                    auto result = collection.find_one(search.view());
-                    if(result){
-                        logger->info("Received document from Timeframe::Now: {}", bsoncxx::to_json(*result));
-                        return bsoncxx::to_json(*result);
-                    }else{
-                        logger->error("Could not retrieve ID from the database..."); 
-                        return "";
-                    }
-                }
-                case Timeframe::BEFORE:
-                    return "";
-                case Timeframe::AFTER:
-                    return "";
-            }
-        };
-
         auto tokens = split(timeframe_view, delimeter);
 
         std::vector<std::string> results; 
@@ -273,7 +377,7 @@ std::vector<std::string> Broker::get(const std::string& request){
         for(auto& token: tokens){
             logger->debug("Processing timeframe: {}", token);
             Timeframe frame = string_to_timeframe(token);
-            auto result = request(frame, view);
+            auto result = get_from_database(frame, view);
             results.push_back(result);
         }
 
@@ -285,15 +389,6 @@ std::vector<std::string> Broker::get(const std::string& request){
     }
 }
 
-std::vector<std::string> split(const std::string& s, char delimiter) {
-    std::vector<std::string> tokens;
-    std::stringstream ss(s);
-    std::string token;
-    while (std::getline(ss, token, delimiter)) {
-        tokens.push_back(token);
-    }
-    return tokens;
-}
 
 void Broker::remove(){}
 
