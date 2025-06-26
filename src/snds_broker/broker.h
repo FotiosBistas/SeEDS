@@ -9,6 +9,12 @@
 #include <mongocxx/client.hpp>
 #include <mongocxx/instance.hpp>
 #include <mongocxx/uri.hpp>
+#include <variant>
+
+using InsertOrReplaceResult = std::variant<
+    mongocxx::result::insert_one,
+    mongocxx::result::replace_one
+>;
 
 class Broker{
 public: 
@@ -51,7 +57,7 @@ private:
     std::unordered_map<std::string, std::string> service_locations;
 
 
-    std::optional<mongocxx::v_noabi::result::insert_one> add_one(const std::string& body);
+    std::optional<InsertOrReplaceResult> add_one(const std::string& body, const bool versioned);
     void get();
     void remove();
     void patch();
