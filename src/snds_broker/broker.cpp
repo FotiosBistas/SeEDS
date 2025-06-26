@@ -52,9 +52,9 @@ void Broker::listen(){
             auto date_str   = req.get_param_value("date");
             auto timeframe  = req.get_param_value("timeframe");
 
-            if (id.empty() || type.empty() || date_str.empty() || timeframe.empty()) {
+            if (id.empty() || type.empty()) {
                 res.status = 400;
-                res.set_content(R"({"error": "Missing 'id', 'date', 'type', or 'timeframe'"})", "application/json");
+                res.set_content(R"({"error": "Missing 'id' or 'type'})" "\n", "application/json");
                 return;
             }
 
@@ -65,7 +65,19 @@ void Broker::listen(){
             );
 
             logger->info("Received: {}", json_request);
-            get(json_request);
+            auto results = get(json_request);
+
+            std::ostringstream oss;
+            oss << "{ \"results\": [";
+            for (size_t i = 0; i < results.size(); ++i) {
+                oss << results[i];
+                if (i < results.size() - 1)
+                    oss << ",";
+            }
+            oss << "] }\n";
+
+            res.status = 200;
+            res.set_content(oss.str(), "application/json");
         });
 
         svr.Post("/add", [this](const httplib::Request& req, httplib::Response& res){
@@ -143,21 +155,21 @@ std::optional<InsertOrReplaceResult> Broker::add_one(const std::string& body, co
         bsoncxx::builder::basic::document id_builder;
         if (versioned) {
             id_builder.append(
-                bsoncxx::builder::basic::kvp("id", docId.get_value()),
+                bsoncxx::builder::basic::kvp("_id", docId.get_value()),
                 bsoncxx::builder::basic::kvp("timestamp", timestamp_str)
             );
-        } else {
-            id_builder.append(
-                bsoncxx::builder::basic::kvp("id", docId.get_value())
-            );
-        }
-        
+        }         
 
         bsoncxx::builder::basic::document doc_builder;
-
-        doc_builder.append(
-            bsoncxx::builder::basic::kvp("_id", id_builder.view())
-        );
+        if(versioned){
+            doc_builder.append(
+                bsoncxx::builder::basic::kvp("_id", id_builder.view())
+            );
+        }else{
+            doc_builder.append(
+                bsoncxx::builder::basic::kvp("_id", docId.get_value())
+            );
+        }
 
         for(auto&& element: view){
             if(element.key() != "type" && element.key() != "id"){
@@ -178,7 +190,7 @@ std::optional<InsertOrReplaceResult> Broker::add_one(const std::string& body, co
         }
 
         auto filter = bsoncxx::builder::basic::make_document(
-            bsoncxx::builder::basic::kvp("_id", id_builder.view())
+            bsoncxx::builder::basic::kvp("_id", docId.get_value())
         );
 
         logger->debug("Constructed filter document: {}", bsoncxx::to_json(filter));
@@ -198,8 +210,89 @@ std::optional<InsertOrReplaceResult> Broker::add_one(const std::string& body, co
     }
 }
 
-void Broker::get(const std::string& request){
+std::vector<std::string> Broker::get(const std::string& request){
+    constexpr const char* delimeter = "+";
+    try{
+        auto jsonData = bsoncxx::from_json(request);
+        auto view = jsonData.view();
+        if(!view["type"] || !view["id"]){
+            logger->error("Missing 'type' or 'id' in request body");
+            return {};
+        }
+        bsoncxx::document::element timeframe(view["timeframe"]);
 
+        auto timeframe_view = timeframe.get_value().get_string().value;
+        auto split = [](std::string_view s, const std::string& delimiter) -> std::vector<std::string> {
+            std::vector<std::string> tokens;
+            size_t start = 0;
+            size_t end;
+        
+            while ((end = s.find(delimiter, start)) != std::string::npos) {
+                tokens.emplace_back(s.substr(start, end - start));
+                start = end + delimiter.length();
+            }
+            // Add the last token missed from the loop
+            tokens.emplace_back(s.substr(start));
+        
+            return tokens;
+        };
+
+        auto request = [this](const Timeframe& frame, bsoncxx::v_noabi::document::view json_data) -> std::string {
+
+            std::string_view type = json_data["type"].get_value().get_string().value;
+            std::string_view id = json_data["id"].get_value().get_string().value;
+
+            logger->info("Processsing ID: {}, and type: {}", id, type);
+            switch(frame){
+                case Timeframe::NOW: {
+                    auto collection = this->client[this->database][type];
+                    auto search = bsoncxx::builder::basic::make_document(
+                        bsoncxx::builder::basic::kvp("_id", id)
+                    );
+                    auto result = collection.find_one(search.view());
+                    if(result){
+                        logger->info("Received document from Timeframe::Now: {}", bsoncxx::to_json(*result));
+                        return bsoncxx::to_json(*result);
+                    }else{
+                        logger->error("Could not retrieve ID from the database..."); 
+                        return "";
+                    }
+                }
+                case Timeframe::BEFORE:
+                    return "";
+                case Timeframe::AFTER:
+                    return "";
+            }
+        };
+
+        auto tokens = split(timeframe_view, delimeter);
+
+        std::vector<std::string> results; 
+        results.reserve(tokens.size());
+
+        for(auto& token: tokens){
+            logger->debug("Processing timeframe: {}", token);
+            Timeframe frame = string_to_timeframe(token);
+            auto result = request(frame, view);
+            results.push_back(result);
+        }
+
+        return results;
+
+    }catch(const std::exception& e){
+        logger->error("Error: {}", e.what());
+        return {};
+    }
+}
+
+std::vector<std::string> split(const std::string& s, char delimiter) {
+    std::vector<std::string> tokens;
+    std::stringstream ss(s);
+    std::string token;
+    while (std::getline(ss, token, delimiter)) {
+        tokens.push_back(token);
+    }
+    return tokens;
 }
 
 void Broker::remove(){}

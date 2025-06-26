@@ -267,17 +267,36 @@ set(SNDS_BROKER_DIR  ${CMAKE_SOURCE_DIR}/src/snds_broker)
 # Build the snds_broker static library (MongoDB driver required)
 #####################################################################
 
+# Broker sources
 set(SNDS_BROKER_SOURCES
     ${SNDS_BROKER_DIR}/broker.cpp
 )
 
+# Broker main executable source
 set(SNDS_BROKER_MAIN
     ${SNDS_BROKER_DIR}/broker_main.cpp
 )
 
-# Broker library
+# Timeframes module sources
+set(SNDS_BROKER_TIMEFRAMES_SOURCES
+    ${SNDS_BROKER_DIR}/timeframes.cpp
+)
+
+# Build the 'timeframes' static library
+add_library(timeframes STATIC ${SNDS_BROKER_TIMEFRAMES_SOURCES})
+
+# Include headers from broker dir for timeframes
+target_include_directories(timeframes PUBLIC
+    ${SNDS_BROKER_DIR}
+)
+
+# Link spdlog to timeframes if it uses logging
+target_link_libraries(timeframes PUBLIC spdlog::spdlog)
+
+# Build the 'snds_broker' static library and link timeframes
 add_library(snds_broker STATIC ${SNDS_BROKER_SOURCES})
 
+# Include directories for Mongo, httplib, and broker headers
 target_include_directories(snds_broker PUBLIC
     ${SNDS_BROKER_DIR}
     ${cpp-httplib_SOURCE_DIR}
@@ -286,25 +305,29 @@ target_include_directories(snds_broker PUBLIC
     ${MONGO_CXX_INSTALL_DIR}/include/mongocxx/v_noabi
 )
 
+# Link required libraries
 target_link_libraries(snds_broker PUBLIC
     ${MONGO_CXX_INSTALL_DIR}/lib/libbsoncxx.so
     ${MONGO_CXX_INSTALL_DIR}/lib/libmongocxx.so
+    timeframes
     spdlog::spdlog
 )
 
+# Create the broker executable
 add_executable(snds_broker_bin ${SNDS_BROKER_MAIN})
 
-# Include the header dirs it needs
+# Include broker headers and httplib in the executable
 target_include_directories(snds_broker_bin PRIVATE
     ${SNDS_BROKER_DIR}
     ${cpp-httplib_SOURCE_DIR}
 )
 
-# Link in the broker lib plus its deps
+# Link broker static library to the executable
 target_link_libraries(snds_broker_bin PRIVATE
-  snds_broker
+    snds_broker
 )
 
+# Add dependency on Mongo driver build
 add_dependencies(snds_broker_bin mongo-cxx-driver)
 
 set(BROKER_RUNNER_PATH "${CMAKE_BINARY_DIR}/run-broker.sh")

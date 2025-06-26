@@ -10,6 +10,7 @@
 #include <mongocxx/instance.hpp>
 #include <mongocxx/uri.hpp>
 #include <variant>
+#include "timeframes.h"
 
 using InsertOrReplaceResult = std::variant<
     mongocxx::result::insert_one,
@@ -59,7 +60,7 @@ private:
 
 
     std::optional<InsertOrReplaceResult> add_one(const std::string& body, const bool versioned);
-    void get(const std::string& request);
+    std::vector<std::string> get(const std::string& request);
     void remove();
     void patch();
 };
