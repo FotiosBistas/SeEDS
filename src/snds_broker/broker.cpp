@@ -64,7 +64,7 @@ void Broker::listen(){
                 // Extract count for unversioned (replace_one)
                 if (std::holds_alternative<mongocxx::result::replace_one>(*result_unversioned)) {
                     auto& repl = std::get<mongocxx::result::replace_one>(*result_unversioned).result();
-                    count_unversioned = repl.modified_count() > 0 ? repl.modified_count() : repl.inserted_count();
+                    count_unversioned = repl.upserted_ids().size() == 0 ? repl.modified_count() : repl.upserted_ids().size();
                 }
 
                 logger->info("Inserted {} versioned, replaced/upserted {} non-versioned", count_versioned, count_unversioned);

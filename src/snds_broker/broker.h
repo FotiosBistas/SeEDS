@@ -16,6 +16,7 @@ using InsertOrReplaceResult = std::variant<
     mongocxx::result::replace_one
 >;
 
+
 class Broker{
 public: 
 
