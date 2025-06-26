@@ -59,7 +59,7 @@ private:
 
 
     std::optional<InsertOrReplaceResult> add_one(const std::string& body, const bool versioned);
-    void get();
+    void get(const std::string& request);
     void remove();
     void patch();
 };

@@ -45,6 +45,27 @@ void Broker::listen(){
 
         svr.Get("/temporal-query", [this](const httplib::Request& req, httplib::Response& res){
             logger->info("Received HTTP request for {}, with target {}", req.body, req.target);
+
+            auto id         = req.get_param_value("id");
+            auto type       = req.get_param_value("type");
+            auto count      = req.get_param_value("count");
+            auto date_str   = req.get_param_value("date");
+            auto timeframe  = req.get_param_value("timeframe");
+
+            if (id.empty() || type.empty() || date_str.empty() || timeframe.empty()) {
+                res.status = 400;
+                res.set_content(R"({"error": "Missing 'id', 'date', 'type', or 'timeframe'"})", "application/json");
+                return;
+            }
+
+            std::string json_request = fmt::format(
+                R"({{"id": "{}", "date": "{}", "type": "{}", "timeframe": "{}", "count": {}}})",
+                id, date_str, type, timeframe,
+                count.empty() ? 0 : std::stoi(count)
+            );
+
+            logger->info("Received: {}", json_request);
+            get(json_request);
         });
 
         svr.Post("/add", [this](const httplib::Request& req, httplib::Response& res){
@@ -177,7 +198,9 @@ std::optional<InsertOrReplaceResult> Broker::add_one(const std::string& body, co
     }
 }
 
-void Broker::get(){}
+void Broker::get(const std::string& request){
+
+}
 
 void Broker::remove(){}
 
