@@ -115,12 +115,7 @@ mongocxx::pipeline Broker::create_date_pipeline(
                     bsoncxx::builder::basic::kvp("diff", 1)
                 )
             );
-            //pipeline.limit(count);
-            //pipeline.project(
-            //    bsoncxx::builder::basic::make_document(
-            //        bsoncxx::builder::basic::kvp("diff", 0)
-            //    )
-            //);
+            pipeline.limit(count);
             break;
         }
         case Timeframe::BEFORE: {
@@ -209,7 +204,7 @@ std::string Broker::get_from_database(const Timeframe& frame, bsoncxx::v_noabi::
         }
 
         std::string flat_json = oss.str();
-        logger->debug("Flat JSON created: {}", flat_json);
+        logger->debug("Flat JSON created:\n{}", flat_json);
         return flat_json;
     }
 
