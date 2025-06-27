@@ -46,83 +46,130 @@ std::vector<std::string> Broker::split(std::string_view s, const std::string& de
 
 
 std::pair<std::chrono::_V2::system_clock::time_point, bsoncxx::types::b_date> Broker::parse_timestamp(std::string_view date){
+    //TODO this is not robsut
+    constexpr const std::array<std::string_view, 4> formats = {
+        "%Y-%m-%d %H:%M:%S",     // e.g., 2025-06-26 14:30:00
+        "%Y-%m-%dT%H:%M:%SZ",    // e.g., 2025-06-26T14:30:00Z
+        "%Y-%m-%dT%H:%M:%S",     // e.g., 2025-06-26T14:30:00
+        "%Y-%m-%d"               // e.g., 2025-06-26
+    };
     std::tm tm = {};
     std::istringstream ss(date.data());
-    ss >> std::get_time(&tm, "%Y-%m-%dT%H:%M:%SZ");
-    if (ss.fail()) {
-        throw std::invalid_argument("Failed to parse date string: " + std::string(date));
+    bool parsed = false;
+    for (const auto& fmt : formats) {
+        ss.clear();
+        ss.str(date.data());
+        ss >> std::get_time(&tm, fmt.data());
+        if (!ss.fail()) {
+            parsed = true;
+            break;
+        }
     }
+
+    logger->debug("Transformed to date type: {}", ss.str());
+
     auto target_tp = std::chrono::system_clock::from_time_t(std::mktime(&tm));
     auto target_date = bsoncxx::types::b_date(target_tp);
+
     return {target_tp, target_date};
 }
 
 
-bsoncxx::builder::basic::array Broker::create_date_pipeline(
+mongocxx::pipeline Broker::create_date_pipeline(
+    const Timeframe& frame,
+    const size_t count,
+    std::string_view id,
     const std::chrono::_V2::system_clock::time_point& base_date,
     const bsoncxx::types::b_date& parsed_date
 ){
-    auto five_minutes = std::chrono::minutes(5);
-    auto lower_bound = bsoncxx::types::b_date(base_date - five_minutes);
-    auto upper_bound = bsoncxx::types::b_date(base_date + five_minutes);
 
-    bsoncxx::builder::basic::array time_diff_array;
-    time_diff_array.append("$time");
-    time_diff_array.append(parsed_date);
+    mongocxx::pipeline pipeline;
 
-    bsoncxx::builder::basic::array pipeline;
-    pipeline.append(
-        bsoncxx::builder::basic::make_document(
-            bsoncxx::builder::basic::kvp("$match",
+    switch(frame){
+        case Timeframe::NOW: {
+            pipeline.match(
                 bsoncxx::builder::basic::make_document(
-                    bsoncxx::builder::basic::kvp("timestamp",
-                        bsoncxx::builder::basic::make_document(
-                            bsoncxx::builder::basic::kvp("$gte", lower_bound),
-                            bsoncxx::builder::basic::kvp("$lte", upper_bound)
-                        )
-                    )
+                    bsoncxx::builder::basic::kvp("_id._id", id)
                 )
-            )
-        )
-    );
-
-    pipeline.append(
-        bsoncxx::builder::basic::make_document(
-            bsoncxx::builder::basic::kvp("$project",
+            );
+            pipeline.add_fields(
                 bsoncxx::builder::basic::make_document(
-                    bsoncxx::builder::basic::kvp("description", 1),
-                    bsoncxx::builder::basic::kvp("", 1),
-                    bsoncxx::builder::basic::kvp("time_dist",
+                    bsoncxx::builder::basic::kvp("diff",
                         bsoncxx::builder::basic::make_document(
                             bsoncxx::builder::basic::kvp("$abs",
                                 bsoncxx::builder::basic::make_document(
-                                    bsoncxx::builder::basic::kvp("$subtract", time_diff_array)
+                                    bsoncxx::builder::basic::kvp("$subtract",
+                                        bsoncxx::builder::basic::make_array(
+                                            "$_id.timestamp",
+                                            parsed_date
+                                        )
+                                    )
                                 )
                             )
                         )
                     )
                 )
-            )
-        )
-    );
-
-    // Sort by time distance
-    pipeline.append(
-        bsoncxx::builder::basic::make_document(
-            bsoncxx::builder::basic::kvp("$sort",
+            );
+            pipeline.sort(
                 bsoncxx::builder::basic::make_document(
-                    bsoncxx::builder::basic::kvp("time_dist", 1)
+                    bsoncxx::builder::basic::kvp("diff", 1)
                 )
-            )
-        )
-    );
-
-    // Limit to closest
-    pipeline.append(
-        bsoncxx::builder::basic::make_document(
-            bsoncxx::builder::basic::kvp("$limit", 1)
-        )
-    );
+            );
+            //pipeline.limit(count);
+            //pipeline.project(
+            //    bsoncxx::builder::basic::make_document(
+            //        bsoncxx::builder::basic::kvp("diff", 0)
+            //    )
+            //);
+            break;
+        }
+        case Timeframe::BEFORE: {
+            pipeline.match(
+                bsoncxx::builder::basic::make_document(
+                    bsoncxx::builder::basic::kvp("_id._id", id)
+                )
+            );
+            pipeline.match(
+                bsoncxx::builder::basic::make_document(
+                    bsoncxx::builder::basic::kvp("_id.timestamp",
+                        bsoncxx::builder::basic::make_document(
+                            bsoncxx::builder::basic::kvp("$lte", parsed_date)
+                        )
+                    )
+                )
+            );
+            pipeline.sort(
+                bsoncxx::builder::basic::make_document(
+                    bsoncxx::builder::basic::kvp("_id.timestamp", 1)
+                )
+            );
+            pipeline.limit(count);
+            break;
+        }
+        case Timeframe::AFTER: {
+            pipeline.match(
+                bsoncxx::builder::basic::make_document(
+                    bsoncxx::builder::basic::kvp("_id._id", id)
+                )
+            );
+            pipeline.match(
+                bsoncxx::builder::basic::make_document(
+                    bsoncxx::builder::basic::kvp("_id.timestamp",
+                        bsoncxx::builder::basic::make_document(
+                            bsoncxx::builder::basic::kvp("$gte", parsed_date)
+                        )
+                    )
+                )
+            );
+            pipeline.sort(
+                bsoncxx::builder::basic::make_document(
+                    bsoncxx::builder::basic::kvp("_id.timestamp", 1)
+                )
+            );
+            pipeline.limit(count);
+            break;
+        }
+    }
 
     return pipeline;
 }
@@ -143,37 +190,41 @@ std::string Broker::get_from_database(const Timeframe& frame, bsoncxx::v_noabi::
 
     int32_t count = json_data["count"].get_value().get_int32();
 
-    logger->info("Processsing ID: {}, and type: {}", id, type);
-    switch(frame){
-        case Timeframe::NOW: {
+    logger->info("Processing ID: {}, and type: {}", id, type);
 
-            auto collection = this->client[this->database][type];
 
-            if(!date.empty()){
-                auto [base_timestamp, parsed_timestamp] = parse_timestamp(date);
+    std::string correct_type = std::string(type.data());
 
-                auto pipeline = create_date_pipeline(base_timestamp, parsed_timestamp);
-            }
+    if(!date.empty()){
+        correct_type = std::string(type.data()) + "_VERSIONED";
+        auto collection = this->client[this->database][correct_type];
+        auto [base_timestamp, parsed_timestamp] = parse_timestamp(date);
+        auto pipeline = create_date_pipeline(frame, count, id, base_timestamp, parsed_timestamp);
+        auto cursor = collection.aggregate(pipeline);
 
-            auto search = bsoncxx::builder::basic::make_document(
-                bsoncxx::builder::basic::kvp("_id", id)
-            );
-            auto result = collection.find_one(search.view());
-            if(result){
-                logger->info("Received document from Timeframe::Now: {}", bsoncxx::to_json(*result));
-                return bsoncxx::to_json(*result);
-            }else{
-                logger->error("Could not retrieve ID from the database..."); 
-                return "";
-            }
+        std::ostringstream oss;
+        for (auto&& doc : cursor) {
+            logger->debug("Reading document from database: {}", bsoncxx::to_json(doc));
+            oss << bsoncxx::to_json(doc) << "\n";
         }
-        case Timeframe::BEFORE:{
-            logger->debug("Date received: {}", date);
-            return "";
-        }
-        case Timeframe::AFTER:
-            logger->debug("Date received: {}", date);
-            return "";
+
+        std::string flat_json = oss.str();
+        logger->debug("Flat JSON created: {}", flat_json);
+        return flat_json;
+    }
+
+    auto collection = this->client[this->database][correct_type];
+
+    auto search = bsoncxx::builder::basic::make_document(
+        bsoncxx::builder::basic::kvp("_id", id)
+    );
+    auto result = collection.find_one(search.view());
+    if(result){
+        logger->info("Received document from database: {}", bsoncxx::to_json(*result));
+        return bsoncxx::to_json(*result);
+    }else{
+        logger->error("Could not retrieve ID from the database..."); 
+        return "";
     }
 };
 
