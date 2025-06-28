@@ -71,6 +71,6 @@ private:
 
     std::optional<InsertOrReplaceResult> add_one(const std::string& body, const bool versioned);
     std::vector<std::string> get(const std::string& request);
-    std::string_view state(const std::string& request);
+    std::string state(const std::string& request);
     void remove();
 };

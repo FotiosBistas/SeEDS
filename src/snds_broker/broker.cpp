@@ -235,14 +235,25 @@ void Broker::listen(){
             auto type       = req.get_param_value("type");
             if (type.empty()) {
                 res.status = 400;
-                res.set_content(R"({"error": "Missing 'type'})" "\n", "application/json");
+                res.set_content(
+                    R"({"error":"Missing required query parameter 'type'"})" "\n",
+                    "application/json"
+                );
                 return;
             }
 
             std::string json_request = fmt::format(R"({{"type": "{}"}})", type);
-            std::string_view state_value = state(json_request);
+            std::string body = state(json_request);
+            if(body.empty()){
+                res.status = 500;
+                res.set_content(
+                    R"({"error":"Failed to compute state"} )" "\n",
+                    "application/json"
+                );
+                return;
+            }
             res.status = 200;
-            res.set_content(state_value.data(), "application/json");
+            res.set_content(body + "\n", "application/json");
         });
 
         svr.Get("/temporal-query", [this](const httplib::Request& req, httplib::Response& res){
@@ -543,7 +554,7 @@ std::string collection_fingerprint(mongocxx::collection& collection) {
     return oss.str();
 }
 
-std::string_view Broker::state(const std::string& request){
+std::string Broker::state(const std::string& request){
 
     try {
         auto jsonData = bsoncxx::from_json(request);
