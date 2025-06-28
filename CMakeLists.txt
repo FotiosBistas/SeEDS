@@ -5,6 +5,8 @@ cmake_minimum_required(VERSION 3.10)
 project(SeEDS LANGUAGES CXX)
 
 find_package(PkgConfig REQUIRED)
+find_package(OpenSSL REQUIRED)
+
 
 # Find libpcap
 pkg_check_modules(PCAP REQUIRED libpcap)
@@ -151,6 +153,28 @@ if(NOT ndn-tools_POPULATED)
     DEPENDS ndn-cxx-build
     WORKING_DIRECTORY ${ndn-tools_SOURCE_DIR}
     COMMENT "Building ndn-tools via waf"
+  )
+endif()
+
+###################################################################### 
+# Fetch and add nlohmann/json (single-header JSON library)
+###################################################################### 
+include(FetchContent)
+
+FetchContent_Declare(
+  nlohmann_json
+  GIT_REPOSITORY https://github.com/nlohmann/json.git
+  GIT_TAG v3.12.0
+  GIT_SHALLOW TRUE
+)
+
+FetchContent_GetProperties(nlohmann_json)
+if(NOT nlohmann_json_POPULATED)
+  FetchContent_Populate(nlohmann_json)
+  add_subdirectory(
+    ${nlohmann_json_SOURCE_DIR}
+    ${nlohmann_json_BINARY_DIR}
+    EXCLUDE_FROM_ALL
   )
 endif()
 
@@ -303,6 +327,7 @@ target_include_directories(snds_broker PUBLIC
     ${MONGO_CXX_INSTALL_DIR}/include
     ${MONGO_CXX_INSTALL_DIR}/include/bsoncxx/v_noabi
     ${MONGO_CXX_INSTALL_DIR}/include/mongocxx/v_noabi
+    ${OPENSSL_INCLUDE_DIR}
 )
 
 # Link required libraries
@@ -311,6 +336,8 @@ target_link_libraries(snds_broker PUBLIC
     ${MONGO_CXX_INSTALL_DIR}/lib/libmongocxx.so
     timeframes
     spdlog::spdlog
+    OpenSSL::Crypto
+    nlohmann_json::nlohmann_json
 )
 
 # Create the broker executable
