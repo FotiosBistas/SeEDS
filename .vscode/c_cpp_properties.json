@@ -10,8 +10,9 @@
         "${workspaceFolder}/build/mongo-cxx-driver-install/include/bsoncxx/v_noabi",
         "${workspaceFolder}/build/mongo-cxx-driver-install/include/mongocxx/v_noabi",
 
-        // spdlog and cpp-httplib
+        // spdlog,json, cpp-httplib
         "${workspaceFolder}/build/_deps/spdlog-src/include",
+        "${workspaceFolder}/build/_deps/nlohmann_json-src/include",
         "${workspaceFolder}/build/_deps/cpp-httplib-src",
 
         // Boost (if needed)
