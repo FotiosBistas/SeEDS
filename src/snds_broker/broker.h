@@ -9,6 +9,8 @@
 #include <mongocxx/client.hpp>
 #include <mongocxx/instance.hpp>
 #include <mongocxx/uri.hpp>
+#include <openssl/evp.h>
+#include <nlohmann/json.hpp>  
 #include <variant>
 #include "timeframes.h"
 
@@ -36,6 +38,8 @@ public:
     std::pair<std::chrono::_V2::system_clock::time_point, bsoncxx::types::b_date> parse_timestamp(std::string_view date);
     mongocxx::pipeline create_date_pipeline(const Timeframe& frame, const size_t count, std::string_view id, const std::chrono::_V2::system_clock::time_point& base_date, const bsoncxx::types::b_date& parsed_date);
     std::string get_from_database(const Timeframe& frame, bsoncxx::v_noabi::document::view json_data);
+    std::string hash_document(const bsoncxx::document::view& document);
+    std::string compute_collection_hash(const mongocxx::collection& collection);
 
     inline static void initiateShutdown(){
         shouldShutdown.store(true);
@@ -67,6 +71,6 @@ private:
 
     std::optional<InsertOrReplaceResult> add_one(const std::string& body, const bool versioned);
     std::vector<std::string> get(const std::string& request);
+    std::string_view state(const std::string& request);
     void remove();
-    void patch();
 };

@@ -232,6 +232,17 @@ void Broker::listen(){
 
         svr.Get("/state", [this](const httplib::Request& req, httplib::Response& res){
             logger->info("Received HTTP request for {}, with target {}", req.body, req.target);
+            auto type       = req.get_param_value("type");
+            if (type.empty()) {
+                res.status = 400;
+                res.set_content(R"({"error": "Missing 'type'})" "\n", "application/json");
+                return;
+            }
+
+            std::string json_request = fmt::format(R"({{"type": "{}"}})", type);
+            std::string_view state_value = state(json_request);
+            res.status = 200;
+            res.set_content(state_value.data(), "application/json");
         });
 
         svr.Get("/temporal-query", [this](const httplib::Request& req, httplib::Response& res){
@@ -438,7 +449,145 @@ std::vector<std::string> Broker::get(const std::string& request){
 
 void Broker::remove(){}
 
-void Broker::patch(){}
+nlohmann::json normalize_json(const nlohmann::json& j) {
+    if (j.is_object()) {
+        std::vector<std::string> keys;
+        for (auto& kv : j.items()) keys.push_back(kv.key());
+        std::sort(keys.begin(), keys.end());
+
+        nlohmann::json out = nlohmann::json::object();
+        for (auto& k : keys) {
+            out[k] = normalize_json(j.at(k));
+        }
+        return out;
+    }
+    else if (j.is_array()) {
+        nlohmann::json out = nlohmann::json::array();
+        for (auto& el : j) {
+            out.push_back(normalize_json(el));
+        }
+        return out;
+    }
+    return j;
+}
+
+std::string md5_hex(const void* data, std::size_t len) {
+    EVP_MD_CTX* ctx = EVP_MD_CTX_new();
+    if (!ctx) throw std::runtime_error("EVP_MD_CTX_new failed");
+    if (EVP_DigestInit_ex(ctx, EVP_md5(), nullptr) != 1) {
+        EVP_MD_CTX_free(ctx);
+        throw std::runtime_error("EVP_DigestInit_ex failed");
+    }
+
+    if (EVP_DigestUpdate(ctx, data, len) != 1) {
+        EVP_MD_CTX_free(ctx);
+        throw std::runtime_error("EVP_DigestUpdate failed");
+    }
+
+    unsigned char digest[EVP_MAX_MD_SIZE];
+    unsigned int  digest_len = 0;
+    if (EVP_DigestFinal_ex(ctx, digest, &digest_len) != 1) {
+        EVP_MD_CTX_free(ctx);
+        throw std::runtime_error("EVP_DigestFinal_ex failed");
+    }
+    EVP_MD_CTX_free(ctx);
+
+    std::ostringstream oss;
+    oss << std::hex << std::setfill('0');
+    for (unsigned int i = 0; i < digest_len; ++i) {
+        oss << std::setw(2) << static_cast<int>(digest[i]);
+    }
+    return oss.str();
+}
+
+std::string hash_document(bsoncxx::document::view document) {
+    // to_json gives a predictable ordering for primitives
+    auto json              = bsoncxx::to_json(document);                
+    auto parsed_document   = nlohmann::json::parse(json);      
+    auto canonical_json    = normalize_json(parsed_document);               
+    auto compact           = canonical_json.dump();                         
+    return md5_hex(compact.data(), compact.size());
+}
+
+std::string collection_fingerprint(mongocxx::collection& collection) {
+    EVP_MD_CTX* ctx = EVP_MD_CTX_new();
+    if (!ctx) throw std::runtime_error("EVP_MD_CTX_new failed");
+    if (EVP_DigestInit_ex(ctx, EVP_md5(), nullptr) != 1) {
+        EVP_MD_CTX_free(ctx);
+        throw std::runtime_error("EVP_DigestInit_ex failed");
+    }
+
+    mongocxx::options::find opts;
+
+    for (auto&& doc : collection.find({}, opts)) {
+        auto h = hash_document(doc);
+        if (EVP_DigestUpdate(ctx, h.data(), h.size()) != 1) {
+            EVP_MD_CTX_free(ctx);
+            throw std::runtime_error("EVP_DigestUpdate failed");
+        }
+    }
+
+    unsigned char final_digest[EVP_MAX_MD_SIZE];
+    unsigned int  final_len = 0;
+    if (EVP_DigestFinal_ex(ctx, final_digest, &final_len) != 1) {
+        EVP_MD_CTX_free(ctx);
+        throw std::runtime_error("EVP_DigestFinal_ex failed");
+    }
+    EVP_MD_CTX_free(ctx);
+
+    std::ostringstream oss;
+    oss << std::hex << std::setfill('0');
+    for (unsigned int i = 0; i < final_len; ++i) {
+        oss << std::setw(2) << static_cast<int>(final_digest[i]);
+    }
+    return oss.str();
+}
+
+std::string_view Broker::state(const std::string& request){
+
+    try {
+        auto jsonData = bsoncxx::from_json(request);
+        auto view = jsonData.view();
+        std::string_view type = view["type"].get_value().get_string().value;
+        auto coll = this->client[this->database][type];
+        std::string fp = collection_fingerprint(coll);
+        logger->info("Collection fingerprint: {}", fp);
+        return fp;
+    }
+    catch (const std::exception& e) {
+        logger->error("Error computing fingerprint: {}", e.what());
+        return "";
+    }
+}
+
+// needs paid version
+//std::string_view Broker::state(const std::string& request){
+//
+//    try{
+//        auto jsonData = bsoncxx::from_json(request);
+//        auto view = jsonData.view();
+//        std::string_view type = view["type"].get_value().get_string().value;
+//        bsoncxx::builder::basic::array collections{};
+//        collections.append(type);
+//        bsoncxx::builder::basic::document document; 
+//        document.append(bsoncxx::builder::basic::kvp("dbHash", 1));
+//        document.append(bsoncxx::builder::basic::kvp("collections", collections));
+//        auto database = client[this->database];
+//        // run the { dbHash: 1, collections: [...] } command
+//        auto result = database.run_command(document.view());
+//        auto result_view   = result.view();
+//
+//        // extract the "md5" field
+//        if (result_view["ok"].get_double() != 1.0)
+//          throw std::runtime_error("dbHash failed: " + bsoncxx::to_json(view));
+//
+//        logger->debug("Received MD5 hash: {}", result_view["md5"].get_value().get_string().value);
+//        return result_view["md5"].get_value().get_string().value;
+//    }catch(const std::exception& e){
+//        logger->error("Error: {}", e.what());
+//        return "";
+//    }
+//}
 
 
 
