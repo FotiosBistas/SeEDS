@@ -54,7 +54,6 @@ ExternalProject_Add(mongo-cxx-driver
     -DCMAKE_INSTALL_PREFIX=${MONGO_CXX_INSTALL_DIR}
   BUILD_COMMAND ${CMAKE_COMMAND} --build .
   INSTALL_COMMAND ${CMAKE_COMMAND} --build . --target install
-  DOWNLOAD_EXTRACT_TIMESTAMP TRUE
 )
 
 
