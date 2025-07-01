@@ -9,7 +9,10 @@
 enum class SNDS_INTRA_MESSAGE_TYPE {
     GENERIC,           ///< Generic message type, used for general-purpose communication.
     BY_ID_RESPONSE,    ///< Message is a response identified by a specific ID.
-    BY_TYPE_RESPONSE   ///< Message is a response identified by a specific type.
+    BY_TYPE_RESPONSE,  ///< Message is a response identified by a specific type.
+    BY_ID_REQUEST,     ///< Message is a request identified by a specific ID.
+    BY_TYPE_REQUEST,   ///< Message is a request identified by a specific type.
+    TEMPORAL_QUERY     ///< Message is a temporal query. It is identified by its ID.>
 };
 
 /// @brief Defines the different components or clients in the SNDS system. Allegendly correctly explained by me

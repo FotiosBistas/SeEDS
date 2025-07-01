@@ -40,7 +40,7 @@ unsigned getSNDSNodeForSubscription(const std::string& name, int numberOfSNDSSer
  * @param tag The tag whose associated value should be extracted, as a std::string_view.
  * @return The value corresponding to the tag. Returns an empty string if the tag is not found.
  */
-std::string getFromGETRequest(std::string_view url, std::string_view tag);
+std::string_view get_from_get_request(std::string_view url, std::string_view tag);
 
 /**
  * @brief Ensures that the given name starts with a forward slash ('/').
@@ -72,12 +72,12 @@ std::string getSNDSNodeScopeNameForSubscription(const std::string& id, const std
  * This inline function extracts the value associated with the "isSub" parameter from the URL.
  * If the extracted value is "true", it returns true; otherwise, it returns false.
  *
- * @param url The GET request URL as a std::string.
+ * @param url The GET request URL as a std::string_view.
  * @return true if the "isSub" parameter equals "true", false otherwise.
  */
-inline bool isSubscriptionRequest(const std::string &url) {
+inline bool isSubscriptionRequest(std::string_view url) {
     constexpr std::string_view SUBtag = "isSub";
-    return getFromGETRequest(url, SUBtag) == "true";
+    return get_from_get_request(url, SUBtag) == "true";
 }
 
 /**
@@ -86,12 +86,12 @@ inline bool isSubscriptionRequest(const std::string &url) {
  * This inline function extracts and returns the value associated with the "suburl" parameter from the URL.
  * If the parameter is not present, an empty string is returned.
  *
- * @param url The GET request URL as a std::string.
+ * @param url The GET request URL as a std::string_view.
  * @return A std::string containing the subscription URL.
  */
-inline std::string getURLfromSubscription(const std::string &url) {
+inline std::string_view getURLfromSubscription(std::string_view url) {
     constexpr std::string_view SUBURLtag = "suburl";
-    return getFromGETRequest(url, SUBURLtag);
+    return get_from_get_request(url, SUBURLtag);
 }
 
 //TODO these functions below require their own data type

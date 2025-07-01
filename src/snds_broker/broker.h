@@ -12,7 +12,7 @@
 #include <openssl/evp.h>
 #include <nlohmann/json.hpp>  
 #include <variant>
-#include "timeframes.h"
+#include "temporal_query.h"
 
 using InsertOrReplaceResult = std::variant<
     mongocxx::result::insert_one,

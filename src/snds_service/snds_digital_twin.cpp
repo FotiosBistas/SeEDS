@@ -24,7 +24,7 @@ void DigitalTwin::init(){
         m_logger->debug("Extracted content length from message {}", length);
 
 
-        std::string id = getFromGETRequest(content, "id");
+        std::string id = std::string(get_from_get_request(content, "id"));
         std::string idScope = getSNDSNodeScopeNameForSubscription(id, m_idScopePrefix, m_numberOfSndsSrvs);
 
         m_logger->debug("Extracted id from message {}", id);
@@ -69,7 +69,7 @@ void DigitalTwin::init(){
             v_to_consumer->writeMessage(std::move(message2));
         }
 
-        std::string type = getFromGETRequest(content, "type");
+        std::string type = std::string(get_from_get_request(content, "type"));
         m_logger->debug("Extracted Type from message {}", type);
 
         if(!type.empty()){

@@ -300,23 +300,26 @@ set(SNDS_BROKER_MAIN
     ${SNDS_BROKER_DIR}/broker_main.cpp
 )
 
-# Timeframes module sources
+# Temporal query module sources
 set(SNDS_BROKER_TIMEFRAMES_SOURCES
-    ${SNDS_BROKER_DIR}/timeframes.cpp
+    ${SNDS_BROKER_DIR}/temporal_query.cpp
 )
 
-# Build the 'timeframes' static library
-add_library(timeframes STATIC ${SNDS_BROKER_TIMEFRAMES_SOURCES})
+# Build the 'temporal_query' static library
+add_library(temporal_query STATIC ${SNDS_BROKER_TIMEFRAMES_SOURCES})
 
-# Include headers from broker dir for timeframes
-target_include_directories(timeframes PUBLIC
+# Include headers from broker dir for temporal_query
+target_include_directories(temporal_query PUBLIC
     ${SNDS_BROKER_DIR}
 )
 
-# Link spdlog to timeframes if it uses logging
-target_link_libraries(timeframes PUBLIC spdlog::spdlog)
+# Link spdlog to temporal_queyr if it uses logging
+target_link_libraries(temporal_query PUBLIC
+    spdlog::spdlog
+    nlohmann_json::nlohmann_json
+)
 
-# Build the 'snds_broker' static library and link timeframes
+# Build the 'snds_broker' static library and link temporal_query
 add_library(snds_broker STATIC ${SNDS_BROKER_SOURCES})
 
 # Include directories for Mongo, httplib, and broker headers
@@ -333,7 +336,7 @@ target_include_directories(snds_broker PUBLIC
 target_link_libraries(snds_broker PUBLIC
     ${MONGO_CXX_INSTALL_DIR}/lib/libbsoncxx.so
     ${MONGO_CXX_INSTALL_DIR}/lib/libmongocxx.so
-    timeframes
+    temporal_query
     spdlog::spdlog
     OpenSSL::Crypto
     nlohmann_json::nlohmann_json
@@ -415,27 +418,33 @@ target_link_libraries(snds_utils PUBLIC spdlog::spdlog)
 set(SNDS_SERVICE_SOURCES
     ${SNDS_SERVICE_DIR}/snds_service_base.cpp
     ${SNDS_SERVICE_DIR}/snds_http_service.cpp
-    ${SNDS_SERVICE_DIR}/snds_http_worker.cpp
+    ${SNDS_SERVICE_DIR}/worker.cpp
     ${SNDS_SERVICE_DIR}/snds_producer.cpp
     ${SNDS_SERVICE_DIR}/snds_consumer.cpp
     ${SNDS_SERVICE_DIR}/snds_digital_twin.cpp
 )
 
-add_library(snds_service STATIC ${SNDS_SERVICE_SOURCES})
+add_library(snds_service STATIC 
+    ${SNDS_SERVICE_SOURCES}
+)
+
 target_include_directories(snds_service PUBLIC
     ${SNDS_SERVICE_DIR}
     ${NDN_CXX_INCLUDE_DIR}        # for ndn-cxx headers
     ${cpp-httplib_SOURCE_DIR}       # for cpp-httplib header
     ${SNDS_UTILS_DIR}
+    ${SNDS_BROKER_DIR}
 )
+
 target_link_libraries(snds_service PRIVATE
     message_queue
     snds_utils
     ${NDN_CXX_LIBRARY_DIR}/libndn-cxx.so
     spdlog::spdlog
+    snds_broker
 )
 
-add_dependencies(snds_service ndn-cxx-build)
+add_dependencies(snds_service ndn-cxx-build snds_broker)
 
 #####################################################################
 # Build the main executable that runs the daemon
@@ -447,6 +456,7 @@ target_include_directories(snds_daemon_bin PRIVATE
     ${SNDS_SERVICE_DIR}
     ${NDN_CXX_INCLUDE_DIR}
     ${SNDS_UTILS_DIR}
+    ${SNDS_BROKER_DIR} 
 )
 
 target_link_libraries(snds_daemon_bin PRIVATE
@@ -454,6 +464,8 @@ target_link_libraries(snds_daemon_bin PRIVATE
     message_queue
     ${NDN_CXX_LIBRARY_DIR}/libndn-cxx.so
     spdlog::spdlog
+    snds_broker
+    nlohmann_json::nlohmann_json
 )
 add_dependencies(snds_daemon_bin ndn-cxx-build)
 

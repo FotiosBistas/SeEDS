@@ -21,11 +21,11 @@ void removeTypePrefix(std::string& input) {
     }
 }
 
-std::string getFromGETRequest(std::string_view url, std::string_view tag) {
+std::string_view get_from_get_request(std::string_view url, std::string_view tag) {
     constexpr std::string_view delimiter = "&";
-    constexpr std::string_view assignSymbol = "=";
+    constexpr std::string_view assign_symbol = "=";
 
-    std::string pattern = std::string(tag) + std::string(assignSymbol);
+    std::string pattern = std::string(tag) + std::string(assign_symbol);
     std::size_t start = url.find(pattern);
 
     if (start == std::string_view::npos) {
@@ -43,8 +43,8 @@ std::string getFromGETRequest(std::string_view url, std::string_view tag) {
         end = url.size();
     }
 
-    std::string_view valueView = url.substr(start, end - start);
-    return std::string(valueView);
+    std::string_view value_view = url.substr(start, end - start);
+    return value_view;
 }
 
 

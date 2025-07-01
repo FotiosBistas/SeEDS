@@ -186,10 +186,8 @@ protected:
   std::string m_registryFilePostfix;    // e.g., "_registry"
   std::string serviceName;
 	std::string m_ackTag = "THIS_IS_AN_SNDS_ACK\r\n";
-  std::string PARAM_ID_TAG = "id";
-  std::string PARAM_TYPE_TAG = "type";
   std::string WARNING_ALREADY_REGISTERED = "WARNING_ALREADY_REGISTERED";
-  std::string ERASE_PREFIX = "erase=";
+  static constexpr const char* ERASE_PREFIX="erase=";
 
 };
 

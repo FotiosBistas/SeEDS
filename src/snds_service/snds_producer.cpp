@@ -56,7 +56,12 @@ void SNDSProducer::init(){
     std::bind(&SNDSProducer::onRegisterFailed, this, _1, _2));
   } catch (const ndn::security::pib::Pib::Error &e) {
       m_logger->error("No default identity found: {}", e.what());
-      return;
+      ndn::Name identityName("Producer");
+      // create in PIB, which also installs a key and certificate
+      auto identity = m_keyChain.createIdentity(identityName);
+      // mark it as the default
+      m_keyChain.setDefaultIdentity(identity);
+      m_logger->info("Created and set default identity: {}", identityName.toUri());
   }
 
   // Process events in a blocking mode once (if needed)
@@ -279,6 +284,9 @@ void SNDSProducer::processLocalIdRequest(ParsedInterest& interest) {
 
   // Look up the local ID in the locally announced IDs map.
   auto it = locallyAnnouncedIDsMap.find(local_id);
+  //TODO here we handle temporal queries.
+  //TODO the metafile is received onData inside the consumer 
+  //TODO the registry file is processed inside snds_http_worker
   if (it != locallyAnnouncedIDsMap.end()) {
     m_logger->info("Local ID request for {} found. Sending associated data.", local_id);
     sendData(toName(interest), "id="+it->second);

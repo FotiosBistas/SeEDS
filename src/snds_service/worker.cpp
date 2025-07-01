@@ -1,6 +1,6 @@
-#include "snds_http_worker.h"
+#include "worker.h"
 
-void HTTPWorker::init() {
+void Worker::init() {
     m_logger->info("Starting service: {}", serviceName);
     if (serviceName.empty()) {
         m_logger->warn("Warning: serviceName is EMPTY! Check constructor initialization.");
@@ -17,12 +17,15 @@ void HTTPWorker::init() {
         }
 
         // Retrieve the message content and extract parameters using snds_utils.
-        const std::string content = message->getMessage();
-        const std::string name    = message->getName();
-        std::string id            = getFromGETRequest(content, PARAM_ID_TAG);
-        std::string type          = getFromGETRequest(content, PARAM_TYPE_TAG);
-        std::string subUrl        = getURLfromSubscription(content);
-        bool isSub                = isSubscriptionRequest(content);
+        std::string_view content       = message->getMessage();
+        std::string_view name          = message->getName();
+        std::string_view id            = get_from_get_request(content, GET_PARAMETER_ID_TAG);
+        std::string_view type          = get_from_get_request(content, GET_PARAMETER_TYPE_TAG);
+        std::string_view date          = get_from_get_request(content, GET_PARAMETER_DATE_TAG);
+        std::string_view count         = get_from_get_request(content, GET_PARAMETER_COUNT_TAG);
+        std::string_view timeframe     = get_from_get_request(content, GET_PARAMETER_TIMEFRAME_TAG);
+        std::string_view subUrl        = getURLfromSubscription(content);
+        bool isSub                     = isSubscriptionRequest(content);
 
         // If subscription flag is set but no subUrl provided, log a warning and treat as a regular request.
         if (isSub && subUrl.empty()) {
@@ -34,8 +37,8 @@ void HTTPWorker::init() {
             m_logger->warn("Both ID and Type parameters are empty in GET request. Hopefully name is filled...");
             //TODO currently this is a message only received by Consumer
             // sends back the ID to remove it from pending IDs
-            id      = getFromGETRequest(name, PARAM_ID_TAG);
-            type    = getFromGETRequest(name, PARAM_TYPE_TAG);
+            id      = get_from_get_request(name, GET_PARAMETER_ID_TAG);
+            type    = get_from_get_request(name, GET_PARAMETER_TYPE_TAG);
             //continue; // Skip processing this message
         }
 
@@ -43,46 +46,67 @@ void HTTPWorker::init() {
         m_logger->debug("Extracted TYPE: {}", type);
         m_logger->debug("Extracted subURL: {}", subUrl);
         m_logger->debug("Extracted isSub: {}", isSub);
+        m_logger->debug("Temporal query related data");
+        m_logger->debug("Extracted Date: {}", date);
+        m_logger->debug("Extracted Timeframe: {}", timeframe);
+        m_logger->debug("Extracted Count: {}", count);
 
         // Process according to sender type.
         switch (message->getSender()) {
             case SNDS_CLIENT_TYPES::HTTP_SRV: {
                 m_logger->info("Received HTTP SERVER message.");
-                // First, handle subscription requests.
+                // Give priority to temporal queries
+                if(!timeframe.empty()){
+                    m_logger->info("Processing temporal query request...");
+
+                    TemporalQuery query = {
+                        string_to_timeframe(timeframe), 
+                        date.data(),
+                        id.data(),
+                        type.data(),
+                        count.data(),
+                    };
+
+
+                    processTemporalQueryRequest(query);
+                    break;
+                }
+                // Handle subscription requests.
                 if (isSub && !id.empty()) {
                     m_logger->info("Processing subscription request...");
-                    processSubscriptionRequest(id, subUrl);
+                    processSubscriptionRequest(id.data(), subUrl.data());
                 }
                 // Next, handle regular getByID requests.
                 if (!id.empty()) {
                     m_logger->info("Processing ID request...");
-                    processByIDRequest(id);
+                    processByIDRequest(id.data());
                 }
                 // Otherwise, handle getByType requests.
                 if (!type.empty()) {
                     m_logger->info("Processing TYPE request...");
-                    processByTYPERequest(type);
+                    processByTYPERequest(type.data());
                 }
                 break;
             }
             case SNDS_CLIENT_TYPES::CONSUMER:
                 //Note here that all the responses have to do with the name
                 m_logger->info("Received consumer message.");
+
                 // First, handle registry file responses.
                 if (name.find(m_registryFilePostfix) != std::string::npos) {
                     m_logger->info("Processing registry file response...");
-                    processRegistryFileRequest(content, name);
+                    processRegistryFileRequest(content.data(), name.data());
                 }
                 // A request can be both byID and byTYPE
                 // Next, handle getById responses.
                 if (!id.empty()) {
                     m_logger->info("Processing getByIDConsumer request...");
-                    processByIDRequest(name, true);
+                    processByIDRequest(name.data(), true);
                 }
                 // Otherwise, handle getByType responses.
                 if (!type.empty()) {
                     m_logger->info("Processing getByTYPEConsumer response...");
-                    processByTYPERequest(name, true);
+                    processByTYPERequest(name.data(), true);
                 }
                 break;
             default:
@@ -91,10 +115,36 @@ void HTTPWorker::init() {
         }
     }
 
-    m_logger->info("HTTPWorker thread stopping.");
+    m_logger->info("Worker thread stopping.");
 }
 
-void HTTPWorker::processSubscriptionRequest(const std::string& id, const std::string& subURL) {
+
+void Worker::processTemporalQueryRequest(const TemporalQuery& temporal_query){
+
+    auto id = std::string(temporal_query.id);
+    auto [_, new_request] = pendingTemporalQueryreqs.insert(id);
+
+    if(!new_request){
+        m_logger->info("Duplicate TemporalQuery for ID: {}", id);
+        return;
+    }
+
+    ensureLeadingSlash(id);
+    m_logger->info("Pushing TemporalQuery for ID: {}", id);
+
+    auto message = std::make_unique<SNDS_INTRA_MESSAGE>(
+        std::move(serialize_temporal_query(temporal_query)),
+        SNDS_INTRA_MESSAGE_TYPE::TEMPORAL_QUERY,
+        SNDS_CLIENT_TYPES::SERVICE,
+        ""
+    );
+
+    v_to_consumer.get()->writeMessage(std::move(message));
+}
+
+void Worker::processTemporalQueryResponse(const TemporalQuery& temporal_query){}
+
+void Worker::processSubscriptionRequest(const std::string& id, const std::string& subURL) {
     // Retrieve the subscription set for this ID.
     // If 'id' is new, operator[] creates an empty set.
     auto& subs = subscribedBYID_users[id];
@@ -138,7 +188,7 @@ void HTTPWorker::processSubscriptionRequest(const std::string& id, const std::st
     }
 }
 
-void HTTPWorker::processByIDRequest(const std::string& id, const bool subscription){
+void Worker::processByIDRequest(const std::string& id, const bool subscription){
 
     if(subscription){
         processByIDResponse(id);
@@ -148,6 +198,7 @@ void HTTPWorker::processByIDRequest(const std::string& id, const bool subscripti
     auto [_, newRequest] = pendingGetByIDreqs.insert(id);
     if(!newRequest){
         m_logger->info("Duplicate getByID request for ID: {} redoing operation.", id);
+        return;
     }
 
     std::string modifiableId = id;  // Create a modifiable copy
@@ -164,7 +215,7 @@ void HTTPWorker::processByIDRequest(const std::string& id, const bool subscripti
     v_to_consumer.get()->writeMessage(std::move(message));
 }
 
-void HTTPWorker::processByIDResponse(const std::string& name){
+void Worker::processByIDResponse(const std::string& name){
     m_logger->info("Subscription response with name {} received...", name);
     auto temp = std::string(name);
     removeIdPrefix(temp);
@@ -184,7 +235,7 @@ void HTTPWorker::processByIDResponse(const std::string& name){
     }
 }
 
-void HTTPWorker::processByTYPERequest(const std::string& type, const bool subscription){
+void Worker::processByTYPERequest(const std::string& type, const bool subscription){
 
     if(subscription){
         processByTYPEResponse(type);
@@ -195,6 +246,7 @@ void HTTPWorker::processByTYPERequest(const std::string& type, const bool subscr
 
     if (!newRequest){
         m_logger->info("Duplicate getByType request for type: {} ignored.", type);
+        return;
     }
 
     std::string fullType = type + m_registryFilePostfix;
@@ -211,7 +263,7 @@ void HTTPWorker::processByTYPERequest(const std::string& type, const bool subscr
     v_to_consumer.get()->writeMessage(std::move(message));
 }
 
-void HTTPWorker::processByTYPEResponse(const std::string& name){
+void Worker::processByTYPEResponse(const std::string& name){
     //TODO yes here type is an ID
     // in the end I guess not
     // i'm not sure why
@@ -272,7 +324,7 @@ void HTTPWorker::processByTYPEResponse(const std::string& name){
     }
 }
 
-void HTTPWorker::processRegistryFileRequest(const std::string& payload, const std::string& name) {
+void Worker::processRegistryFileRequest(const std::string& payload, const std::string& name) {
 
     // Parse the payload into a vector of IDs.
     std::vector<std::string> ids = parseIDsFromRegistryFilePayload(
