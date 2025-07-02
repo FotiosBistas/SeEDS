@@ -4,16 +4,21 @@
 #include <vector>
 #include <string>
 #include <unordered_set>
+#include <cctype>
 #include <cstddef>      // for std::byte
 #include <cstdint>      // for uint8_t
 #include <cstring>      // for std::memcpy
 #include <span>         // for std::span (C++20)
 #include <stdexcept>    // for std::length_error, std::invalid_argument, std::out_of_range
 #include <unordered_set>
+#include <iomanip>
+#include <sstream>
+
 #include <spdlog/spdlog.h>
 
 void removeIdPrefix(std::string& input);
 void removeTypePrefix(std::string& input);
+std::string url_decode(std::string_view in);
 
 /**
  * @brief Computes the responsible SNDS node ID for a given subscription name.

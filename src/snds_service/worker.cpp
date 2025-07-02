@@ -21,9 +21,9 @@ void Worker::init() {
         std::string_view name          = message->getName();
         std::string_view id            = get_from_get_request(content, GET_PARAMETER_ID_TAG);
         std::string_view type          = get_from_get_request(content, GET_PARAMETER_TYPE_TAG);
-        std::string_view date          = get_from_get_request(content, GET_PARAMETER_DATE_TAG);
+        std::string date               = url_decode(get_from_get_request(content, GET_PARAMETER_DATE_TAG));
         std::string_view count         = get_from_get_request(content, GET_PARAMETER_COUNT_TAG);
-        std::string_view timeframe     = get_from_get_request(content, GET_PARAMETER_TIMEFRAME_TAG);
+        std::string timeframe          = url_decode(get_from_get_request(content, GET_PARAMETER_TIMEFRAME_TAG));
         std::string_view subUrl        = getURLfromSubscription(content);
         bool isSub                     = isSubscriptionRequest(content);
 

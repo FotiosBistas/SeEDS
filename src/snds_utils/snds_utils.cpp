@@ -21,6 +21,38 @@ void removeTypePrefix(std::string& input) {
     }
 }
 
+static int hex_val(char c) {
+    if (c >= '0' && c <= '9') return c - '0';
+    if (c >= 'A' && c <= 'F') return c - 'A' + 10;
+    if (c >= 'a' && c <= 'f') return c - 'a' + 10;
+    throw std::invalid_argument(std::string("Invalid hex digit: ") + c);
+}
+
+// Decode percent‐escapes in a URL‐query fragment.
+// Does NOT treat '+' as space; '+' remains '+'. 
+std::string url_decode(std::string_view in) {
+    std::string out;
+    out.reserve(in.size());
+    for (size_t i = 0; i < in.size(); ++i) {
+        char c = in[i];
+        if (c == '%' && i + 2 < in.size()) {
+            char hi = in[i+1], lo = in[i+2];
+            //Example: 
+            //%3A
+            //00111010
+            //58 -> :
+            auto val = (hex_val(hi) << 4) | hex_val(lo);
+            char decoded = static_cast<unsigned char>(val);
+            out += decoded;
+            i += 2;
+        }
+        else {
+            out += c;
+        }
+    }
+    return out;
+}
+
 std::string_view get_from_get_request(std::string_view url, std::string_view tag) {
     constexpr std::string_view delimiter = "&";
     constexpr std::string_view assign_symbol = "=";
