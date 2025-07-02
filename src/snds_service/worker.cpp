@@ -17,14 +17,14 @@ void Worker::init() {
         }
 
         // Retrieve the message content and extract parameters using snds_utils.
-        std::string_view content       = message->getMessage();
-        std::string_view name          = message->getName();
-        std::string_view id            = get_from_get_request(content, GET_PARAMETER_ID_TAG);
-        std::string_view type          = get_from_get_request(content, GET_PARAMETER_TYPE_TAG);
+        std::string content            = message->getMessage();
+        std::string name               = message->getName();
+        std::string id                 = std::string(get_from_get_request(content, GET_PARAMETER_ID_TAG));
+        std::string type               = std::string(get_from_get_request(content, GET_PARAMETER_TYPE_TAG));
+        std::string count              = std::string(get_from_get_request(content, GET_PARAMETER_COUNT_TAG));
         std::string date               = url_decode(get_from_get_request(content, GET_PARAMETER_DATE_TAG));
-        std::string_view count         = get_from_get_request(content, GET_PARAMETER_COUNT_TAG);
         std::string timeframe          = url_decode(get_from_get_request(content, GET_PARAMETER_TIMEFRAME_TAG));
-        std::string_view subUrl        = getURLfromSubscription(content);
+        std::string subUrl             = std::string(getURLfromSubscription(content));
         bool isSub                     = isSubscriptionRequest(content);
 
         // If subscription flag is set but no subUrl provided, log a warning and treat as a regular request.
@@ -61,7 +61,7 @@ void Worker::init() {
 
                     TemporalQuery query = {
                         string_to_timeframe(timeframe), 
-                        date.data(),
+                        date,
                         id.data(),
                         type.data(),
                         count.data(),
