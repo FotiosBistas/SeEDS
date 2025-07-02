@@ -287,6 +287,20 @@ set(SNDS_UTILS_DIR   ${CMAKE_SOURCE_DIR}/src/snds_utils)
 set(SNDS_BROKER_DIR  ${CMAKE_SOURCE_DIR}/src/snds_broker)
 
 #####################################################################
+# Build the snds_utils static library
+#####################################################################
+set(SNDS_UTILS_SOURCES
+    ${SNDS_UTILS_DIR}/snds_utils.cpp
+)
+
+add_library(snds_utils STATIC ${SNDS_UTILS_SOURCES})
+target_include_directories(snds_utils PUBLIC
+  ${SNDS_UTILS_DIR}
+  ${spdlog_SOURCE_DIR}/include
+)
+target_link_libraries(snds_utils PUBLIC spdlog::spdlog)
+
+#####################################################################
 # Build the snds_broker static library (MongoDB driver required)
 #####################################################################
 
@@ -308,16 +322,17 @@ set(SNDS_BROKER_TIMEFRAMES_SOURCES
 # Build the 'temporal_query' static library
 add_library(temporal_query STATIC ${SNDS_BROKER_TIMEFRAMES_SOURCES})
 
-# Include headers from broker dir for temporal_query
 target_include_directories(temporal_query PUBLIC
-    ${SNDS_BROKER_DIR}
+  ${SNDS_UTILS_DIR}
+  ${SNDS_BROKER_DIR}
 )
 
-# Link spdlog to temporal_queyr if it uses logging
 target_link_libraries(temporal_query PUBLIC
-    spdlog::spdlog
-    nlohmann_json::nlohmann_json
+  snds_utils
+  spdlog::spdlog
+  nlohmann_json::nlohmann_json
 )
+
 
 # Build the 'snds_broker' static library and link temporal_query
 add_library(snds_broker STATIC ${SNDS_BROKER_SOURCES})
@@ -396,20 +411,6 @@ target_link_libraries(message_queue
     ${NDN_CXX_LIBRARY_DIR}/libndn-cxx.so
     spdlog::spdlog
 )
-
-#####################################################################
-# Build the snds_utils static library
-#####################################################################
-set(SNDS_UTILS_SOURCES
-    ${SNDS_UTILS_DIR}/snds_utils.cpp
-)
-
-add_library(snds_utils STATIC ${SNDS_UTILS_SOURCES})
-target_include_directories(snds_utils PUBLIC
-  ${SNDS_UTILS_DIR}
-  ${spdlog_SOURCE_DIR}/include
-)
-target_link_libraries(snds_utils PUBLIC spdlog::spdlog)
 
 
 #####################################################################
