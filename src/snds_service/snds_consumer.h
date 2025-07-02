@@ -1,5 +1,6 @@
 #include <spdlog/spdlog.h>
 #include "snds_service_base.h"
+#include "temporal_query.h"
 #include "parsed_interest.h"
 
 class SNDSConsumer: public ServiceBase {
@@ -46,4 +47,6 @@ public:
      * @param data The received Data packet.
     */
     void onData(const ndn::Interest&, const ndn::Data& data);
+
+    std::string handleTemporalQuery(const TemporalQuery& query);
 };

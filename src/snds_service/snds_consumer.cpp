@@ -19,6 +19,25 @@ void SNDSConsumer::init(){
 
         auto content = message.get()->getMessage();
         auto length = message.get()->getMessageLength();
+        auto type = message.get()->getMessageType();
+        TemporalQuery query = {};
+
+        if(type == SNDS_INTRA_MESSAGE_TYPE::TEMPORAL_QUERY){
+            m_logger->debug("Extracted content from message {}", content);
+            m_logger->debug("Extracted content length from message {}", length);
+            query = deserialize_temporal_query(content);
+            auto name = to_path(query);
+            m_logger->info("Created name {}", name);
+            ndn::Name interestName(name);
+            ndn::Interest interest(interestName);
+            m_face.expressInterest(interest,
+                                    std::bind(&SNDSConsumer::onData, this,  _1, _2),
+                                    std::bind(&SNDSConsumer::onNack, this, _1, _2),
+                                    std::bind(&SNDSConsumer::onTimeout, this, _1));
+		    m_face.processEvents();
+            continue;
+        }
+
         m_logger->debug("Extracted content from message {}", content);
         m_logger->debug("Extracted content length from message {}", length);
 
@@ -39,6 +58,14 @@ void SNDSConsumer::init(){
                                 std::bind(&SNDSConsumer::onTimeout, this, _1));
 		m_face.processEvents();
     }
+}
+
+
+std::string SNDSConsumer::handleTemporalQuery(const TemporalQuery& query){
+    m_logger->debug("Received temporal query in Consumer loop: {}", serialize_temporal_query(query));
+    m_logger->debug("Received temporal query in Consumer loop: {}", to_path(query));
+
+    return to_path(query);
 }
 
 void SNDSConsumer::onData(const ndn::Interest&, const ndn::Data& data) {

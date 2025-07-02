@@ -1,5 +1,4 @@
-#ifndef SNDS_UTILS_H
-#define SNDS_UTILS_H
+#pragma once
 
 #include <vector>
 #include <string>
@@ -19,6 +18,7 @@
 void removeIdPrefix(std::string& input);
 void removeTypePrefix(std::string& input);
 std::string url_decode(std::string_view in);
+std::string url_encode(const std::string& value);
 
 /**
  * @brief Computes the responsible SNDS node ID for a given subscription name.
@@ -150,4 +150,3 @@ inline bool isRegistryPayload(std::span<const std::byte> payload) {
     return payload.size() >= 1 && payload[0] == std::byte{'R'};
 }
 
-#endif // SNDS_UTILS_H
