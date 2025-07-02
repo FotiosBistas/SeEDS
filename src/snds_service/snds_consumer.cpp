@@ -30,6 +30,9 @@ void SNDSConsumer::init(){
             m_logger->info("Created name {}", name);
             ndn::Name interestName(name);
             ndn::Interest interest(interestName);
+            interest.setMustBeFresh(true);
+            interest.setCanBePrefix(true);
+            interest.setInterestLifetime(ndn::time::milliseconds(6000)); 
             m_face.expressInterest(interest,
                                     std::bind(&SNDSConsumer::onData, this,  _1, _2),
                                     std::bind(&SNDSConsumer::onNack, this, _1, _2),

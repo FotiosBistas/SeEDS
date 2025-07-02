@@ -85,12 +85,12 @@ std::string to_path(const TemporalQuery& q)
     // date
     oss << '/' << url_encode("date=") << url_encode(q.date);
 
-    // count
-    oss << url_encode("&count=") << url_encode(q.count);
-
     // timeframe (convert bitmask to e.g. "before+after")
-    oss << url_encode("&timeframe=")
+    oss << '/' << url_encode("timeframe=")
         << url_encode(timeframe_to_string(q.frame));
+
+    // count
+    oss << '/' << url_encode("count=") << url_encode(q.count);
 
     return oss.str();
 }
