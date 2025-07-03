@@ -22,7 +22,7 @@ int main(int argc, char* argv[]){
     try {
         mongocxx::instance instance{};
         mongocxx::uri uri(uri_str);
-        Broker broker(uri, database, spdlog::level::debug);
+        Broker broker(uri, database, spdlog::level::debug, "Broker.log", "Broker", "0.0.0.0", 10000);
         broker.listen();
     } catch (const std::exception& e) {
         std::cerr << "MongoDB Exception: " << e.what() << '\n';

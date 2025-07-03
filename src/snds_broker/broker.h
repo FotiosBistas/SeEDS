@@ -13,6 +13,7 @@
 #include <nlohmann/json.hpp>  
 #include <variant>
 #include "temporal_query.h"
+#include "snds_utils.h"
 
 using InsertOrReplaceResult = std::variant<
     mongocxx::result::insert_one,

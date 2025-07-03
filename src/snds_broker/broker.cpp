@@ -351,10 +351,29 @@ std::optional<InsertOrReplaceResult> Broker::add_one(const std::string& body, co
     try{
         auto jsonData = bsoncxx::from_json(body);
         auto view = jsonData.view();
-        if(!view["type"] || !view["id"]){
-            logger->error("Missing 'type' or 'id' in request body");
+        if(!view["id"]){
+            logger->error("Missing 'id' in request body");
             return std::nullopt;
         }
+
+        // If "type" is missing, create a new document with it set to "generic"
+        std::shared_ptr<bsoncxx::document::value> updated_data_ptr;
+        if (!view["type"]) {
+            logger->warn("Missing 'type' in request body, defaulting to 'generic'");
+            bsoncxx::builder::basic::document builder;
+            for (auto&& elem : view) {
+                builder.append(bsoncxx::builder::basic::kvp(elem.key(), elem.get_value()));
+            }
+
+            builder.append(bsoncxx::builder::basic::kvp("type", "GENERIC"));
+
+            auto updated_data = builder.extract();
+            view = updated_data.view();
+
+            updated_data_ptr = std::make_shared<bsoncxx::document::value>(std::move(updated_data));
+            view = updated_data_ptr->view();
+        }
+
         bsoncxx::document::element type(view["type"]);
         bsoncxx::document::element docId(view["id"]);
 
@@ -480,35 +499,6 @@ nlohmann::json normalize_json(const nlohmann::json& j) {
         return out;
     }
     return j;
-}
-
-std::string md5_hex(const void* data, std::size_t len) {
-    EVP_MD_CTX* ctx = EVP_MD_CTX_new();
-    if (!ctx) throw std::runtime_error("EVP_MD_CTX_new failed");
-    if (EVP_DigestInit_ex(ctx, EVP_md5(), nullptr) != 1) {
-        EVP_MD_CTX_free(ctx);
-        throw std::runtime_error("EVP_DigestInit_ex failed");
-    }
-
-    if (EVP_DigestUpdate(ctx, data, len) != 1) {
-        EVP_MD_CTX_free(ctx);
-        throw std::runtime_error("EVP_DigestUpdate failed");
-    }
-
-    unsigned char digest[EVP_MAX_MD_SIZE];
-    unsigned int  digest_len = 0;
-    if (EVP_DigestFinal_ex(ctx, digest, &digest_len) != 1) {
-        EVP_MD_CTX_free(ctx);
-        throw std::runtime_error("EVP_DigestFinal_ex failed");
-    }
-    EVP_MD_CTX_free(ctx);
-
-    std::ostringstream oss;
-    oss << std::hex << std::setfill('0');
-    for (unsigned int i = 0; i < digest_len; ++i) {
-        oss << std::setw(2) << static_cast<int>(digest[i]);
-    }
-    return oss.str();
 }
 
 std::string hash_document(bsoncxx::document::view document) {

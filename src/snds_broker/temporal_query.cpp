@@ -81,7 +81,8 @@ std::string to_path(const TemporalQuery& q, const bool include_timeframe, const 
     // always /id
     oss << '/' << q.id;
 
-    // date
+    // date or version
+    // TODO note the date will be an md5 digest
     oss << '/' << url_encode("date=") << url_encode(q.date);
 
     if(include_timeframe && q.frame != Timeframe::NONE){
