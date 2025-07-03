@@ -12,12 +12,33 @@
 #include <unordered_set>
 #include <iomanip>
 #include <sstream>
-
+#include <openssl/evp.h>
 #include <spdlog/spdlog.h>
 
 void removeIdPrefix(std::string& input);
 void removeTypePrefix(std::string& input);
+
+/**
+ * @brief Decodes a URL-encoded string.
+ *
+ * This function takes a URL-encoded input string and decodes it, replacing
+ * percent-encoded sequences (e.g., "%20") with their corresponding characters.
+ *
+ * @param in The URL-encoded input string.
+ * @return A decoded string with special characters restored.
+ */
 std::string url_decode(std::string_view in);
+
+/**
+ * @brief Encodes a string for safe inclusion in a URL.
+ *
+ * This function converts special characters in the input string into
+ * percent-encoded format so that the resulting string can be safely used
+ * within a URL.
+ *
+ * @param value The input string to be URL-encoded.
+ * @return A URL-encoded version of the input string.
+ */
 std::string url_encode(const std::string& value);
 
 /**
@@ -150,3 +171,16 @@ inline bool isRegistryPayload(std::span<const std::byte> payload) {
     return payload.size() >= 1 && payload[0] == std::byte{'R'};
 }
 
+/**
+ * @brief Computes the MD5 hash of a data buffer and returns it as a hexadecimal string.
+ *
+ * This function uses OpenSSL's EVP interface to compute the MD5 digest of the provided
+ * data buffer. The result is returned as a lowercase hexadecimal string.
+ *
+ * @param data Pointer to the input data buffer.
+ * @param len The length (in bytes) of the input data buffer.
+ * @return A hexadecimal string representing the MD5 hash of the input data.
+ *
+ * @throws std::runtime_error If any OpenSSL hashing step fails.
+ */
+std::string md5_hex(const void* data, std::size_t len);

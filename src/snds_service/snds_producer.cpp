@@ -93,6 +93,7 @@ void SNDSProducer::init(){
       if(message.get()->getMessageType() == SNDS_INTRA_MESSAGE_TYPE::TEMPORAL_QUERY_REQUEST){
           m_logger->info("Got new Temporal Query request...\n{}", message.get()->printDetails());
           auto query = deserialize_temporal_query(content);
+          query.date = md5_hex(&query.date, query.date.size());
           auto name = to_path(query, false, false);
           m_logger->info("Annoucing name {}", name);
           m_face.setInterestFilter(name,
