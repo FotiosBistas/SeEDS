@@ -31,197 +31,7 @@ Broker::Broker(
 
 Broker::~Broker() = default;
 
-std::vector<std::string> Broker::split(std::string_view s, const std::string& delimiter){
-    std::vector<std::string> tokens;
-    size_t start = 0;
-    size_t end;
-    while ((end = s.find(delimiter, start)) != std::string::npos) {
-        tokens.emplace_back(s.substr(start, end - start));
-        start = end + delimiter.length();
-    }
-    // Add the last token missed from the loop
-    tokens.emplace_back(s.substr(start));
-    return tokens;
-};
 
-
-std::pair<std::chrono::_V2::system_clock::time_point, bsoncxx::types::b_date> Broker::parse_timestamp(std::string_view date){
-    //TODO this is not robsut
-    constexpr const std::array<std::string_view, 4> formats = {
-        "%Y-%m-%d %H:%M:%S",     // e.g., 2025-06-26 14:30:00
-        "%Y-%m-%dT%H:%M:%SZ",    // e.g., 2025-06-26T14:30:00Z
-        "%Y-%m-%dT%H:%M:%S",     // e.g., 2025-06-26T14:30:00
-        "%Y-%m-%d"               // e.g., 2025-06-26
-    };
-    std::tm tm = {};
-    std::istringstream ss(date.data());
-    bool parsed = false;
-    for (const auto& fmt : formats) {
-        ss.clear();
-        ss.str(date.data());
-        ss >> std::get_time(&tm, fmt.data());
-        if (!ss.fail()) {
-            parsed = true;
-            break;
-        }
-    }
-
-    logger->debug("Transformed to date type: {}", ss.str());
-
-    auto target_tp = std::chrono::system_clock::from_time_t(std::mktime(&tm));
-    auto target_date = bsoncxx::types::b_date(target_tp);
-
-    return {target_tp, target_date};
-}
-
-
-mongocxx::pipeline Broker::create_date_pipeline(
-    const Timeframe& frame,
-    const size_t count,
-    std::string_view id,
-    const std::chrono::_V2::system_clock::time_point& base_date,
-    const bsoncxx::types::b_date& parsed_date
-){
-
-    mongocxx::pipeline pipeline;
-
-    switch(frame){
-        case Timeframe::NOW: {
-            pipeline.match(
-                bsoncxx::builder::basic::make_document(
-                    bsoncxx::builder::basic::kvp("_id._id", id)
-                )
-            );
-            pipeline.add_fields(
-                bsoncxx::builder::basic::make_document(
-                    bsoncxx::builder::basic::kvp("diff",
-                        bsoncxx::builder::basic::make_document(
-                            bsoncxx::builder::basic::kvp("$abs",
-                                bsoncxx::builder::basic::make_document(
-                                    bsoncxx::builder::basic::kvp("$subtract",
-                                        bsoncxx::builder::basic::make_array(
-                                            "$_id.timestamp",
-                                            parsed_date
-                                        )
-                                    )
-                                )
-                            )
-                        )
-                    )
-                )
-            );
-            pipeline.sort(
-                bsoncxx::builder::basic::make_document(
-                    bsoncxx::builder::basic::kvp("diff", 1)
-                )
-            );
-            pipeline.limit(count);
-            break;
-        }
-        case Timeframe::BEFORE: {
-            pipeline.match(
-                bsoncxx::builder::basic::make_document(
-                    bsoncxx::builder::basic::kvp("_id._id", id)
-                )
-            );
-            pipeline.match(
-                bsoncxx::builder::basic::make_document(
-                    bsoncxx::builder::basic::kvp("_id.timestamp",
-                        bsoncxx::builder::basic::make_document(
-                            bsoncxx::builder::basic::kvp("$lte", parsed_date)
-                        )
-                    )
-                )
-            );
-            pipeline.sort(
-                bsoncxx::builder::basic::make_document(
-                    bsoncxx::builder::basic::kvp("_id.timestamp", 1)
-                )
-            );
-            pipeline.limit(count);
-            break;
-        }
-        case Timeframe::AFTER: {
-            pipeline.match(
-                bsoncxx::builder::basic::make_document(
-                    bsoncxx::builder::basic::kvp("_id._id", id)
-                )
-            );
-            pipeline.match(
-                bsoncxx::builder::basic::make_document(
-                    bsoncxx::builder::basic::kvp("_id.timestamp",
-                        bsoncxx::builder::basic::make_document(
-                            bsoncxx::builder::basic::kvp("$gte", parsed_date)
-                        )
-                    )
-                )
-            );
-            pipeline.sort(
-                bsoncxx::builder::basic::make_document(
-                    bsoncxx::builder::basic::kvp("_id.timestamp", 1)
-                )
-            );
-            pipeline.limit(count);
-            break;
-        }
-    }
-
-    return pipeline;
-}
-
-std::string Broker::get_from_database(const Timeframe& frame, bsoncxx::v_noabi::document::view json_data){
-
-    //type and ID are always specified by the get handler
-    std::string_view type = json_data["type"].get_value().get_string().value;
-    std::string_view id = json_data["id"].get_value().get_string().value;
-
-    //date might not be specified
-    std::string_view date;
-    if(!json_data["date"].get_value().get_string().value.empty()){
-        date = std::move(json_data["date"].get_value().get_string().value);
-    }else{
-        date = "";
-    }
-
-    int32_t count = json_data["count"].get_value().get_int32();
-
-    logger->info("Processing ID: {}, and type: {}", id, type);
-
-
-    std::string correct_type = std::string(type.data());
-
-    if(!date.empty()){
-        correct_type = std::string(type.data()) + "_VERSIONED";
-        auto collection = this->client[this->database][correct_type];
-        auto [base_timestamp, parsed_timestamp] = parse_timestamp(date);
-        auto pipeline = create_date_pipeline(frame, count, id, base_timestamp, parsed_timestamp);
-        auto cursor = collection.aggregate(pipeline);
-
-        std::ostringstream oss;
-        for (auto&& doc : cursor) {
-            logger->debug("Reading document from database: {}", bsoncxx::to_json(doc));
-            oss << bsoncxx::to_json(doc) << "\n";
-        }
-
-        std::string flat_json = oss.str();
-        logger->debug("Flat JSON created:\n{}", flat_json);
-        return flat_json;
-    }
-
-    auto collection = this->client[this->database][correct_type];
-
-    auto search = bsoncxx::builder::basic::make_document(
-        bsoncxx::builder::basic::kvp("_id", id)
-    );
-    auto result = collection.find_one(search.view());
-    if(result){
-        logger->info("Received document from database: {}", bsoncxx::to_json(*result));
-        return bsoncxx::to_json(*result);
-    }else{
-        logger->error("Could not retrieve ID from the database..."); 
-        return "";
-    }
-};
 
 void Broker::listen(){
     std::signal(SIGINT, handleSigint);
@@ -265,9 +75,9 @@ void Broker::listen(){
             auto date_str   = req.get_param_value("date");
             auto timeframe  = req.get_param_value("timeframe");
 
-            if (id.empty() || type.empty()) {
+            if (id.empty()) {
                 res.status = 400;
-                res.set_content(R"({"error": "Missing 'id' or 'type'})" "\n", "application/json");
+                res.set_content(R"({"error": "Missing 'id'})" "\n", "application/json");
                 return;
             }
 
@@ -356,28 +166,15 @@ std::optional<InsertOrReplaceResult> Broker::add_one(const std::string& body, co
             return std::nullopt;
         }
 
-        // If "type" is missing, create a new document with it set to "generic"
-        std::shared_ptr<bsoncxx::document::value> updated_data_ptr;
-        if (!view["type"]) {
-            logger->warn("Missing 'type' in request body, defaulting to 'generic'");
-            bsoncxx::builder::basic::document builder;
-            for (auto&& elem : view) {
-                builder.append(bsoncxx::builder::basic::kvp(elem.key(), elem.get_value()));
-            }
-
-            builder.append(bsoncxx::builder::basic::kvp("type", "GENERIC"));
-
-            auto updated_data = builder.extract();
-            view = updated_data.view();
-
-            updated_data_ptr = std::make_shared<bsoncxx::document::value>(std::move(updated_data));
-            view = updated_data_ptr->view();
+        auto updated_doc = set_generic_type(view);
+        if (updated_doc) {
+            view = updated_doc->view();
         }
 
         bsoncxx::document::element type(view["type"]);
         bsoncxx::document::element docId(view["id"]);
 
-        logger->debug("Received type: {} and id: {}", type.get_value().get_string(), docId.get_value().get_string());
+        logger->debug("Received type: {} and id: {} inside", type.get_value().get_string(), docId.get_value().get_string());
 
         auto now = std::chrono::system_clock::now();
         bsoncxx::types::b_date bson_date(now);
@@ -449,10 +246,16 @@ std::vector<std::string> Broker::get(const std::string& request){
     try{
         auto jsonData = bsoncxx::from_json(request);
         auto view = jsonData.view();
-        if(!view["type"] || !view["id"]){
-            logger->error("Missing 'type' or 'id' in request body");
+        if(!view["id"]){
+            logger->error("Missing 'id' in request body");
             return {};
         }
+
+        auto updated_doc = set_generic_type(view);
+        if (updated_doc) {
+            view = updated_doc->view();
+        }
+
         bsoncxx::document::element timeframe(view["timeframe"]);
 
         auto timeframe_view = timeframe.get_value().get_string().value;
@@ -479,76 +282,15 @@ std::vector<std::string> Broker::get(const std::string& request){
 
 void Broker::remove(){}
 
-nlohmann::json normalize_json(const nlohmann::json& j) {
-    if (j.is_object()) {
-        std::vector<std::string> keys;
-        for (auto& kv : j.items()) keys.push_back(kv.key());
-        std::sort(keys.begin(), keys.end());
-
-        nlohmann::json out = nlohmann::json::object();
-        for (auto& k : keys) {
-            out[k] = normalize_json(j.at(k));
-        }
-        return out;
-    }
-    else if (j.is_array()) {
-        nlohmann::json out = nlohmann::json::array();
-        for (auto& el : j) {
-            out.push_back(normalize_json(el));
-        }
-        return out;
-    }
-    return j;
-}
-
-std::string hash_document(bsoncxx::document::view document) {
-    // to_json gives a predictable ordering for primitives
-    auto json              = bsoncxx::to_json(document);                
-    auto parsed_document   = nlohmann::json::parse(json);      
-    auto canonical_json    = normalize_json(parsed_document);               
-    auto compact           = canonical_json.dump();                         
-    return md5_hex(compact.data(), compact.size());
-}
-
-std::string collection_fingerprint(mongocxx::collection& collection) {
-    EVP_MD_CTX* ctx = EVP_MD_CTX_new();
-    if (!ctx) throw std::runtime_error("EVP_MD_CTX_new failed");
-    if (EVP_DigestInit_ex(ctx, EVP_md5(), nullptr) != 1) {
-        EVP_MD_CTX_free(ctx);
-        throw std::runtime_error("EVP_DigestInit_ex failed");
-    }
-
-    mongocxx::options::find opts;
-
-    for (auto&& doc : collection.find({}, opts)) {
-        auto h = hash_document(doc);
-        if (EVP_DigestUpdate(ctx, h.data(), h.size()) != 1) {
-            EVP_MD_CTX_free(ctx);
-            throw std::runtime_error("EVP_DigestUpdate failed");
-        }
-    }
-
-    unsigned char final_digest[EVP_MAX_MD_SIZE];
-    unsigned int  final_len = 0;
-    if (EVP_DigestFinal_ex(ctx, final_digest, &final_len) != 1) {
-        EVP_MD_CTX_free(ctx);
-        throw std::runtime_error("EVP_DigestFinal_ex failed");
-    }
-    EVP_MD_CTX_free(ctx);
-
-    std::ostringstream oss;
-    oss << std::hex << std::setfill('0');
-    for (unsigned int i = 0; i < final_len; ++i) {
-        oss << std::setw(2) << static_cast<int>(final_digest[i]);
-    }
-    return oss.str();
-}
-
 std::string Broker::state(const std::string& request){
 
     try {
         auto jsonData = bsoncxx::from_json(request);
         auto view = jsonData.view();
+        auto updated_doc = set_generic_type(view);
+        if (updated_doc) {
+            view = updated_doc->view();
+        }
         std::string_view type = view["type"].get_value().get_string().value;
         auto coll = this->client[this->database][type];
         std::string fp = collection_fingerprint(coll);
