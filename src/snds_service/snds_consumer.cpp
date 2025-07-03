@@ -22,7 +22,7 @@ void SNDSConsumer::init(){
         auto type = message.get()->getMessageType();
         TemporalQuery query = {};
 
-        if(type == SNDS_INTRA_MESSAGE_TYPE::TEMPORAL_QUERY){
+        if(type == SNDS_INTRA_MESSAGE_TYPE::TEMPORAL_QUERY_REQUEST){
             m_logger->debug("Extracted content from message {}", content);
             m_logger->debug("Extracted content length from message {}", length);
             query = deserialize_temporal_query(content);
@@ -33,6 +33,7 @@ void SNDSConsumer::init(){
             interest.setMustBeFresh(true);
             interest.setCanBePrefix(true);
             interest.setInterestLifetime(ndn::time::milliseconds(6000)); 
+            m_logger->info("Sending actual Interest {}", interest.toUri().c_str());
             m_face.expressInterest(interest,
                                     std::bind(&SNDSConsumer::onData, this,  _1, _2),
                                     std::bind(&SNDSConsumer::onNack, this, _1, _2),
@@ -63,13 +64,6 @@ void SNDSConsumer::init(){
     }
 }
 
-
-std::string SNDSConsumer::handleTemporalQuery(const TemporalQuery& query){
-    m_logger->debug("Received temporal query in Consumer loop: {}", serialize_temporal_query(query));
-    m_logger->debug("Received temporal query in Consumer loop: {}", to_path(query));
-
-    return to_path(query);
-}
 
 void SNDSConsumer::onData(const ndn::Interest&, const ndn::Data& data) {
     // Log the receipt of the Data packet.

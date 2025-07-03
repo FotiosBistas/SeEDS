@@ -1,4 +1,7 @@
+#pragma once
+
 #include "snds_service_base.h"
+#include "temporal_query.h"
 
 class DigitalTwin: public ServiceBase{
 

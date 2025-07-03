@@ -2,6 +2,7 @@
 #include <spdlog/spdlog.h>
 #include "snds_service_base.h"
 #include "parsed_interest.h"
+#include "temporal_query.h"
 
 class SNDSProducer : public ServiceBase {
 public:

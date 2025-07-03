@@ -51,6 +51,8 @@ void Worker::init() {
         m_logger->debug("Extracted Timeframe: {}", timeframe);
         m_logger->debug("Extracted Count: {}", count);
 
+        //TODO we can differentiate messages based on type
+        //I don't know why are we doing this
         // Process according to sender type.
         switch (message->getSender()) {
             case SNDS_CLIENT_TYPES::HTTP_SRV: {
@@ -62,9 +64,9 @@ void Worker::init() {
                     TemporalQuery query = {
                         string_to_timeframe(timeframe), 
                         date,
-                        id.data(),
-                        type.data(),
-                        count.data(),
+                        id,
+                        type,
+                        count,
                     };
 
 
@@ -134,7 +136,7 @@ void Worker::processTemporalQueryRequest(const TemporalQuery& temporal_query){
 
     auto message = std::make_unique<SNDS_INTRA_MESSAGE>(
         std::move(serialize_temporal_query(temporal_query)),
-        SNDS_INTRA_MESSAGE_TYPE::TEMPORAL_QUERY,
+        SNDS_INTRA_MESSAGE_TYPE::TEMPORAL_QUERY_REQUEST,
         SNDS_CLIENT_TYPES::SERVICE,
         ""
     );

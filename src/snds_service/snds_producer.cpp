@@ -88,9 +88,21 @@ void SNDSProducer::init(){
         continue;
       }
 
-      m_logger->info("Got new advertisement request...\n{}", message.get()->printDetails());
       auto content = message.get()->getMessage();
       auto length = message.get()->getMessageLength();
+      if(message.get()->getMessageType() == SNDS_INTRA_MESSAGE_TYPE::TEMPORAL_QUERY_REQUEST){
+          m_logger->info("Got new Temporal Query request...\n{}", message.get()->printDetails());
+          auto query = deserialize_temporal_query(content);
+          auto name = to_path(query, false, false);
+          m_logger->info("Annoucing name {}", name);
+          m_face.setInterestFilter(name,
+            std::bind(&SNDSProducer::onInterest, this, std::placeholders::_2),
+            std::bind(&SNDSProducer::onRegisterSuccess, this, std::placeholders::_1),
+            std::bind(&SNDSProducer::onRegisterFailed, this, std::placeholders::_1, std::placeholders::_2));
+          continue;
+      }
+
+      m_logger->info("Got new advertisement request...\n{}", message.get()->printDetails());
       tmp_name = m_sndsPrefix + content.substr(0, length);
       m_logger->info("Announcing name: {}", tmp_name);
       locallyAnnouncedIDsMap[content] = "SNDS_dummy_data";
@@ -106,7 +118,7 @@ void SNDSProducer::init(){
 
 void SNDSProducer::onInterest(const ndn::Interest& interest) {
   ndn::Name name = interest.getName();
-  m_logger->info("Received in function: {0}, name: {1}", __FUNCTION__, name.toUri());
+  m_logger->info("Received interest in function: {0}, name: {1}", __FUNCTION__, name.toUri());
 
   //if (name.size() < 2) {
   //  m_logger->warn("Interest name {} in {} is too short. Ignoring...", name.toUri(), __FUNCTION__);
