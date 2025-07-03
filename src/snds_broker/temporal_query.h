@@ -32,7 +32,7 @@ TemporalQuery deserialize_temporal_query(std::string_view json_string);
 /// Format a TemporalQuery as a path of the form
 ///   /[type]/[id]/params(date="…"&count="…"&timeframe="…")
 /// If q.type is empty, the leading “/type” is omitted.
-std::string to_path(const TemporalQuery& q);
+std::string to_path(const TemporalQuery& q, const bool include_timeframe=true, const bool include_count=true);
 
 
 

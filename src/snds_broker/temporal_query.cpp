@@ -70,8 +70,7 @@ std::string timeframe_to_string(Timeframe frame) {
     return out;  // e.g., "before+after" or "now"
 }
 
-std::string to_path(const TemporalQuery& q)
-{
+std::string to_path(const TemporalQuery& q, const bool include_timeframe, const bool include_count){
     std::ostringstream oss;
 
     // optional /type
@@ -85,12 +84,16 @@ std::string to_path(const TemporalQuery& q)
     // date
     oss << '/' << url_encode("date=") << url_encode(q.date);
 
-    // timeframe (convert bitmask to e.g. "before+after")
-    oss << '/' << url_encode("timeframe=")
-        << url_encode(timeframe_to_string(q.frame));
+    if(include_timeframe && q.frame != Timeframe::NONE){
+        // timeframe (convert bitmask to e.g. "before+after")
+        oss << '/' << url_encode("timeframe=")
+            << url_encode(timeframe_to_string(q.frame));
+    }
 
-    // count
-    oss << '/' << url_encode("count=") << url_encode(q.count);
+    if(include_count && !q.count.empty()){
+        // count
+        oss << '/' << url_encode("count=") << url_encode(q.count);
+    }
 
     return oss.str();
 }
