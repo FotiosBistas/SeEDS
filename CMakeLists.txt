@@ -298,7 +298,10 @@ target_include_directories(snds_utils PUBLIC
   ${SNDS_UTILS_DIR}
   ${spdlog_SOURCE_DIR}/include
 )
-target_link_libraries(snds_utils PUBLIC spdlog::spdlog)
+target_link_libraries(snds_utils PUBLIC 
+  spdlog::spdlog 
+  OpenSSL::Crypto
+)
 
 #####################################################################
 # Build the snds_broker static library (MongoDB driver required)
@@ -355,6 +358,7 @@ target_link_libraries(snds_broker PUBLIC
     spdlog::spdlog
     OpenSSL::Crypto
     nlohmann_json::nlohmann_json
+    snds_utils
 )
 
 # Create the broker executable
