@@ -310,6 +310,7 @@ target_link_libraries(snds_utils PUBLIC
 # Broker sources
 set(SNDS_BROKER_SOURCES
     ${SNDS_BROKER_DIR}/broker.cpp
+    ${SNDS_BROKER_DIR}/broker_utils.cpp
 )
 
 # Broker main executable source
