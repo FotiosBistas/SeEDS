@@ -90,17 +90,8 @@ void Broker::listen(){
             logger->info("Received: {}", json_request);
             auto results = get(json_request);
 
-            std::ostringstream oss;
-            oss << "{ \"results\": [";
-            for (size_t i = 0; i < results.size(); ++i) {
-                oss << results[i];
-                if (i < results.size() - 1)
-                    oss << ",";
-            }
-            oss << "] }\n";
-
             res.status = 200;
-            res.set_content(oss.str(), "application/json");
+            res.set_content(results.dump(2), "application/json");
         });
 
         svr.Post("/add", [this](const httplib::Request& req, httplib::Response& res){
@@ -241,7 +232,7 @@ std::optional<InsertOrReplaceResult> Broker::add_one(const std::string& body, co
     }
 }
 
-std::vector<std::string> Broker::get(const std::string& request){
+nlohmann::json Broker::get(const std::string& request){
     constexpr const char* delimeter = "+";
     try{
         auto jsonData = bsoncxx::from_json(request);
@@ -261,17 +252,19 @@ std::vector<std::string> Broker::get(const std::string& request){
         auto timeframe_view = timeframe.get_value().get_string().value;
         auto tokens = split(timeframe_view, delimeter);
 
-        std::vector<std::string> results; 
-        results.reserve(tokens.size());
+        nlohmann::json array = nlohmann::json::array(); 
 
-        for(auto& token: tokens){
+        for (auto& token : tokens) {
             logger->debug("Processing timeframe: {}", token);
-            Timeframe frame = string_to_timeframe(token);
-            auto result = get_from_database(frame, view);
-            results.push_back(result);
+            Timeframe frame         = string_to_timeframe(token);
+            auto      result        = get_from_database(frame, view);
+            auto      parsed_result = nlohmann::json::parse(result);
+            nlohmann::json entry;
+            entry[token] = parsed_result;
+            array.push_back(entry);
         }
 
-        return results;
+        return array;
 
     }catch(const std::exception& e){
         logger->error("Error: {}", e.what());

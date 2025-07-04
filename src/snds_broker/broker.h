@@ -1,6 +1,7 @@
 #pragma once
 
-#include "httplib.h"
+#include <variant>
+#include <sstream>
 #include <spdlog/spdlog.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
 #include <spdlog/sinks/basic_file_sink.h>
@@ -11,7 +12,7 @@
 #include <mongocxx/uri.hpp>
 #include <openssl/evp.h>
 #include <nlohmann/json.hpp>  
-#include <variant>
+#include "httplib.h"
 #include "temporal_query.h"
 #include "snds_utils.h"
 
@@ -72,10 +73,11 @@ private:
     std::string compute_collection_hash(const mongocxx::collection& collection);
     std::optional<bsoncxx::document::value> set_generic_type(bsoncxx::v_noabi::document::view view);
     void filter_to_only_id(mongocxx::v_noabi::pipeline& pipeline);
+    std::string format_timestamp_ms(long long ms_since_epoch);
 
     //api
     std::optional<InsertOrReplaceResult> add_one(const std::string& body, const bool versioned);
-    std::vector<std::string> get(const std::string& request);
+    nlohmann::json get(const std::string& request);
     std::string state(const std::string& request);
     void remove();
 };

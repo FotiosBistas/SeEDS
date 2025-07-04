@@ -13,6 +13,7 @@ std::vector<std::string> Broker::split(std::string_view s, const std::string& de
     return tokens;
 };
 
+
 std::pair<std::chrono::_V2::system_clock::time_point, bsoncxx::types::b_date> Broker::parse_timestamp(std::string_view date){
     //TODO this is not robsut
     constexpr const std::array<std::string_view, 4> formats = {
@@ -259,15 +260,26 @@ std::string Broker::get_from_database(const Timeframe& frame, bsoncxx::v_noabi::
         filter_to_only_id(pipeline);
         auto cursor = collection.aggregate(pipeline);
 
-        std::ostringstream oss;
+
+        nlohmann::json results = nlohmann::json::array();
+
         for (auto&& doc : cursor) {
             logger->debug("Reading document from database: {}", bsoncxx::to_json(doc));
-            oss << bsoncxx::to_json(doc) << "\n";
+            auto txt = bsoncxx::to_json(doc);
+            auto obj = nlohmann::json::parse(txt);
+            if (obj.is_array()) {
+                for (auto& el : obj) {
+                    results.push_back(el);
+                }
+            }
+            else {
+                results.push_back(obj);
+            }
         }
 
-        std::string flat_json = oss.str();
-        logger->debug("Flat JSON created:\n{}", flat_json);
-        return flat_json;
+        auto result = results.dump(2);
+        logger->debug("JSON created:\n{}", result);
+        return result;
     }
 
     auto collection = this->client[this->database][correct_type];

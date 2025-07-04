@@ -93,13 +93,22 @@ void SNDSProducer::init(){
       if(message.get()->getMessageType() == SNDS_INTRA_MESSAGE_TYPE::TEMPORAL_QUERY_REQUEST){
           m_logger->info("Got new Temporal Query request...\n{}", message.get()->printDetails());
           auto query = deserialize_temporal_query(content);
-          query.date = md5_hex(&query.date, query.date.size());
+          //query.date = md5_hex(&query.date, query.date.size());
           auto name = to_path(query, false, false);
           m_logger->info("Annoucing name {}", name);
           m_face.setInterestFilter(name,
             std::bind(&SNDSProducer::onInterest, this, std::placeholders::_2),
             std::bind(&SNDSProducer::onRegisterSuccess, this, std::placeholders::_1),
             std::bind(&SNDSProducer::onRegisterFailed, this, std::placeholders::_1, std::placeholders::_2));
+
+          std::string payload = serialize_temporal_query(query);
+          httplib::Client cli(broker_ip.c_str(), broker_port);
+          auto res = cli.Post("/add", payload, "application/json");
+          if (res && res->status == 200) {
+              m_logger->info("Successfully POSTed to /add: {}", res->body);
+          } else {
+              m_logger->error("Failed to POST to /add: {}", res ? res->body : "No response");
+          }
           continue;
       }
 
@@ -118,90 +127,160 @@ void SNDSProducer::init(){
 }
 
 void SNDSProducer::onInterest(const ndn::Interest& interest) {
-  ndn::Name name = interest.getName();
-  m_logger->info("Received interest in function: {0}, name: {1}", __FUNCTION__, name.toUri());
+    ndn::Name name = interest.getName();
+    m_logger->info("Received interest in function: {0}, name: {1}", __FUNCTION__, name.toUri());
 
-  //if (name.size() < 2) {
-  //  m_logger->warn("Interest name {} in {} is too short. Ignoring...", name.toUri(), __FUNCTION__);
-  //  return;
-  //}
+    //if (name.size() < 2) {
+    //  m_logger->warn("Interest name {} in {} is too short. Ignoring...", name.toUri(), __FUNCTION__);
+    //  return;
+    //}
 
-  ParsedInterest pi = parseInterestName(name);
+    ParsedInterest pi = parseInterestName(name);
 
-  m_logger->info("Parsed interest: {}", pi.toString());
-  // Give priority to type advertisements
-  if (myTypesRegistryMap.find("/" + pi.command) != myTypesRegistryMap.end()) {
-    processTypeAdvertisement(pi);
-    return;
-  }
-  //TODO needs to check with @yannisT
-  if ((m_idScopePrefix + m_mySndsId).compare("/" + pi.command) == 0) {
-    //TODO this needs to be done differently
-    if(name.size() == 5){
-      processSubscription(pi);
-      return;
+    m_logger->info("Parsed interest: {}", pi.toString());
+
+    if(hasDateTag(pi.command)){
+        m_logger->info("Received Temporal Query Interest...");
+        handleTemporalQuery(pi);
+        return;
     }
 
-    //TODO this needs to be done differently
-    if(name.size() == 4){
-      processNotification(pi);
-      return;
+    // Type advertisements
+    if (myTypesRegistryMap.find("/" + pi.command) != myTypesRegistryMap.end()) {
+        processTypeAdvertisement(pi);
+        return;
+    }
+    //TODO needs to check with @yannisT
+    if ((m_idScopePrefix + m_mySndsId).compare("/" + pi.command) == 0) {
+        //TODO this needs to be done differently
+        if(name.size() == 5){
+            processSubscription(pi);
+            return;
+        }
+
+        //TODO this needs to be done differently
+        if(name.size() == 4){
+            processNotification(pi);
+            return;
+        }
+
+        m_logger->warn("Unrecognized subscription command: {}. Ignoring.", pi.command);
+        return;
     }
 
-    m_logger->warn("Unrecognized subscription command: {}. Ignoring.", pi.command);
-    return;
-  }
+    // If the command contains the registry postfix, handle registry requests.
+    if (pi.command.find(m_registryFilePostfix) != std::string::npos) {
+        processRegistryRequest(pi);
+        return;
+    }
 
-  // If the command contains the registry postfix, handle registry requests.
-  if (pi.command.find(m_registryFilePostfix) != std::string::npos) {
-    processRegistryRequest(pi);
-    return;
-  }
+    //TODO I don't think this is correct
+    //TODO figure out the new if statement here
+    processLocalIdRequest(pi);
+    //m_logger->warn("Interest left unprocessed. No matching handler found.");
+}
 
-  //TODO I don't think this is correct
-  //TODO figure out the new if statement here
-  processLocalIdRequest(pi);
+void SNDSProducer::handleTemporalQuery(ParsedInterest& interest){
+    std::string date = url_decode(interest.command);
+    std::string id = interest.prefix;
 
-  //m_logger->warn("Interest left unprocessed. No matching handler found.");
+    // build a map<string,string> out of interest.params,
+    // expecting each param to be in the form "key=value"
+    // currently params are count=,timeframe=,
+	// parameters are url encoded by convention
+    std::unordered_map<std::string, std::string> parameter_map;
+    for (const auto& parameter : interest.params) {
+		auto decoded_parameter = url_decode(parameter);
+        auto equal_sign_index = decoded_parameter.find('=');
+        if (equal_sign_index == std::string::npos) continue;
+        auto key = decoded_parameter.substr(0, equal_sign_index);
+        auto val = decoded_parameter.substr(equal_sign_index + 1);
+        parameter_map.emplace(key, val);
+    }
+
+	std::string type      = parameter_map.count("type")      ? parameter_map["type"]      : "";
+    std::string timeframe = parameter_map.count("timeframe") ? parameter_map["timeframe"] : "";
+    int count             = parameter_map.count("count")     ? std::stoi(parameter_map["count"]) : 0;
+
+	m_logger->debug("TemporalQuery → id: {}, date: {}, type: {}, timeframe: {}, count: {}", id, date, type, timeframe, count);
+    httplib::Client cli(broker_ip.c_str(), broker_port);
+    std::string endpoint = fmt::format(
+ 		"/temporal-query?id={}&type={}&count={}&date={}&timeframe={}",
+        httplib::detail::encode_url(id),
+        httplib::detail::encode_url(type),
+        count,
+        httplib::detail::encode_url(date),
+        httplib::detail::encode_url(timeframe)
+    );
+
+	m_logger->debug("Requesting to endpoint: {}", endpoint);
+
+    auto res = cli.Get(endpoint.c_str());
+    if (res && res->status == 200) {
+        m_logger->info("Successfully queried /temporal-query");
+
+		parseTemporalQuery(res->body);
+    } else {
+        m_logger->error("Failed to query /temporal-query: {}", res ? res->body : "No response");
+    }
+}
+
+void SNDSProducer::parseTemporalQuery(const std::string& body){
+    nlohmann::json root = nlohmann::json::parse(body);
+
+    for (const auto& entry : root) {
+        // entry is an object with a single key: "before" or "after"
+        for (auto& [key, arr] : entry.items()) {
+			m_logger->debug("Parsing key: {}", key);
+            for (const auto& doc : arr) {
+				// this contains both timestamp and id
+                const auto&  id_object  = doc["_id"];
+                std::string   id        = id_object["_id"].get<std::string>();
+                long long raw_timestamp = id_object["timestamp"]["$date"].get<long long>();
+				std::string timestamp = format_timestamp_ms(raw_timestamp);
+				m_logger->debug("Parsed received metafile data id={}, timestamp={}", id, timestamp);
+            }
+        }
+    }
 }
 
 void SNDSProducer::processTypeAdvertisement(ParsedInterest& interest) {
 
-  m_logger->info("Processing Type Advertisement");
-  // Attempt to get the advertised ID from the parsed parameters.
-  // TODO hopefully one ID received here
-  std::string id_for_type = interest.params[0];
-  std::string type = interest.command;
-  ensureLeadingSlash(type);
-  if (id_for_type.empty()) {
-    m_logger->warn("No ID provided in type advertisement. Ignoring.");
-    return;
-  }
+  	m_logger->info("Processing Type Advertisement");
+  	// Attempt to get the advertised ID from the parsed parameters.
+  	// TODO hopefully one ID received here
+  	std::string id_for_type = interest.params[0];
+  	std::string type = interest.command;
+  	ensureLeadingSlash(type);
+  	if (id_for_type.empty()) {
+  	  	m_logger->warn("No ID provided in type advertisement. Ignoring.");
+  	  	return;
+  	}
 
-  m_logger->info("Type advertisement: command (registry) = {0}, ID = {1}", type, id_for_type);
+  	m_logger->info("Type advertisement: command (registry) = {0}, ID = {1}", type, id_for_type);
 
-  // Look up the content type (with a preceding slash) in the registry map.
-  auto iter = myTypesRegistryMap.find(type);
+  	// Look up the content type (with a preceding slash) in the registry map.
+  	auto iter = myTypesRegistryMap.find(type);
 
-  if (iter == myTypesRegistryMap.end()){
-    m_logger->warn("Type {} not found in registry. Ignoring advertisement.", type);
-  }
+  	if (iter == myTypesRegistryMap.end()){
+  	  	m_logger->warn("Type {} not found in registry. Ignoring advertisement.", type);
+  	}
 
-  // Access the vector of IDs stored by value.
-  auto& ids = iter->second;
+  	// Access the vector of IDs stored by value.
+  	auto& ids = iter->second;
 
-  // Try to insert the ID; check if it was already present
-  auto [_, inserted] = ids.insert(id_for_type);
+  	// Try to insert the ID; check if it was already present
+  	auto [_, inserted] = ids.insert(id_for_type);
 
-  if (!inserted) {
-    m_logger->warn("ID already registered for type {}. Skipping...", type);
-    std::string warn_message = "WARNING_ALREADY_REGISTERED::ID already registered for type {" + type+ "}";
-    sendData(toName(interest), warn_message);
-    return;
-  }
+  	if (!inserted) {
+  	  	m_logger->warn("ID already registered for type {}. Skipping...", type);
+  	  	std::string warn_message = "WARNING_ALREADY_REGISTERED::ID already registered for type {" + type+ "}";
+  	  	sendData(toName(interest), warn_message);
+  	  	return;
+  	}
 
-  m_logger->info("Registered new ID {0} for type {1}. Sending ACK.", id_for_type, type);
-  sendData(toName(interest), m_ackTag);
+  	m_logger->info("Registered new ID {0} for type {1}. Sending ACK.", id_for_type, type);
+  	sendData(toName(interest), m_ackTag);
 }
 
 void SNDSProducer::processSubscription(ParsedInterest& interest) {

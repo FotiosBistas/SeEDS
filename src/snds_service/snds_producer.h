@@ -1,19 +1,23 @@
 #include <ndn-cxx/face.hpp>
 #include <spdlog/spdlog.h>
+#include <nlohmann/json.hpp>  
+#include "httplib.h"
 #include "snds_service_base.h"
 #include "parsed_interest.h"
 #include "temporal_query.h"
 
 class SNDSProducer : public ServiceBase {
 public:
-  SNDSProducer(spdlog::level::level_enum logLevel = spdlog::level::info,
-              std::string logFile = "Producer.log",
-              uint8_t numberOfSndsSrvs = 1,
-              std::string sndsPrefix = "/SNDS",
-              std::string mySndsId = "0",
-              std::string idScopePrefix = "/SNDS_ID_scope_",
-              std::string registryFilePostfix = "_registry",
-              std::string serviceName = "Producer")
+    SNDSProducer(spdlog::level::level_enum logLevel = spdlog::level::info,
+               std::string logFile = "Producer.log",
+               uint8_t numberOfSndsSrvs = 1,
+               std::string sndsPrefix = "/SNDS",
+               std::string mySndsId = "0",
+               std::string idScopePrefix = "/SNDS_ID_scope_",
+               std::string registryFilePostfix = "_registry",
+               std::string serviceName = "Producer",
+               std::string broker_ip = "0.0.0.0",
+               int         broker_port = 10000)
     : ServiceBase(logLevel,
                   logFile,
                   numberOfSndsSrvs,
@@ -21,8 +25,10 @@ public:
                   mySndsId,
                   idScopePrefix,
                   registryFilePostfix,
-                  "THIS_IS_AN_SNDS_ACK",  // Pass the ackTag explicitly
-                  serviceName)            // Then pass the serviceName
+                  "THIS_IS_AN_SNDS_ACK\n",
+                  serviceName,
+                  broker_ip,
+                  broker_port)
   {
       m_logger->info("SNDSProducer initialized with serviceName: {}", this->serviceName);
       myTypesRegistryMap["/CAR"] = std::unordered_set<std::string>{};
@@ -82,12 +88,17 @@ public:
    */
   void processLocalIdRequest(ParsedInterest& interest);
 
+  void handleTemporalQuery(ParsedInterest& interest);
+  void parseTemporalQuery(const std::string& body);
+
   void advertise() {
     m_logger->info("Advertising SNDSProducer with ID: {}", m_mySndsIdName);
     // Use inherited members such as m_face, m_mySndsIdName, etc.
   }
 
 private:
+  std::string broker_ip;
+
 	std::unordered_map<std::string, std::unordered_set<std::string>> myTypesRegistryMap; //maps Type names to vectors of IDs
 	std::unordered_map<std::string, std::unordered_set<std::string>> subscribedBYID_SNDSnodes; //maps Type names to vectors of IDs
 	std::unordered_map<std::string, std::string> locallyAnnouncedIDsMap; //stores the IDs of locally advertised items and their data

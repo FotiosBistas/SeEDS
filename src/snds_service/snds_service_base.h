@@ -41,7 +41,9 @@ public:
             std::string idScopePrefix = "/SNDS_ID_scope_",
             std::string registryFilePostfix = "_registry",
             std::string ackTag = "THIS_IS_AN_SNDS_ACK",
-            std::string serviceName = "ServiceBase")
+            std::string serviceName = "ServiceBase",
+            std::string broker_ip   = "0.0.0.0",
+            int broker_port = 10000)
   : m_face(),
     m_keyChain(),
     m_validator(m_face), // m_validator must be initialized after m_face
@@ -54,7 +56,9 @@ public:
     m_ackTag(std::move(ackTag)),
     serviceName(std::move(serviceName)),
     m_mySndsIdName(m_sndsPrefix + "_" + m_mySndsId), // Now initialized correctly
-    m_mySndsIdScopeName(m_sndsPrefix + m_idScopePrefix + m_mySndsId) // Correct order
+    m_mySndsIdScopeName(m_sndsPrefix + m_idScopePrefix + m_mySndsId), // Correct order
+    broker_ip(broker_ip),
+    broker_port(broker_port)
   {
 
     // Logger initialization
@@ -185,6 +189,8 @@ protected:
   std::string m_mySndsIdScopeName;      // Computed as m_sndsPrefix + m_idScopePrefix + m_mySndsId.
   std::string m_registryFilePostfix;    // e.g., "_registry"
   std::string serviceName;
+  std::string broker_ip;
+  int broker_port;
 	std::string m_ackTag = "THIS_IS_AN_SNDS_ACK\r\n";
   std::string WARNING_ALREADY_REGISTERED = "WARNING_ALREADY_REGISTERED";
   static constexpr const char* ERASE_PREFIX="erase=";

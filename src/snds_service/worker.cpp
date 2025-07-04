@@ -126,10 +126,10 @@ void Worker::processTemporalQueryRequest(const TemporalQuery& temporal_query){
     auto id = std::string(temporal_query.id);
     auto [_, new_request] = pendingTemporalQueryreqs.insert(id);
 
-    if(!new_request){
-        m_logger->info("Duplicate TemporalQuery for ID: {}", id);
-        return;
-    }
+    //if(!new_request){
+    //    m_logger->info("Duplicate TemporalQuery for ID: {}", id);
+    //    return;
+    //}
 
     ensureLeadingSlash(id);
     m_logger->info("Pushing TemporalQuery for ID: {}", id);

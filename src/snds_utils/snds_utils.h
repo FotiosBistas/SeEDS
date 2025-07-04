@@ -1,5 +1,8 @@
 #pragma once
 
+#include <chrono>
+#include <ctime>
+#include <iomanip>
 #include <vector>
 #include <string>
 #include <unordered_set>
@@ -17,6 +20,8 @@
 
 void removeIdPrefix(std::string& input);
 void removeTypePrefix(std::string& input);
+
+std::string format_timestamp_ms(long long ms_since_epoch);
 
 /**
  * @brief Decodes a URL-encoded string.
@@ -40,6 +45,13 @@ std::string url_decode(std::string_view in);
  * @return A URL-encoded version of the input string.
  */
 std::string url_encode(const std::string& value);
+
+/**
+ * @brief Checks whether the command contains a 'date=' version tag (URL-decoded).
+ *
+ * @return true if the command contains 'date='; false otherwise.
+ */
+bool hasDateTag(const std::string& command);
 
 /**
  * @brief Computes the responsible SNDS node ID for a given subscription name.

@@ -7,6 +7,25 @@ unsigned getSNDSNodeForSubscription(const std::string& name, int numberOfSNDSSer
     return hash_value % numberOfSNDSServices;
 }
 
+std::string format_timestamp_ms(long long ms_since_epoch){
+    using namespace std::chrono;
+    // build a time_point
+    system_clock::time_point tp{milliseconds(ms_since_epoch)};
+    // split off whole seconds vs leftover ms
+    auto secs    = floor<seconds>(tp);
+    auto ms_part = duration_cast<milliseconds>(tp - secs).count();
+    // convert to time_t and break out UTC fields
+    std::time_t tt = system_clock::to_time_t(tp);
+    std::tm    tm{};
+    gmtime_r(&tt, &tm);  // POSIX; TODO on Windows use gmtime_s
+
+    std::ostringstream oss;
+    oss << std::put_time(&tm, "%Y-%m-%dT%H:%M:%S")
+        << '.' << std::setw(3) << std::setfill('0') << ms_part
+        << "+00:00";
+    return oss.str();
+}
+
 void removeIdPrefix(std::string& input) {
     constexpr std::string_view prefix = "id=";
     if (input.compare(0, prefix.size(), prefix) == 0) {
@@ -19,6 +38,11 @@ void removeTypePrefix(std::string& input) {
     if (input.compare(0, prefix.size(), prefix) == 0) {
         input.erase(0, prefix.size());
     }
+}
+
+bool hasDateTag(const std::string& command){
+    std::string decoded = url_decode(command);
+    return decoded.find("date=") != std::string::npos;
 }
 
 std::string md5_hex(const void* data, std::size_t len) {
@@ -127,8 +151,7 @@ std::string_view get_from_get_request(std::string_view url, std::string_view tag
         end = url.size();
     }
 
-    std::string_view value_view = url.substr(start, end - start);
-    return value_view;
+    return url.substr(start, end - start);
 }
 
 

@@ -26,6 +26,7 @@ void SNDSConsumer::init(){
             m_logger->debug("Extracted content from message {}", content);
             m_logger->debug("Extracted content length from message {}", length);
             query = deserialize_temporal_query(content);
+            //query.date = md5_hex(&query.date, query.date.size());
             auto name = to_path(query);
             m_logger->info("Created name {}", name);
             ndn::Name interestName(name);

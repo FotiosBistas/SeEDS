@@ -1,5 +1,4 @@
-#ifndef PARSED_INTEREST_H
-#define PARSED_INTEREST_H
+#pragma once
 
 #include <ndn-cxx/name.hpp>
 #include <string>
@@ -55,6 +54,7 @@ struct ParsedInterest {
  *
  * @param name The NDN name to parse.
  * @return ParsedInterest The structure containing the parsed fields.
+ * @warning This is not robust and might fail
  */
 inline ParsedInterest parseInterestName(const ndn::Name& name) {
     ParsedInterest pi;
@@ -104,5 +104,3 @@ inline ndn::Name toName(const ParsedInterest& pi) {
 
     return name;
 }
-
-#endif 
