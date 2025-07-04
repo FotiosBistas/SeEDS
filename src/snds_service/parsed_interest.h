@@ -78,6 +78,7 @@ inline ParsedInterest parseInterestName(const ndn::Name& name) {
     for(size_t i = 2; i < n; ++i) {
         pi.params.push_back(name.get(i).toUri());
     }
+
     return pi;
 }
 

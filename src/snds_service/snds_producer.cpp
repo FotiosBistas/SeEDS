@@ -130,26 +130,25 @@ void SNDSProducer::onInterest(const ndn::Interest& interest) {
     ndn::Name name = interest.getName();
     m_logger->info("Received interest in function: {0}, name: {1}", __FUNCTION__, name.toUri());
 
-    //if (name.size() < 2) {
-    //  m_logger->warn("Interest name {} in {} is too short. Ignoring...", name.toUri(), __FUNCTION__);
-    //  return;
-    //}
-
     ParsedInterest pi = parseInterestName(name);
 
     m_logger->info("Parsed interest: {}", pi.toString());
 
-    if(hasDateTag(pi.params[0]) && !isMetaFileTrue(pi.params[1])){
-        m_logger->info("Received Temporal Query Interest...");
-        handleTemporalQuery(pi);
-        return;
+    if(pi.params.size() > 1){
+
+        if(hasDateTag(pi.params[0]) && !isMetaFileTrue(pi.params[1])){ 
+            m_logger->info("Received Temporal Query Interest...");
+            handleTemporalQuery(pi);
+            return;
+        }
+
+        if(isMetaFileTrue(pi.params[1])){
+            m_logger->info("Received Temporal Query Interest from Metafile...");
+            processLocalIdRequest(pi);
+            return;
+        }
     }
 
-    if(isMetaFileTrue(pi.params[1])){
-        m_logger->info("Received Temporal Query Interest from Metafile...");
-        processLocalIdRequest(pi);
-        return;
-    }
 
     // Type advertisements
     if (myTypesRegistryMap.find("/" + pi.command) != myTypesRegistryMap.end()) {
@@ -320,36 +319,35 @@ void SNDSProducer::processRegistryRequest(ParsedInterest& interest) {
 
 void SNDSProducer::processNotification(ParsedInterest& interest){
 
-  std::string prepared_name = interest.getParam(0).value_or("Missing parameter");
-  ensureLeadingSlash(prepared_name);
-  m_logger->info("Subscription notification for name {}.", prepared_name);
+    std::string prepared_name = interest.getParam(0).value_or("Missing parameter");
+    ensureLeadingSlash(prepared_name);
+    m_logger->info("Subscription notification for name {}.", prepared_name);
 
-  auto iterator = subscribedBYID_SNDSnodes.find(prepared_name);
+    auto iterator = subscribedBYID_SNDSnodes.find(prepared_name);
 
-  if(iterator == subscribedBYID_SNDSnodes.end()){
-    m_logger->info("No subscribers found for ID {}.", prepared_name);
-    sendData(toName(interest), m_ackTag + " to_notification_for_new_subscription");
-    return;
-  }
+    if(iterator == subscribedBYID_SNDSnodes.end()){
+        m_logger->info("No subscribers found for ID {}.", prepared_name);
+        sendData(toName(interest), m_ackTag + " to_notification_for_new_subscription");
+        return;
+    }
 
-  const auto& subscribers = iterator->second;
-  for (const auto& snds_node : subscribers) {
+    const auto& subscribers = iterator->second;
+    for (const auto& snds_node : subscribers) {
+        m_logger->info("Notifying SNDS node: {}", snds_node);
 
-    m_logger->info("Notifying SNDS node: {}", snds_node);
+        std::string itemName = snds_node + prepared_name;
 
-    std::string itemName = snds_node + prepared_name;
+        auto message = std::make_unique<SNDS_INTRA_MESSAGE>(
+          std::move(itemName),
+          SNDS_INTRA_MESSAGE_TYPE::GENERIC,
+          SNDS_CLIENT_TYPES::ON_INTEREST,
+          ""
+        );
 
-    auto message = std::make_unique<SNDS_INTRA_MESSAGE>(
-      std::move(itemName),
-      SNDS_INTRA_MESSAGE_TYPE::GENERIC,
-      SNDS_CLIENT_TYPES::ON_INTEREST,
-      ""
-    );
+        v_to_consumer->writeMessage(std::move(message));
+    }
 
-    v_to_consumer->writeMessage(std::move(message));
-  }
-
-  sendData(toName(interest), m_ackTag + " notification_for_new_subscription");
+    sendData(toName(interest), m_ackTag + " notification_for_new_subscription");
 }
 
 void SNDSProducer::processLocalIdRequest(ParsedInterest& interest) {
@@ -364,10 +362,11 @@ void SNDSProducer::processLocalIdRequest(ParsedInterest& interest) {
     // Look up the local ID in the locally announced IDs map.
     auto it = locallyAnnouncedIDsMap.find(local_id);
     if (it != locallyAnnouncedIDsMap.end()) {
-        m_logger->info("Local published ID for {} found. Sending associated data: {}", it->first, it->second);
+        m_logger->info("Local published ID {} found. Sending associated data: {}", it->first, it->second);
         auto name = toName(interest);
-        m_logger->info("Name: {}", name.toUri());
-        sendData(name, it->second);
+        m_logger->info("Name to send the data for: {}", name.toUri());
+        auto res = sendData(name, it->second);
+        m_logger->info("{}", res);
         return;
     }
 }

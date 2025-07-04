@@ -44,7 +44,8 @@ public:
             std::string serviceName = "ServiceBase",
             std::string broker_ip   = "0.0.0.0",
             int broker_port = 10000,
-			std::string temporalQueryPrefix = "date%3D")
+			std::string temporalQueryPrefix = "date%3D",
+            std::string metafilePrefix = "metafile%3Dtrue")
   : m_face(),
     m_keyChain(),
     m_validator(m_face), // m_validator must be initialized after m_face
@@ -60,7 +61,8 @@ public:
     m_mySndsIdScopeName(m_sndsPrefix + m_idScopePrefix + m_mySndsId), // Correct order
     broker_ip(broker_ip),
     broker_port(broker_port),
-	temporalQueryPrefix(temporalQueryPrefix)
+	temporalQueryPrefix(temporalQueryPrefix),
+	metafilePrefix(metafilePrefix)
   {
 
     // Logger initialization
@@ -153,14 +155,26 @@ virtual void stop() {
  * @brief Utility method to send a Data packet with the specified name and payload.
  */
 virtual bool sendData(const ndn::Name& name, std::string payload) {
-	m_logger->debug("Sending data to the NDN...");
-	auto data = std::make_shared<ndn::Data>();
-	data->setName(name);
-	data->setFreshnessPeriod(ndn::time::seconds(10));
-	data->setContent(std::move(payload));
-	m_keyChain.sign(*data);
-	m_face.put(*data);
-	return true;
+    m_logger->debug("Sending data to the NDN…");
+    try {
+        auto data = std::make_shared<ndn::Data>();
+        data->setName(name);
+        data->setFreshnessPeriod(ndn::time::seconds(60));
+        data->setContent(std::move(payload));
+        // May throw if KeyChain isn’t set up correctly
+        m_keyChain.sign(*data);
+        // May throw if the face is stopped or underlying I/O fails
+        m_face.put(*data);
+        return true;
+    }
+    catch (const std::exception& e) {
+        m_logger->error("Failed to send Data {}: {}", name.toUri(), e.what());
+        return false;
+    }
+    catch (...) {
+        m_logger->error("Unknown error while sending Data {}", name.toUri());
+        return false;
+    }
 }
 
 
@@ -191,7 +205,8 @@ protected:
   	std::string m_idScopePrefix;          // e.g., "/SNDS_ID_scope_"
   	std::string m_mySndsIdScopeName;      // Computed as m_sndsPrefix + m_idScopePrefix + m_mySndsId.
   	std::string m_registryFilePostfix;    // e.g., "_registry"
-	std::string temporalQueryPrefix;      //e.g. "date%3A"
+	std::string temporalQueryPrefix;      //e.g. "date%3D"
+    std::string metafilePrefix;           //e.g. "metafile%3D"
   	std::string serviceName;
   	std::string broker_ip;
   	int broker_port;

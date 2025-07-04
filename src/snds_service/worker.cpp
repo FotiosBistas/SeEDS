@@ -109,6 +109,12 @@ void Worker::init() {
                     continue;
                 }
 
+                if(name.find(metafilePrefix) != std::string::npos){
+                    m_logger->info("Received confirmation that consumer received data...");
+                    processTemporalQueryResponse({});
+                    return;
+                }
+
                 // First, handle registry file responses.
                 if (name.find(m_registryFilePostfix) != std::string::npos) {
                     m_logger->info("Processing registry file response...");
@@ -160,7 +166,7 @@ void Worker::processTemporalQueryRequest(const TemporalQuery& temporal_query){
 }
 
 void Worker::processTemporalQueryResponse(const TemporalQuery& temporal_query){
-
+    m_logger->debug("Should do something here...");
 }
 
 void Worker::processSubscriptionRequest(const std::string& id, const std::string& subURL) {
