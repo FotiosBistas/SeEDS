@@ -107,10 +107,10 @@ if(message.get()->getMessageType() == SNDS_INTRA_MESSAGE_TYPE::TEMPORAL_QUERY_RE
 ```
 The request can look like this: 
 ```
-curl -X POST http://localhost:8080/
---data-urlencode "id=car2"   
---data-urlencode "date=2025-06-28T15:41:50Z"   
-rest of the data ...
+curl -X POST http://localhost:8080/ \
+--data-urlencode "id=car2" \ 
+--data-urlencode "date=2025-06-28T15:41:50Z" \
+rest of the data ... \
 -H "Accept: application/json"
 ```
 ## Temporal Query:
@@ -118,11 +118,11 @@ rest of the data ...
 This will retrieve the metafile from the database:
 
 ```
-curl -G GET http://localhost:8080/   
---data-urlencode "id=car2"   
---data-urlencode "date=2025-06-28T15:41:50Z"   
---data-urlencode "timeframe=before+after"   
---data-urlencode count="10"   
+curl -G GET http://localhost:8080/ \
+--data-urlencode "id=car2" \
+--data-urlencode "date=2025-06-28T15:41:50Z" \
+--data-urlencode "timeframe=before+after" \ 
+--data-urlencode count="10" \ 
 -H "Accept: application/json"
 ```
 
@@ -197,25 +197,25 @@ Currently the HTTP API supports:
 
 - (POST) add-one. The type parameter does not have to be filled. If its not filled or doesn't exist the system will default to the `GENERIC` type:
 ```
-curl -X POST http://localhost:10000/add
--H "Content-Type: application/json"   
--H "Accept: application/json"
--d '{
-    "id":"car2",
+curl -X POST http://localhost:10000/add \
+  -H "Content-Type: application/json" \
+  -H "Accept: application/json" \
+  -d '{
+    "id": "car2",
     "date": "2025-06-28T15:41:50Z",
-    "type": "CAR",
-    rest_of_the_data....
+    "type": "CAR"
+    // rest_of_the_data...
   }'
 ```
 - (GET) temporal-query. The type parameter does not have to be filled. If its not filled or doesn't exist the system will default to the `GENERIC` type: 
 ```
-curl -G http://localhost:10000/temporal-query
---data-urlencode "id=car2"   
---data-urlencode "type=CAR"   
---data-urlencode "count=10" 
---data-urlencode "date=2025-06-28T15:41:50Z"
---data-urlencode "timeframe=before+after"
--H "Accept: application/json"
+curl -G http://localhost:10000/temporal-query \
+  --data-urlencode "id=car2" \
+  --data-urlencode "type=CAR" \
+  --data-urlencode "count=10" \
+  --data-urlencode "date=2025-06-28T15:41:50Z" \
+  --data-urlencode "timeframe=before+after" \
+  -H "Accept: application/json"
 ```
 
 - (GET) state:
