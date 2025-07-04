@@ -43,7 +43,8 @@ public:
             std::string ackTag = "THIS_IS_AN_SNDS_ACK",
             std::string serviceName = "ServiceBase",
             std::string broker_ip   = "0.0.0.0",
-            int broker_port = 10000)
+            int broker_port = 10000,
+			std::string temporalQueryPrefix = "date%3D")
   : m_face(),
     m_keyChain(),
     m_validator(m_face), // m_validator must be initialized after m_face
@@ -58,7 +59,8 @@ public:
     m_mySndsIdName(m_sndsPrefix + "_" + m_mySndsId), // Now initialized correctly
     m_mySndsIdScopeName(m_sndsPrefix + m_idScopePrefix + m_mySndsId), // Correct order
     broker_ip(broker_ip),
-    broker_port(broker_port)
+    broker_port(broker_port),
+	temporalQueryPrefix(temporalQueryPrefix)
   {
 
     // Logger initialization
@@ -94,58 +96,58 @@ public:
     m_logger->info("Service Name: {}", this->serviceName);
     m_logger->info("Computed m_mySndsIdName: {}", m_mySndsIdName);
     m_logger->info("Computed m_mySndsIdScopeName: {}", m_mySndsIdScopeName);
+    m_logger->info("Temporal Query Prefix: {}", temporalQueryPrefix);
     m_logger->info("===============================================");
   }
 
-  virtual ~ServiceBase() {
-  }
+virtual ~ServiceBase() {}
 
-  virtual void onInterest(const ndn::Interest& interest) {
+virtual void onInterest(const ndn::Interest& interest) {
     ndn::Name name = interest.getName();
     m_logger->info("Received in function: {0}, name: {1}", __FUNCTION__, name.toUri());
-  }
+}
 
-  virtual void onData(const ndn::Interest&, const ndn::Data& data) {
+virtual void onData(const ndn::Interest& interest, const ndn::Data& data) {
     // Log the receipt of the Data packet.
     m_logger->info("Received Data with name: {0} in function {1}", data.getName().toUri(), __FUNCTION__);
 
-  }
+}
 
-  virtual void onNack(const ndn::Interest& interest, const ndn::lp::Nack& nack) {
+virtual void onNack(const ndn::Interest& interest, const ndn::lp::Nack& nack) {
     m_logger->info("Received Nack (reason: {}) for Interest: {}",
       static_cast<int>(nack.getReason()), interest.getName().toUri());
-  }
+}
 
-  virtual void onTimeout(const ndn::Interest& interest) {
+virtual void onTimeout(const ndn::Interest& interest) {
     m_logger->info("Timeout for Interest: {}", interest.getName().toUri());
-  }
+}
 
-  virtual void onRegisterFailed(const ndn::Name& prefix, const std::string& reason){
+virtual void onRegisterFailed(const ndn::Name& prefix, const std::string& reason){
     m_logger->error("Failed to register prefix: {0} with the local forwarder ({1})", prefix.toUri(), reason);
     m_logger->error("Failed to register prefix: {0} with the local forwarder ({1})", prefix.toUri(), reason);
 		m_face.shutdown();
-  }
+}
 
-  virtual void onRegisterSuccess(const ndn::Name& prefix) {
+virtual void onRegisterSuccess(const ndn::Name& prefix) {
     m_logger->info("Successfully registered prefix: {}", prefix.toUri());
-  }
+}
 
 
-  virtual void init(){
-    m_logger->info("Starting service: {}", serviceName);
-    if (serviceName.empty()) {
-        m_logger->warn("Warning: serviceName is EMPTY! Check constructor initialization.");
-    }
-    m_logger->info("Exiting service: {}", serviceName);
-  }
+virtual void init(){
+	m_logger->info("Starting service: {}", serviceName);
+	if (serviceName.empty()) {
+	    m_logger->warn("Warning: serviceName is EMPTY! Check constructor initialization.");
+	}
+	m_logger->info("Exiting service: {}", serviceName);
+}
 
-  // This method stops the loop by setting the flag to false.
-  virtual void stop() {
-    running.store(false);
-    m_face.shutdown();
-    m_logger->info("Service stopping: {}", serviceName);
-    m_logger->flush();
-  };
+// This method stops the loop by setting the flag to false.
+virtual void stop() {
+  	running.store(false);
+  	m_face.shutdown();
+  	m_logger->info("Service stopping: {}", serviceName);
+  	m_logger->flush();
+};
 
 /**
  * @brief Utility method to send a Data packet with the specified name and payload.
@@ -163,38 +165,39 @@ virtual bool sendData(const ndn::Name& name, std::string payload) {
 
 
 protected:
-  ndn::Face m_face;
-  ndn::KeyChain m_keyChain;
-  ndn::ValidatorConfig m_validator;
-  ndn::ScopedRegisteredPrefixHandle m_certServeHandle;
-  std::shared_ptr<spdlog::logger> m_logger;
-  std::atomic<bool> running { true };
+  	ndn::Face m_face;
+  	ndn::KeyChain m_keyChain;
+  	ndn::ValidatorConfig m_validator;
+  	ndn::ScopedRegisteredPrefixHandle m_certServeHandle;
+  	std::shared_ptr<spdlog::logger> m_logger;
+  	std::atomic<bool> running { true };
 
-  // Declare message queues as static, so they are common to all instances.
-  // Using std::unique_ptr for RAII management.
-  // TODO this is terrible and should be changed
-  static std::unique_ptr<MessageQueue> v_to_proxy;
-  static std::unique_ptr<MessageQueue> v_to_dt;
-  static std::unique_ptr<MessageQueue> v_to_producer;
-  static std::unique_ptr<MessageQueue> v_to_consumer;
-  static std::unique_ptr<MessageQueue> v_to_service;
+  	// Declare message queues as static, so they are common to all instances.
+  	// Using std::unique_ptr for RAII management.
+  	// TODO this is terrible and should be changed
+  	static std::unique_ptr<MessageQueue> v_to_proxy;
+  	static std::unique_ptr<MessageQueue> v_to_dt;
+  	static std::unique_ptr<MessageQueue> v_to_producer;
+  	static std::unique_ptr<MessageQueue> v_to_consumer;
+  	static std::unique_ptr<MessageQueue> v_to_service;
 
-  friend class SNDSDaemon;
+  	friend class SNDSDaemon;
 
-  // Configurable protocol parameters:
-  uint8_t m_numberOfSndsSrvs;           // Number of SNDS services.
-  std::string m_sndsPrefix;             // e.g., "/SNDS"
-  std::string m_mySndsId;               // e.g., "0"
-  std::string m_mySndsIdName;           // Computed as m_sndsPrefix + "_" + m_mySndsId.
-  std::string m_idScopePrefix;          // e.g., "/SNDS_ID_scope_"
-  std::string m_mySndsIdScopeName;      // Computed as m_sndsPrefix + m_idScopePrefix + m_mySndsId.
-  std::string m_registryFilePostfix;    // e.g., "_registry"
-  std::string serviceName;
-  std::string broker_ip;
-  int broker_port;
+  	// Configurable protocol parameters:
+  	uint8_t m_numberOfSndsSrvs;           // Number of SNDS services.
+  	std::string m_sndsPrefix;             // e.g., "/SNDS"
+  	std::string m_mySndsId;               // e.g., "0"
+  	std::string m_mySndsIdName;           // Computed as m_sndsPrefix + "_" + m_mySndsId.
+  	std::string m_idScopePrefix;          // e.g., "/SNDS_ID_scope_"
+  	std::string m_mySndsIdScopeName;      // Computed as m_sndsPrefix + m_idScopePrefix + m_mySndsId.
+  	std::string m_registryFilePostfix;    // e.g., "_registry"
+	std::string temporalQueryPrefix;      //e.g. "date%3A"
+  	std::string serviceName;
+  	std::string broker_ip;
+  	int broker_port;
 	std::string m_ackTag = "THIS_IS_AN_SNDS_ACK\r\n";
-  std::string WARNING_ALREADY_REGISTERED = "WARNING_ALREADY_REGISTERED";
-  static constexpr const char* ERASE_PREFIX="erase=";
+  	std::string WARNING_ALREADY_REGISTERED = "WARNING_ALREADY_REGISTERED";
+  	static constexpr const char* ERASE_PREFIX="erase=";
 
 };
 

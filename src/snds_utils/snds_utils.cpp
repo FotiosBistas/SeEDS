@@ -47,6 +47,23 @@ bool hasDateTag(const std::string& command){
     return decoded.find("date=") != std::string::npos;
 }
 
+bool isMetaFileTrue(const std::string& command) {
+    std::string decoded = url_decode(command);
+
+    const std::string key = "metafile=";
+    auto pos = decoded.find(key);
+    if (pos == std::string::npos)
+        return false;
+
+    pos += key.size();
+    auto end = decoded.find('&', pos);
+    std::string value = decoded.substr(pos, end == std::string::npos 
+                                             ? std::string::npos 
+                                             : end - pos);
+
+    return value == "true";
+}
+
 std::string md5_hex(const void* data, std::size_t len) {
     EVP_MD_CTX* ctx = EVP_MD_CTX_new();
     if (!ctx) throw std::runtime_error("EVP_MD_CTX_new failed");

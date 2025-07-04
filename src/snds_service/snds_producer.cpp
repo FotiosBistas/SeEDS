@@ -139,9 +139,15 @@ void SNDSProducer::onInterest(const ndn::Interest& interest) {
 
     m_logger->info("Parsed interest: {}", pi.toString());
 
-    if(hasDateTag(pi.params[0])){
+    if(hasDateTag(pi.params[0]) && !isMetaFileTrue(pi.params[1])){
         m_logger->info("Received Temporal Query Interest...");
         handleTemporalQuery(pi);
+        return;
+    }
+
+    if(isMetaFileTrue(pi.params[1])){
+        m_logger->info("Received Temporal Query Interest from Metafile...");
+        processLocalIdRequest(pi);
         return;
     }
 
@@ -218,43 +224,12 @@ void SNDSProducer::handleTemporalQuery(ParsedInterest& interest){
     auto res = cli.Get(endpoint.c_str());
     if (res && res->status == 200) {
         m_logger->info("Successfully queried /temporal-query");
-		parseTemporalQuery(res->body);
+        sendData(toName(interest), nlohmann::json::parse(res->body).dump(2));
     } else {
         m_logger->error("Failed to query /temporal-query: {}", res ? res->body : "No response");
     }
 }
 
-void SNDSProducer::parseTemporalQuery(const std::string& body){
-    nlohmann::json root = nlohmann::json::parse(body);
-
-	std::unordered_set<std::string> seenInterests;
-
-    for (const auto& entry : root) {
-        // entry is an object with a single key: "before" or "after" or "now"
-        for (auto& [key, arr] : entry.items()) {
-			m_logger->debug("Parsing key: {}", key);
-            for (const auto& doc : arr) {
-				// this contains both timestamp and id
-                const auto&  id_object  = doc["_id"];
-                std::string   id        = id_object["_id"].get<std::string>();
-                long long raw_timestamp = id_object["timestamp"]["$date"].get<long long>();
-				std::string timestamp = "date=" + format_timestamp_ms(raw_timestamp);
-				timestamp = url_encode(timestamp);
-                auto parsedInterest = makeMetafileInterest("SNDS/" + id, timestamp);
-                auto interestUri = toName(parsedInterest).toUri();
-
-                // try to insert; if it's new, send it
-                if (seenInterests.emplace(interestUri).second) {
-                    m_logger->debug("Built interest: {} sending actual interest: {}", parsedInterest.toString(), interestUri);
-                    sendData(toName(parsedInterest), m_ackTag);
-                }
-                else {
-                    m_logger->debug("Skipping duplicate interest: {}", interestUri);
-                }
-            }
-        }
-    }
-}
 
 void SNDSProducer::processTypeAdvertisement(ParsedInterest& interest) {
 
@@ -378,24 +353,23 @@ void SNDSProducer::processNotification(ParsedInterest& interest){
 }
 
 void SNDSProducer::processLocalIdRequest(ParsedInterest& interest) {
-  std::string local_id = interest.command;
-  // Parse the incoming Interest name.
-  m_logger->info("Local ID request received: id = {}", local_id);
+    std::string local_id = interest.command;
+    // Parse the incoming Interest name.
+    m_logger->info("ID request received: id = {}", local_id);
 
-  // In local ID requests, we assume the command field itself is the requested ID.
-  // Ensure it has a leading slash.
-  ensureLeadingSlash(local_id);
+    // In local ID requests, we assume the command field itself is the requested ID.
+    // Ensure it has a leading slash.
+    ensureLeadingSlash(local_id);
 
-  // Look up the local ID in the locally announced IDs map.
-  auto it = locallyAnnouncedIDsMap.find(local_id);
-  //TODO here we handle temporal queries.
-  //TODO the metafile is received onData inside the consumer 
-  //TODO the registry file is processed inside snds_http_worker
-  if (it != locallyAnnouncedIDsMap.end()) {
-    m_logger->info("Local ID request for {} found. Sending associated data.", local_id);
-    sendData(toName(interest), "id="+it->second);
-    return;
-  }
+    // Look up the local ID in the locally announced IDs map.
+    auto it = locallyAnnouncedIDsMap.find(local_id);
+    if (it != locallyAnnouncedIDsMap.end()) {
+        m_logger->info("Local published ID for {} found. Sending associated data: {}", it->first, it->second);
+        auto name = toName(interest);
+        m_logger->info("Name: {}", name.toUri());
+        sendData(name, it->second);
+        return;
+    }
 }
 
 

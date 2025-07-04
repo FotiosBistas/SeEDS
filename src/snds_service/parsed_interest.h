@@ -114,3 +114,25 @@ inline ndn::Name toName(const ParsedInterest& pi) {
 
     return name;
 }
+
+/// @brief  This assumes that the parameters already have their tag appended to them.
+/// For example id=car1.
+/// @param pi 
+/// @return 
+inline std::string toQueryString(const ParsedInterest& pi) {
+    std::ostringstream oss;
+    oss << "/?";
+
+    // id  = first param
+    oss << pi.prefix;
+
+    // date = second param
+    oss << "&" << pi.command;
+
+    // any extra params get generic names “param2”, “param3”, …
+    for (size_t i = 0; i < pi.params.size(); ++i) {
+      oss << "&" << pi.params[i];
+    }
+
+    return oss.str();
+}

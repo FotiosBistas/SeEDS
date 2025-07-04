@@ -18,7 +18,9 @@ void Worker::init() {
 
         // Retrieve the message content and extract parameters using snds_utils.
         std::string content            = message->getMessage();
+        m_logger->info("Received content: {}", content);
         std::string name               = message->getName();
+        m_logger->info("Received name: {}", name);
         std::string id                 = std::string(get_from_get_request(content, GET_PARAMETER_ID_TAG));
         std::string type               = std::string(get_from_get_request(content, GET_PARAMETER_TYPE_TAG));
         std::string count              = std::string(get_from_get_request(content, GET_PARAMETER_COUNT_TAG));
@@ -94,21 +96,34 @@ void Worker::init() {
                 //Note here that all the responses have to do with the name
                 m_logger->info("Received consumer message.");
 
+                if(!date.empty()){
+                    m_logger->info("Processing temporal query response...");
+                    TemporalQuery query = {
+                        string_to_timeframe(timeframe), 
+                        date,
+                        id,
+                        type,
+                        count,
+                    };
+                    processTemporalQueryResponse(query);
+                    continue;
+                }
+
                 // First, handle registry file responses.
                 if (name.find(m_registryFilePostfix) != std::string::npos) {
                     m_logger->info("Processing registry file response...");
-                    processRegistryFileRequest(content.data(), name.data());
+                    processRegistryFileRequest(content, name);
                 }
                 // A request can be both byID and byTYPE
                 // Next, handle getById responses.
                 if (!id.empty()) {
                     m_logger->info("Processing getByIDConsumer request...");
-                    processByIDRequest(name.data(), true);
+                    processByIDRequest(name, true);
                 }
                 // Otherwise, handle getByType responses.
                 if (!type.empty()) {
                     m_logger->info("Processing getByTYPEConsumer response...");
-                    processByTYPERequest(name.data(), true);
+                    processByTYPERequest(name, true);
                 }
                 break;
             default:
@@ -144,7 +159,9 @@ void Worker::processTemporalQueryRequest(const TemporalQuery& temporal_query){
     v_to_consumer.get()->writeMessage(std::move(message));
 }
 
-void Worker::processTemporalQueryResponse(const TemporalQuery& temporal_query){}
+void Worker::processTemporalQueryResponse(const TemporalQuery& temporal_query){
+
+}
 
 void Worker::processSubscriptionRequest(const std::string& id, const std::string& subURL) {
     // Retrieve the subscription set for this ID.

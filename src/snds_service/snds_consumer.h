@@ -46,7 +46,9 @@ public:
      * @param interest The Interest that triggered this Data response (unused).
      * @param data The received Data packet.
     */
-    void onData(const ndn::Interest&, const ndn::Data& data);
+    void onData(const ndn::Interest& interest, const ndn::Data& data);
 
     std::string handleTemporalQuery(const TemporalQuery& query);
+    void parseTemporalQuery(const std::string& body);
+
 };

@@ -21,6 +21,8 @@
 void removeIdPrefix(std::string& input);
 void removeTypePrefix(std::string& input);
 
+bool isMetaFileTrue(const std::string& command);
+
 std::string format_timestamp_ms(long long ms_since_epoch);
 
 /**
