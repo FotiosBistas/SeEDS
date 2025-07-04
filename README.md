@@ -72,10 +72,58 @@ Run the subscriber indicating either id or typee.g., send a GET HTTP message wit
 curl -i -X GET http://localhost:8080/?id=car1
 ```
 
+## Subscriptions
+
 For subscriptions append the `isSub=true&suburl=MYURL` at the url. Add quotes to all variables e.g., `?id=car1&isSub=true&suburl=MYURL`
 
 ```
 curl -i -X GET http://localhost:8080/?id=car1&isSub=true&suburl=MYURL
+```
+
+## Publish versioned ID 
+Note this will try to publish it to endpoint add. If you don't have an endpoint setup you will get an error: 
+```cpp
+if(message.get()->getMessageType() == SNDS_INTRA_MESSAGE_TYPE::TEMPORAL_QUERY_REQUEST){
+    m_logger->info("Got new Temporal Query request...\n{}", message.get()->printDetails());
+    auto query = deserialize_temporal_query(content);
+    //query.date = md5_hex(&query.date, query.date.size());
+    auto name = to_path(query, false, false);
+    m_logger->info("Annoucing name {}", name);
+    m_face.setInterestFilter(name,
+      std::bind(&SNDSProducer::onInterest, this, std::placeholders::_2),
+      std::bind(&SNDSProducer::onRegisterSuccess, this, std::placeholders::_1),
+      std::bind(&SNDSProducer::onRegisterFailed, this, std::placeholders::_1, std::placeholders::_2));
+
+    std::string payload = serialize_temporal_query(query);
+    httplib::Client cli(broker_ip.c_str(), broker_port);
+    auto res = cli.Post("/add", payload, "application/json");
+    if (res && res->status == 200) {
+        m_logger->info("Successfully POSTed to /add: {}", res->body);
+    } else {
+        m_logger->error("Failed to POST to /add: {}", res ? res->body : "No response");
+    }
+    continue;
+}
+```
+The request can look like this: 
+```
+curl -X POST http://localhost:8080/
+--data-urlencode "id=car2"   
+--data-urlencode "date=2025-06-28T15:41:50Z"   
+rest of the data ...
+-H "Accept: application/json"
+```
+## Temporal Query:
+
+This will retrieve the metafile from the database:
+
+```
+curl -G GET http://localhost:8080/   
+--data-urlencode "id=car2"   
+--data-urlencode "date=2025-06-28T15:41:50Z"   
+--data-urlencode "timeframe=before+after"   
+--data-urlencode count="10"   
+-H "Accept: application/json"
 ```
 
 # Broker
