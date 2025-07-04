@@ -222,6 +222,14 @@ std::optional<bsoncxx::document::value> Broker::set_generic_type(bsoncxx::v_noab
     return bsoncxx::document::value(builder.extract());
 }
 
+void Broker::filter_to_only_id(mongocxx::v_noabi::pipeline& pipeline){
+    pipeline.project(
+        bsoncxx::builder::basic::make_document(
+            bsoncxx::builder::basic::kvp("_id", 1)
+        )
+    );
+}
+
 std::string Broker::get_from_database(const Timeframe& frame, bsoncxx::v_noabi::document::view json_data){
 
     //type and ID are always specified by the get handler
@@ -248,6 +256,7 @@ std::string Broker::get_from_database(const Timeframe& frame, bsoncxx::v_noabi::
         auto collection = this->client[this->database][correct_type];
         auto [base_timestamp, parsed_timestamp] = parse_timestamp(date);
         auto pipeline = create_date_pipeline(frame, count, id, base_timestamp, parsed_timestamp);
+        filter_to_only_id(pipeline);
         auto cursor = collection.aggregate(pipeline);
 
         std::ostringstream oss;

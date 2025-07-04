@@ -71,6 +71,7 @@ private:
     std::string get_from_database(const Timeframe& frame, bsoncxx::v_noabi::document::view json_data);
     std::string compute_collection_hash(const mongocxx::collection& collection);
     std::optional<bsoncxx::document::value> set_generic_type(bsoncxx::v_noabi::document::view view);
+    void filter_to_only_id(mongocxx::v_noabi::pipeline& pipeline);
 
     //api
     std::optional<InsertOrReplaceResult> add_one(const std::string& body, const bool versioned);
