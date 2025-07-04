@@ -139,7 +139,7 @@ void SNDSProducer::onInterest(const ndn::Interest& interest) {
 
     m_logger->info("Parsed interest: {}", pi.toString());
 
-    if(hasDateTag(pi.command)){
+    if(hasDateTag(pi.params[0])){
         m_logger->info("Received Temporal Query Interest...");
         handleTemporalQuery(pi);
         return;
@@ -181,8 +181,8 @@ void SNDSProducer::onInterest(const ndn::Interest& interest) {
 }
 
 void SNDSProducer::handleTemporalQuery(ParsedInterest& interest){
-    std::string date = url_decode(interest.command);
-    std::string id = interest.prefix;
+    std::string date = url_decode(interest.params[0]);
+    std::string id = interest.command;
 
     // build a map<string,string> out of interest.params,
     // expecting each param to be in the form "key=value"
@@ -218,7 +218,6 @@ void SNDSProducer::handleTemporalQuery(ParsedInterest& interest){
     auto res = cli.Get(endpoint.c_str());
     if (res && res->status == 200) {
         m_logger->info("Successfully queried /temporal-query");
-
 		parseTemporalQuery(res->body);
     } else {
         m_logger->error("Failed to query /temporal-query: {}", res ? res->body : "No response");
@@ -228,8 +227,10 @@ void SNDSProducer::handleTemporalQuery(ParsedInterest& interest){
 void SNDSProducer::parseTemporalQuery(const std::string& body){
     nlohmann::json root = nlohmann::json::parse(body);
 
+	std::unordered_set<std::string> seenInterests;
+
     for (const auto& entry : root) {
-        // entry is an object with a single key: "before" or "after"
+        // entry is an object with a single key: "before" or "after" or "now"
         for (auto& [key, arr] : entry.items()) {
 			m_logger->debug("Parsing key: {}", key);
             for (const auto& doc : arr) {
@@ -237,8 +238,19 @@ void SNDSProducer::parseTemporalQuery(const std::string& body){
                 const auto&  id_object  = doc["_id"];
                 std::string   id        = id_object["_id"].get<std::string>();
                 long long raw_timestamp = id_object["timestamp"]["$date"].get<long long>();
-				std::string timestamp = format_timestamp_ms(raw_timestamp);
-				m_logger->debug("Parsed received metafile data id={}, timestamp={}", id, timestamp);
+				std::string timestamp = "date=" + format_timestamp_ms(raw_timestamp);
+				timestamp = url_encode(timestamp);
+                auto parsedInterest = makeMetafileInterest("SNDS/" + id, timestamp);
+                auto interestUri = toName(parsedInterest).toUri();
+
+                // try to insert; if it's new, send it
+                if (seenInterests.emplace(interestUri).second) {
+                    m_logger->debug("Built interest: {} sending actual interest: {}", parsedInterest.toString(), interestUri);
+                    sendData(toName(parsedInterest), m_ackTag);
+                }
+                else {
+                    m_logger->debug("Skipping duplicate interest: {}", interestUri);
+                }
             }
         }
     }
@@ -306,29 +318,29 @@ void SNDSProducer::processSubscription(ParsedInterest& interest) {
 
 void SNDSProducer::processRegistryRequest(ParsedInterest& interest) {
 
-  std::string name = interest.command;
-  // Parse the incoming Interest name.
-  m_logger->info("Registry request received: name = {}", name);
+  	std::string name = interest.command;
+  	// Parse the incoming Interest name.
+  	m_logger->info("Registry request received: name = {}", name);
 
-  // Remove the registry postfix from the command to get the base type.
-  std::string base_type = name.substr(0, name.find(m_registryFilePostfix));
+  	// Remove the registry postfix from the command to get the base type.
+  	std::string base_type = name.substr(0, name.find(m_registryFilePostfix));
 
-  // Look up the registry for the base type (the keys in myTypesRegistryMap are stored with a leading slash).
-  auto iter = myTypesRegistryMap.find("/" + base_type);
-  if (iter == myTypesRegistryMap.end()) {
-    m_logger->warn("Unknown registry for type {}.", base_type);
-    return;
-  }
+  	// Look up the registry for the base type (the keys in myTypesRegistryMap are stored with a leading slash).
+  	auto iter = myTypesRegistryMap.find("/" + base_type);
+  	if (iter == myTypesRegistryMap.end()) {
+  	  	m_logger->warn("Unknown registry for type {}.", base_type);
+  	  	return;
+  	}
 
-  std::vector<std::byte> byte_vector;
-  byte_vector.push_back(std::byte{'R'});  // registry response marker
-  byte_vector.push_back(std::byte{0x00}); // reserved/future use
-  byte_vector = serializeRegistryFilePayload(iter->second);
+  	std::vector<std::byte> byte_vector;
+  	byte_vector.push_back(std::byte{'R'});  // registry response marker
+  	byte_vector.push_back(std::byte{0x00}); // reserved/future use
+  	byte_vector = serializeRegistryFilePayload(iter->second);
 
-  std::string payload(reinterpret_cast<const char*>(byte_vector.data()), byte_vector.size());
+  	std::string payload(reinterpret_cast<const char*>(byte_vector.data()), byte_vector.size());
 
-  m_logger->info("Sending registry file payload for type {}.", base_type);
-  sendData(toName(interest), payload);
+  	m_logger->info("Sending registry file payload for type {}.", base_type);
+  	sendData(toName(interest), payload);
 }
 
 void SNDSProducer::processNotification(ParsedInterest& interest){

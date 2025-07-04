@@ -41,6 +41,16 @@ struct ParsedInterest {
     }
 };
 
+static ParsedInterest makeMetafileInterest(const std::string& id,
+                                           const std::string& timestamp)
+{
+    ParsedInterest pi;
+    pi.prefix  = id;
+    pi.command = timestamp;
+    pi.params  = {};
+    return pi;
+}
+
 /**
  * 
  * @brief Parses an ndn::Name into a ParsedInterest structure.

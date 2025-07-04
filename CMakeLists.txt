@@ -447,6 +447,7 @@ target_link_libraries(snds_service PRIVATE
     snds_utils
     ${NDN_CXX_LIBRARY_DIR}/libndn-cxx.so
     spdlog::spdlog
+    nlohmann_json::nlohmann_json
     snds_broker
 )
 

@@ -28,6 +28,7 @@ void SNDSConsumer::init(){
             query = deserialize_temporal_query(content);
             //query.date = md5_hex(&query.date, query.date.size());
             auto name = to_path(query);
+            name = "SNDS" + name;
             m_logger->info("Created name {}", name);
             ndn::Name interestName(name);
             ndn::Interest interest(interestName);
