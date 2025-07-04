@@ -108,22 +108,21 @@ if(message.get()->getMessageType() == SNDS_INTRA_MESSAGE_TYPE::TEMPORAL_QUERY_RE
 The request can look like this: 
 ```
 curl -X POST http://localhost:8080/ \
---data-urlencode "id=car2" \ 
---data-urlencode "date=2025-06-28T15:41:50Z" \
-rest of the data ... \
--H "Accept: application/json"
+  --data-urlencode "id=car2" \
+  --data-urlencode "date=2025-06-28T15:41:50Z" \
+  -H "Accept: application/json"
 ```
 ## Temporal Query:
 
 This will retrieve the metafile from the database:
 
 ```
-curl -G GET http://localhost:8080/ \
---data-urlencode "id=car2" \
---data-urlencode "date=2025-06-28T15:41:50Z" \
---data-urlencode "timeframe=before+after" \ 
---data-urlencode count="10" \ 
--H "Accept: application/json"
+curl -G http://localhost:8080/ \
+  --data-urlencode "id=car2" \
+  --data-urlencode "date=2025-06-28T15:41:50Z" \
+  --data-urlencode "timeframe=before+after" \
+  --data-urlencode "count=10" \
+  -H "Accept: application/json"
 ```
 
 # Broker
