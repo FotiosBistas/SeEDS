@@ -134,7 +134,7 @@ void SNDSProducer::onInterest(const ndn::Interest& interest) {
 
     m_logger->info("Parsed interest: {}", pi.toString());
 
-    if(pi.params.size() > 1){
+    if(pi.params.size() > 1 && hasDateTag(pi.params[0])){
 
         if(hasDateTag(pi.params[0]) && !isMetaFileTrue(pi.params[1])){ 
             m_logger->info("Received Temporal Query Interest...");
