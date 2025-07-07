@@ -83,6 +83,7 @@ void SNDSConsumer::parseTemporalQuery(const std::string& body){
 				std::string timestamp = "date=" + format_timestamp_ms(raw_timestamp);
 				//std::string timestamp = format_timestamp_ms(raw_timestamp);
                 //std::string timestamp = "geia";
+                m_logger->debug("Before encoding timestamp: {}", timestamp);
 				timestamp = url_encode(timestamp);
                 auto name = makeMetafileInterest("/SNDS/" + id, timestamp);
                 name.params.push_back(url_encode("metafile=true"));
