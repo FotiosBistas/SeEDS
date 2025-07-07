@@ -94,7 +94,8 @@ void SNDSProducer::init(){
             m_logger->info("Got new Temporal Query request...\n{}", message.get()->printDetails());
             auto query = deserialize_temporal_query(content);
             //query.date = md5_hex(&query.date, query.date.size());
-            auto name = to_path(query, false, false);
+            auto name = to_path(query, false, false, false);
+            name = "/SNDS" + name;
             m_logger->info("Annoucing name {}", name);
             m_face.setInterestFilter(name,
               std::bind(&SNDSProducer::onInterest, this, std::placeholders::_2),
@@ -104,6 +105,7 @@ void SNDSProducer::init(){
             //TODO possible spot for signing
             //TODO insert more payload here
             std::string payload = serialize_temporal_query(query);
+            locallyAnnouncedIDsMap[query.id] = payload;
             httplib::Client cli(broker_ip.c_str(), broker_port);
             auto res = cli.Post("/add", payload, "application/json");
             if (res && res->status == 200) {

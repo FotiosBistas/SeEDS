@@ -25,6 +25,8 @@ bool isMetaFileTrue(const std::string& command);
 
 std::string format_timestamp_ms(long long ms_since_epoch);
 
+std::unordered_map<std::string,std::string> parse_query_params(std::string_view qs);
+
 /**
  * @brief Decodes a URL-encoded string.
  *

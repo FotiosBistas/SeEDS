@@ -172,6 +172,28 @@ std::string_view get_from_get_request(std::string_view url, std::string_view tag
 
     return url.substr(start, end - start);
 }
+ 
+std::unordered_map<std::string,std::string> parse_query_params(std::string_view qs) {
+    std::unordered_map<std::string,std::string> params;
+    size_t pos = 0;
+    while (pos < qs.size()) {
+        // find next &
+        auto amp = qs.find('&', pos);
+        auto part = qs.substr(pos, amp == std::string_view::npos ? qs.size()-pos : amp-pos);
+
+        // split on '='
+        auto eq = part.find('=');
+        if (eq != std::string_view::npos) {
+            std::string key   = url_decode(std::string(part.substr(0, eq)));
+            std::string value = url_decode(std::string(part.substr(eq+1)));
+            params.emplace(std::move(key), std::move(value));
+        }
+
+        if (amp == std::string_view::npos) break;
+        pos = amp + 1;
+    }
+    return params;
+}
 
 
 void ensureLeadingSlash(std::string &nm) {

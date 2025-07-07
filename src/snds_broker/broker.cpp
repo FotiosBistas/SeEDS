@@ -83,6 +83,7 @@ void Broker::listen(){
 
 
             if(type.empty()){
+                logger->warn("Missing 'type' in /get body, defaulting to 'GENERIC'");
                 type = "GENERIC";
             }
 
@@ -111,7 +112,8 @@ void Broker::listen(){
                 return;
             }
 
-            if(type.empty()){
+            if (type.empty()) {
+                logger->warn("Missing 'type' in /get body, defaulting to 'GENERIC'");
                 type = "GENERIC";
             }
 
@@ -142,8 +144,8 @@ void Broker::listen(){
             }
 
             if (!body.contains("type") || body["type"].get<std::string>().empty()) {
-                logger->warn("Missing 'type' in /add body, defaulting to 'generic'");
-                body["type"] = "generic";
+                logger->warn("Missing 'type' in /add body, defaulting to 'GENERIC'");
+                body["type"] = "GENERIC";
             }
 
 
@@ -237,11 +239,9 @@ std::optional<InsertOrReplaceResult> Broker::add_one(const std::string& body, co
         }
 
         for(auto&& element: view){
-            if(element.key() != "type"){
-                doc_builder.append(
-                    bsoncxx::builder::basic::kvp(element.key(), element.get_value())
-                );
-            }
+            doc_builder.append(
+                bsoncxx::builder::basic::kvp(element.key(), element.get_value())
+            );
         }
         // insert timestamp anyway
         doc_builder.append(

@@ -70,7 +70,7 @@ std::string timeframe_to_string(Timeframe frame) {
     return out;  // e.g., "before+after" or "now"
 }
 
-std::string to_path(const TemporalQuery& q, const bool include_timeframe, const bool include_count){
+std::string to_path(const TemporalQuery& q, const bool include_timeframe, const bool include_count, const bool include_extras){
     std::ostringstream oss;
 
     // optional /type
@@ -96,6 +96,14 @@ std::string to_path(const TemporalQuery& q, const bool include_timeframe, const 
         oss << '/' << url_encode("count=") << url_encode(q.count);
     }
 
+    if(!q.extras.empty() && include_extras){
+        // nest all unknown params under "extras"
+        nlohmann::json extra_obj = nlohmann::json::object();
+        for (auto const& [key, val] : q.extras) {
+            oss<< '/' << url_encode(key+"=") << val;
+        }
+    }
+
     return oss.str();
 }
 
@@ -106,6 +114,15 @@ std::string serialize_temporal_query(const TemporalQuery& q) {
     j["id"]        = q.id;
     j["type"]      = q.type;
     j["count"]     = q.count;
+
+    if (!q.extras.empty()) {
+        // nest all unknown params under "extras"
+        nlohmann::json extra_obj = nlohmann::json::object();
+        for (auto const& [key, val] : q.extras) {
+            j[key] = val;
+        }
+    }
+
     return j.dump();
 }
 
@@ -130,5 +147,18 @@ TemporalQuery deserialize_temporal_query(std::string_view json_string) {
     q.id    = j.at("id").get<std::string>();
     q.type  = j.at("type").get<std::string>();
     q.count = j.at("count").get<std::string>();
+    // Capture any additional fields as "extras"
+    for (auto& item : j.items()) {
+        const auto& key = item.key();
+        if (key == "timeframe" ||
+            key == "date"      ||
+            key == "id"        ||
+            key == "type"      ||
+            key == "count") {
+            continue;
+        }
+        // Store the value as string (or adapt if you need other types)
+        q.extras[key] = item.value().get<std::string>();
+    }
     return q;
 }

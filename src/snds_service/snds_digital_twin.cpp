@@ -24,7 +24,8 @@ void DigitalTwin::init(){
         m_logger->debug("Extracted content length from message {}", length);
 
 
-        std::string id = std::string(get_from_get_request(content, "id"));
+        std::string id      = std::string(get_from_get_request(content, "id"));
+        std::string type    = std::string(get_from_get_request(content, "type"));
         std::string idScope = getSNDSNodeScopeNameForSubscription(id, m_idScopePrefix, m_numberOfSndsSrvs);
 
 
@@ -43,18 +44,29 @@ void DigitalTwin::init(){
 
         //TODO we can differentiate messages based on type
         //I don't know why are we doing this
-        std::string date = url_decode(std::string(get_from_get_request(content, "date")));
-        std::string type = std::string(get_from_get_request(content, "type"));
-        if(!date.empty()){
+        auto params = parse_query_params(content);
+        auto it_date = params.find("date");
+
+
+        if(it_date != params.end()){
             m_logger->info("Received temporal query request...");
-            m_logger->debug("Extracted Date from message {}", date);
-            TemporalQuery query = {
-                Timeframe::NONE, 
-                date,
+            m_logger->debug("Extracted Date from message {}", it_date->second);
+            TemporalQuery query{
+                Timeframe::NONE,
+                it_date->second,
                 id,
+                type,
                 "",
-                "",
+                {}  // extras below
             };
+
+            for (auto const& k : {"id","date","type","count"}) {
+                params.erase(k);
+            }
+
+            query.extras = std::move(params);
+
+
             auto message = std::make_unique<SNDS_INTRA_MESSAGE>(
                 serialize_temporal_query(query),    
                 SNDS_INTRA_MESSAGE_TYPE::TEMPORAL_QUERY_REQUEST,
