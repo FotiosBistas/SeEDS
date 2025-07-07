@@ -211,8 +211,7 @@ std::optional<bsoncxx::document::value> Broker::set_generic_type(bsoncxx::v_noab
     logger->warn("Missing 'type' in request body, defaulting to 'generic'");
     bsoncxx::builder::basic::document builder;
     for (auto&& elem : view) {
-        if (elem.get_value().type() == bsoncxx::type::k_string &&
-            elem.get_value().get_string().value.empty()) {
+        if (elem.get_value().type() == bsoncxx::type::k_string && elem.get_value().get_string().value.empty()) {
             logger->debug("Empty element discovered skipping");
             continue;
         }
@@ -270,7 +269,7 @@ std::string Broker::get_from_database(const Timeframe& frame, bsoncxx::v_noabi::
         auto collection = this->client[this->database][correct_type];
         auto [base_timestamp, parsed_timestamp] = parse_timestamp(date);
         auto pipeline = create_date_pipeline(frame, count, id, base_timestamp, parsed_timestamp);
-        //filter_to_only_id(pipeline);
+        filter_to_only_id(pipeline);
         auto cursor = collection.aggregate(pipeline);
 
 

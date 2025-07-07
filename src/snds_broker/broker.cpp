@@ -94,6 +94,34 @@ void Broker::listen(){
             res.set_content(results.dump(2), "application/json");
         });
 
+        svr.Get("/get", [this](const httplib::Request& req, httplib::Response& res){
+            logger->info("Received HTTP request for {}, with target {}", req.body, req.target);
+
+            auto id         = req.get_param_value("id");
+            auto type       = req.get_param_value("type");
+
+            if (id.empty()) {
+                res.status = 400;
+                res.set_content(R"({"error": "Missing 'id'})" "\n", "application/json");
+                return;
+            }
+
+            if(type.empty()){
+                type = "GENERIC";
+            }
+
+            std::string json_request = fmt::format(
+                R"({{"id": "{}", "type": "{}"}})",
+                id, type
+            );
+
+            logger->info("Received: {}", json_request);
+            auto results = get_one(json_request);
+
+            res.status = 200;
+            res.set_content(results.dump(2), "application/json");
+        });
+
         svr.Post("/add", [this](const httplib::Request& req, httplib::Response& res){
             logger->info("Received /add request: {}", req.body);
             auto result_versioned    = add_one(req.body, true);
@@ -230,6 +258,45 @@ std::optional<InsertOrReplaceResult> Broker::add_one(const std::string& body, co
     }catch(const std::exception& e){
         logger->error("Error: {}", e.what());
         return std::nullopt;
+    }
+}
+
+nlohmann::json Broker::get_one(const std::string& request){
+    try{
+        auto json_data = bsoncxx::from_json(request);
+        auto view = json_data.view();
+        if(!view["id"]){
+            logger->error("Missing 'id' in request body");
+            return nlohmann::json{};
+        }
+
+        if (auto updated = set_generic_type(view)) {
+            view = updated->view();
+        }
+
+        //type and ID are always specified by the get handler
+        std::string_view type = view["type"].get_value().get_string().value;
+        std::string_view id = view["id"].get_value().get_string().value;
+
+        logger->debug("Type is: {}", type);
+        logger->debug("ID is: {}", id);
+
+        auto collection = this->client[this->database][type];;
+
+        auto search = bsoncxx::builder::basic::make_document(
+            bsoncxx::builder::basic::kvp("_id", id)
+        );
+        auto result = collection.find_one(search.view());
+        if(result){
+            logger->info("Received document from database: {}", bsoncxx::to_json(*result));
+            return nlohmann::json::parse(bsoncxx::to_json(*result));
+        }else{
+            logger->error("Could not retrieve ID from the database..."); 
+            return nlohmann::json{};
+        }
+    }catch(const std::exception& e){
+        logger->error("Error: {}", e.what());
+        return {};
     }
 }
 

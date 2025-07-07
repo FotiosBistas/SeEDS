@@ -92,6 +92,8 @@ std::string_view get_from_get_request(std::string_view url, std::string_view tag
  */
 void ensureLeadingSlash(std::string &nm);
 
+std::string removeLeadingSlash(const std::string &nm);
+
 /**
  * @brief Computes and returns the scope name for the responsible SNDS node based on the given subscription identifier.
  *

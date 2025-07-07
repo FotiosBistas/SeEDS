@@ -102,6 +102,7 @@ void SNDSProducer::init(){
               std::bind(&SNDSProducer::onRegisterFailed, this, std::placeholders::_1, std::placeholders::_2));
 
             //TODO possible spot for signing
+            //TODO insert more payload here
             std::string payload = serialize_temporal_query(query);
             httplib::Client cli(broker_ip.c_str(), broker_port);
             auto res = cli.Post("/add", payload, "application/json");
@@ -117,7 +118,24 @@ void SNDSProducer::init(){
         tmp_name = m_sndsPrefix + content.substr(0, length);
         m_logger->info("Announcing name: {}", tmp_name);
         //TODO should sign these data.
-        locallyAnnouncedIDsMap[content] = "SNDS_dummy_data";
+        httplib::Client cli(broker_ip.c_str(), broker_port);
+        std::string endpoint = fmt::format(
+    		"/get?id={}",
+            httplib::detail::encode_url(removeLeadingSlash(content))
+        );
+
+        m_logger->debug("Sending get request to endpoint: {}", endpoint);
+        auto res = cli.Get(endpoint.c_str());
+
+        if (res && res->status == 200) {
+            //get the most recent one theoritically
+            m_logger->info("Successfully queried /get");
+            //TODO SIGNING 
+            locallyAnnouncedIDsMap[content] = res->body;
+        } else {
+            m_logger->error("Failed to query /get: {}", res ? res->body : "No response");
+            locallyAnnouncedIDsMap[content] = "SNDS_dummy_data";
+        }
 
         m_face.setInterestFilter(tmp_name,
             std::bind(&SNDSProducer::onInterest, this, std::placeholders::_2),

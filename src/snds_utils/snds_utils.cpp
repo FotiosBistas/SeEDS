@@ -182,6 +182,18 @@ void ensureLeadingSlash(std::string &nm) {
     }
 }
 
+std::string removeLeadingSlash(const std::string &nm) {
+    // make a copy
+    std::string new_string = nm;
+
+    // if it starts with '/', drop that first character
+    if (!new_string.empty() && new_string.front() == '/') {
+        new_string.erase(new_string.begin());
+    }
+
+    return new_string;
+}
+
 std::string getSNDSNodeScopeNameForSubscription(const std::string& id, const std::string& prefix, int numberOfSNDSServices) {
     unsigned nodeIndex = getSNDSNodeForSubscription(id, numberOfSNDSServices);
     return prefix + std::to_string(nodeIndex);

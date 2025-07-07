@@ -77,6 +77,7 @@ private:
 
     //api
     std::optional<InsertOrReplaceResult> add_one(const std::string& body, const bool versioned);
+    nlohmann::json get_one(const std::string& request);
     nlohmann::json get(const std::string& request);
     std::string state(const std::string& request);
     void remove();
