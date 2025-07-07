@@ -167,6 +167,7 @@ void Worker::processTemporalQueryRequest(const TemporalQuery& temporal_query){
 
 void Worker::processTemporalQueryResponse(const TemporalQuery& temporal_query){
     m_logger->debug("Should do something here...");
+    //TODO PROBABLY CAN DISCLOSE HERE
 }
 
 void Worker::processSubscriptionRequest(const std::string& id, const std::string& subURL) {

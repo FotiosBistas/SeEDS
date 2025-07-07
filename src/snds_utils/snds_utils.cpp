@@ -20,11 +20,11 @@ std::string format_timestamp_ms(long long ms_since_epoch){
     gmtime_r(&tt, &tm);  // POSIX; TODO on Windows use gmtime_s
 
     std::ostringstream oss;
-    //oss << std::put_time(&tm, "%Y-%m-%dT%H:%M:%S")
-    //    << '.' << std::setw(3) << std::setfill('0') << ms_part
-    //    << "+00:00";
+    oss << std::put_time(&tm, "%Y-%m-%dT%H:%M:%S")
+        << '.' << std::setw(3) << std::setfill('0') << ms_part
+        << "+00:00";
     //TODO using a more generic date currently
-    oss << std::put_time(&tm, "%Y-%m-%d");
+    //oss << std::put_time(&tm, "%Y-%m-%d");
     return oss.str();
 }
 

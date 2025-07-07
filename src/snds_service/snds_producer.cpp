@@ -365,6 +365,7 @@ void SNDSProducer::processLocalIdRequest(ParsedInterest& interest) {
         m_logger->info("Local published ID {} found. Sending associated data: {}", it->first, it->second);
         auto name = toName(interest);
         m_logger->info("Name to send the data for: {}", name.toUri());
+        //TODO SIGN HERE BROOOOOOOOOO
         auto res = sendData(name, it->second);
         m_logger->info("{}", res);
         return;
