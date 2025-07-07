@@ -69,58 +69,60 @@ void SNDSProducer::init(){
 
   // Run the loop until 'running' is false.
   while (running.load()) {
-      // m_logger->debug("Reading packet...");
-      // Process events non-blockingly (or with a timeout)
-      m_face.processEvents(ndn::time::seconds(2)); // Process for 1 second
+        // m_logger->debug("Reading packet...");
+        // Process events non-blockingly (or with a timeout)
+        m_face.processEvents(ndn::time::seconds(2)); // Process for 1 second
 
-      //// Check if there are messages to process for advertisement
-      //std::unique_ptr<SNDS_INTRA_MESSAGE> message = v_to_producer->readMessage();
+        //// Check if there are messages to process for advertisement
+        //std::unique_ptr<SNDS_INTRA_MESSAGE> message = v_to_producer->readMessage();
 
-      //if (message == nullptr) {
-      //    m_logger->debug("Queue shutdown detected, exiting loop.");
-      //    break;
-      //}
+        //if (message == nullptr) {
+        //    m_logger->debug("Queue shutdown detected, exiting loop.");
+        //    break;
+        //}
 
-      // Check if there are messages to process for advertisement
-      std::unique_ptr<SNDS_INTRA_MESSAGE> message = v_to_producer->tryReadMessage();
+        // Check if there are messages to process for advertisement
+        std::unique_ptr<SNDS_INTRA_MESSAGE> message = v_to_producer->tryReadMessage();
 
-      if (message == nullptr) {
-        continue;
-      }
+        if (message == nullptr) {
+          continue;
+        }
 
-      auto content = message.get()->getMessage();
-      auto length = message.get()->getMessageLength();
-      if(message.get()->getMessageType() == SNDS_INTRA_MESSAGE_TYPE::TEMPORAL_QUERY_REQUEST){
-          m_logger->info("Got new Temporal Query request...\n{}", message.get()->printDetails());
-          auto query = deserialize_temporal_query(content);
-          //query.date = md5_hex(&query.date, query.date.size());
-          auto name = to_path(query, false, false);
-          m_logger->info("Annoucing name {}", name);
-          m_face.setInterestFilter(name,
+        auto content = message.get()->getMessage();
+        auto length = message.get()->getMessageLength();
+        if(message.get()->getMessageType() == SNDS_INTRA_MESSAGE_TYPE::TEMPORAL_QUERY_REQUEST){
+            m_logger->info("Got new Temporal Query request...\n{}", message.get()->printDetails());
+            auto query = deserialize_temporal_query(content);
+            //query.date = md5_hex(&query.date, query.date.size());
+            auto name = to_path(query, false, false);
+            m_logger->info("Annoucing name {}", name);
+            m_face.setInterestFilter(name,
+              std::bind(&SNDSProducer::onInterest, this, std::placeholders::_2),
+              std::bind(&SNDSProducer::onRegisterSuccess, this, std::placeholders::_1),
+              std::bind(&SNDSProducer::onRegisterFailed, this, std::placeholders::_1, std::placeholders::_2));
+
+            //TODO possible spot for signing
+            std::string payload = serialize_temporal_query(query);
+            httplib::Client cli(broker_ip.c_str(), broker_port);
+            auto res = cli.Post("/add", payload, "application/json");
+            if (res && res->status == 200) {
+                m_logger->info("Successfully POSTed to /add: {}", res->body);
+            } else {
+                m_logger->error("Failed to POST to /add: {}", res ? res->body : "No response");
+            }
+            continue;
+        }
+
+        m_logger->info("Got new advertisement request...\n{}", message.get()->printDetails());
+        tmp_name = m_sndsPrefix + content.substr(0, length);
+        m_logger->info("Announcing name: {}", tmp_name);
+        //TODO should sign these data.
+        locallyAnnouncedIDsMap[content] = "SNDS_dummy_data";
+
+        m_face.setInterestFilter(tmp_name,
             std::bind(&SNDSProducer::onInterest, this, std::placeholders::_2),
             std::bind(&SNDSProducer::onRegisterSuccess, this, std::placeholders::_1),
             std::bind(&SNDSProducer::onRegisterFailed, this, std::placeholders::_1, std::placeholders::_2));
-
-          std::string payload = serialize_temporal_query(query);
-          httplib::Client cli(broker_ip.c_str(), broker_port);
-          auto res = cli.Post("/add", payload, "application/json");
-          if (res && res->status == 200) {
-              m_logger->info("Successfully POSTed to /add: {}", res->body);
-          } else {
-              m_logger->error("Failed to POST to /add: {}", res ? res->body : "No response");
-          }
-          continue;
-      }
-
-      m_logger->info("Got new advertisement request...\n{}", message.get()->printDetails());
-      tmp_name = m_sndsPrefix + content.substr(0, length);
-      m_logger->info("Announcing name: {}", tmp_name);
-      locallyAnnouncedIDsMap[content] = "SNDS_dummy_data";
-
-      m_face.setInterestFilter(tmp_name,
-          std::bind(&SNDSProducer::onInterest, this, std::placeholders::_2),
-          std::bind(&SNDSProducer::onRegisterSuccess, this, std::placeholders::_1),
-          std::bind(&SNDSProducer::onRegisterFailed, this, std::placeholders::_1, std::placeholders::_2));
   }
 
   m_logger->info("Producer thread exiting.");
@@ -223,6 +225,7 @@ void SNDSProducer::handleTemporalQuery(ParsedInterest& interest){
     auto res = cli.Get(endpoint.c_str());
     if (res && res->status == 200) {
         m_logger->info("Successfully queried /temporal-query");
+        //TODO SIGNING 
         sendData(toName(interest), nlohmann::json::parse(res->body).dump(2));
     } else {
         m_logger->error("Failed to query /temporal-query: {}", res ? res->body : "No response");

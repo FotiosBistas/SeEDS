@@ -66,6 +66,8 @@ void SNDSConsumer::init(){
     }
 }
 
+//TODO possible disclose spot only for ID and timestamp
+//TODO possible verify spot
 void SNDSConsumer::parseTemporalQuery(const std::string& body){
     nlohmann::json root = nlohmann::json::parse(body);
 
@@ -143,6 +145,8 @@ void SNDSConsumer::onData(const ndn::Interest& interest, const ndn::Data& data) 
     //this is a response from a metafile 
     //send the data for the temporal query back to the worker
     //for it to send back to the consumer HTTP request
+    //Possible spot for disclosing ID and Date
+    //should verify here.
     if(interest.toUri().find(metafilePrefix) != std::string::npos){
         m_logger->info("Temporal Query Data Response from Metafile...");
         std::string message_name = data.getName().at(1).toUri();
@@ -151,7 +155,7 @@ void SNDSConsumer::onData(const ndn::Interest& interest, const ndn::Data& data) 
         message_name = "id=" + message_name;
         auto name = "/?" + message_name + "&" + date + "&" + metafile;
         m_logger->info("Sending Temporal Query Data with name: {0} and date: {1} ", message_name, date);
-        //TODO COULD PROBABLY DISCLOSE HERE
+        //TODO possible spot for disclose
         auto message = std::make_unique<SNDS_INTRA_MESSAGE>(
             std::move(payload),
             SNDS_INTRA_MESSAGE_TYPE::BY_ID_RESPONSE, //TODO not sure this is correct
