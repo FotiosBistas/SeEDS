@@ -237,12 +237,24 @@ std::string Broker::get_from_database(const Timeframe& frame, bsoncxx::v_noabi::
     std::string_view type = json_data["type"].get_value().get_string().value;
     std::string_view id = json_data["id"].get_value().get_string().value;
 
-    //date might not be specified
-    std::string_view date;
-    if(!json_data["date"].get_value().get_string().value.empty()){
-        date = std::move(json_data["date"].get_value().get_string().value);
-    }else{
-        date = "";
+    logger->debug("Inside get from database type: {}, id: {}", type, id);
+
+    // Pull the raw value into a std::string
+    std::string raw_date = std::string(json_data["date"].get_value().get_string().value);
+
+    // If it starts with “date=”, remove it
+    static constexpr std::string_view prefix{"date="};
+    if (raw_date.rfind(prefix, 0) == 0) {
+        raw_date.erase(0, prefix.size());
+    }
+
+    // Now store into your “date” variable and log it
+    std::string date;
+    if (!raw_date.empty()) {
+        date = std::move(raw_date);
+        logger->debug("Using date specified: {}", date);
+    } else {
+        date.clear();
     }
 
     int32_t count = json_data["count"].get_value().get_int32();
@@ -254,10 +266,11 @@ std::string Broker::get_from_database(const Timeframe& frame, bsoncxx::v_noabi::
 
     if(!date.empty()){
         correct_type = std::string(type.data()) + "_VERSIONED";
+        logger->debug("Correct type: {}", correct_type);
         auto collection = this->client[this->database][correct_type];
         auto [base_timestamp, parsed_timestamp] = parse_timestamp(date);
         auto pipeline = create_date_pipeline(frame, count, id, base_timestamp, parsed_timestamp);
-        filter_to_only_id(pipeline);
+        //filter_to_only_id(pipeline);
         auto cursor = collection.aggregate(pipeline);
 
 

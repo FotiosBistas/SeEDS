@@ -206,6 +206,7 @@ std::optional<InsertOrReplaceResult> Broker::add_one(const std::string& body, co
         // helps you retrieve versions
         if(versioned){
             auto type_str_version = std::string(type.get_string().value) + "_VERSIONED";
+            logger->debug("Created type version: {}", type_str_version);
             auto collection = this->client[database][type_str_version];
             auto result = collection.insert_one(doc_builder.extract());
             return result;
@@ -257,6 +258,7 @@ nlohmann::json Broker::get(const std::string& request){
         for (auto& token : tokens) {
             logger->debug("Processing timeframe: {}", token);
             Timeframe frame         = string_to_timeframe(token);
+            logger->debug("Parsed timeframe: {}", timeframe_to_string(frame));
             auto      result        = get_from_database(frame, view);
             auto      parsed_result = nlohmann::json::parse(result);
             nlohmann::json entry;
