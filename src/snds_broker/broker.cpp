@@ -81,6 +81,11 @@ void Broker::listen(){
                 return;
             }
 
+
+            if(type.empty()){
+                type = "GENERIC";
+            }
+
             std::string json_request = fmt::format(
                 R"({{"id": "{}", "date": "{}", "type": "{}", "timeframe": "{}", "count": {}}})",
                 id, date_str, type, timeframe,
@@ -124,8 +129,27 @@ void Broker::listen(){
 
         svr.Post("/add", [this](const httplib::Request& req, httplib::Response& res){
             logger->info("Received /add request: {}", req.body);
-            auto result_versioned    = add_one(req.body, true);
-            auto result_unversioned  = add_one(req.body, false);
+            // Parse and ensure a default type
+            nlohmann::json body;
+            try {
+                body = nlohmann::json::parse(req.body);
+            }
+            catch (const std::exception& e) {
+                logger->error("Invalid JSON in /add: {}", e.what());
+                res.status = 400;
+                res.set_content(R"({"status":"error","message":"invalid JSON"})", "application/json");
+                return;
+            }
+
+            if (!body.contains("type") || body["type"].get<std::string>().empty()) {
+                logger->warn("Missing 'type' in /add body, defaulting to 'generic'");
+                body["type"] = "generic";
+            }
+
+
+            auto payload = body.dump(2);
+            auto result_versioned    = add_one(payload, true);
+            auto result_unversioned  = add_one(payload, false);
             if (result_versioned && result_unversioned) {
 
                 size_t count_versioned = 0;
@@ -183,11 +207,6 @@ std::optional<InsertOrReplaceResult> Broker::add_one(const std::string& body, co
         if(!view["id"]){
             logger->error("Missing 'id' in request body");
             return std::nullopt;
-        }
-
-        auto updated_doc = set_generic_type(view);
-        if (updated_doc) {
-            view = updated_doc->view();
         }
 
         bsoncxx::document::element type(view["type"]);
@@ -270,10 +289,6 @@ nlohmann::json Broker::get_one(const std::string& request){
             return nlohmann::json{};
         }
 
-        if (auto updated = set_generic_type(view)) {
-            view = updated->view();
-        }
-
         //type and ID are always specified by the get handler
         std::string_view type = view["type"].get_value().get_string().value;
         std::string_view id = view["id"].get_value().get_string().value;
@@ -310,11 +325,6 @@ nlohmann::json Broker::get(const std::string& request){
             return {};
         }
 
-        auto updated_doc = set_generic_type(view);
-        if (updated_doc) {
-            view = updated_doc->view();
-        }
-
         bsoncxx::document::element timeframe(view["timeframe"]);
 
         auto timeframe_view = timeframe.get_value().get_string().value;
@@ -349,10 +359,6 @@ std::string Broker::state(const std::string& request){
     try {
         auto jsonData = bsoncxx::from_json(request);
         auto view = jsonData.view();
-        auto updated_doc = set_generic_type(view);
-        if (updated_doc) {
-            view = updated_doc->view();
-        }
         std::string_view type = view["type"].get_value().get_string().value;
         auto coll = this->client[this->database][type];
         std::string fp = collection_fingerprint(coll);
