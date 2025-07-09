@@ -1,18 +1,5 @@
 #include "temporal_query.h"
 
-// Enable bitwise OR and AND operations on Timeframe values.
-//    This makes combining and testing flags easy.
-inline Timeframe operator|(Timeframe a, Timeframe b) {
-    // Combine flag bits by casting to integer, OR, then cast back.
-    return static_cast<Timeframe>(static_cast<uint8_t>(a) | static_cast<uint8_t>(b));
-}
-
-inline Timeframe operator&(Timeframe a, Timeframe b) {
-    // Test common bits by AND-ing underlying integer values.
-    return static_cast<Timeframe>(static_cast<uint8_t>(a) & static_cast<uint8_t>(b));
-}
-
-
 // Parse a "+"-delimited string (e.g., "before+after")
 //    into a single Timeframe flag bitmask.
 Timeframe string_to_timeframe(std::string_view view) {
