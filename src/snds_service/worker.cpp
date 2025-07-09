@@ -26,7 +26,7 @@ void Worker::init() {
         std::string count              = std::string(get_from_get_request(content, GET_PARAMETER_COUNT_TAG));
         std::string date               = url_decode(get_from_get_request(content, GET_PARAMETER_DATE_TAG));
         std::string timeframe          = url_decode(get_from_get_request(content, GET_PARAMETER_TIMEFRAME_TAG));
-        std::string fields_csv         = url_decode(get_from_get_request(content, GET_PARAMETER_FIELDS_TAG));
+        std::string filters            = url_decode(get_from_get_request(content, GET_PARAMETER_FIELDS_TAG));
         std::string parent_query_hash  = url_decode(get_from_get_request(content, GET_PARAMETER_PARENT_QUERY_HASH_TAG));
         std::string subUrl             = std::string(getURLfromSubscription(content));
         bool isSub                     = isSubscriptionRequest(content);
@@ -57,7 +57,7 @@ void Worker::init() {
         m_logger->debug("Extracted Date: {}", date);
         m_logger->debug("Extracted Timeframe: {}", timeframe);
         m_logger->debug("Extracted Count: {}", count);
-        m_logger->debug("Fields: {}", fields_csv);
+        m_logger->debug("Filters: {}", filters);
         m_logger->debug("Parent Query Hash: {}", parent_query_hash);
 
         //TODO we can differentiate messages based on type
@@ -77,7 +77,7 @@ void Worker::init() {
                         type,
                         count,
                     };
-                    query.filters = parse_filters(fields_csv);
+                    query.filters = parse_filters(url_decode(filters));
                     processTemporalQueryRequest(query);
                     break;
                 }
@@ -201,6 +201,7 @@ void Worker::processTemporalQueryResponse(const std::string& parent_query_hash, 
 
         std::unordered_set<std::string> keep;
         for (auto const& f : parent_query.filters) {
+            m_logger->debug("Adding filter: {} with value: {} to keep set", f.key, f.value);
             keep.insert(f.key);
         }
 
@@ -211,14 +212,14 @@ void Worker::processTemporalQueryResponse(const std::string& parent_query_hash, 
             }
         }
 
-        payload = filtered.dump();
+        payload = filtered.dump(2);
     }
 
     m_logger->debug("Sending data to HTTP server: {}", payload);
 
     auto message = std::make_unique<SNDS_INTRA_MESSAGE>
     (
-        std::move(payload),
+        std::move(payload + "\n"),
         SNDS_INTRA_MESSAGE_TYPE::TEMPORAL_QUERY_RESPONSE,
         SNDS_CLIENT_TYPES::WORKER,
         ""

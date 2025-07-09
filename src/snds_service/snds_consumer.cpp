@@ -170,7 +170,7 @@ void SNDSConsumer::onData(const ndn::Interest& interest, const ndn::Data& data) 
             SNDS_CLIENT_TYPES::CONSUMER,
             std::move(name)
         );
-        v_to_service->writeMessage(std::move(message));
+        v_to_worker->writeMessage(std::move(message));
         return;
     }
 
@@ -217,7 +217,7 @@ void SNDSConsumer::onData(const ndn::Interest& interest, const ndn::Data& data) 
             message_name.c_str()
         );
         // Dispatch the intra-service message to the service queue for further processing.
-        v_to_service->writeMessage(std::move(message));
+        v_to_worker->writeMessage(std::move(message));
         return;
     }
 
@@ -236,5 +236,5 @@ void SNDSConsumer::onData(const ndn::Interest& interest, const ndn::Data& data) 
     );
 
     // Dispatch the intra-service message to the service queue for further processing.
-    v_to_service->writeMessage(std::move(message));
+    v_to_worker->writeMessage(std::move(message));
 }
