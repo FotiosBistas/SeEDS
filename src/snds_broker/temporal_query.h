@@ -12,17 +12,20 @@
 #include <nlohmann/json.hpp>
 #include "snds_utils.h"
 
-inline void hash_combine(std::size_t &seed, std::size_t h) {
+inline void hash_combine(std::size_t &seed, std::size_t h) 
+{
     // from boost::hash_combine
     seed ^= h + 0x9e3779b97f4a7c15ULL + (seed<<6) + (seed>>2);
 }
 
-struct Filter {
+struct Filter 
+{
 
     std::string key, 
     value;
 
-    bool operator==(Filter const &o) const noexcept {
+    bool operator==(Filter const &o) const noexcept 
+    {
         return key == o.key
             && value == o.value;
     }
@@ -31,7 +34,8 @@ struct Filter {
 
 /// Timeframe is a bitmask enum so multiple values
 ///    like NOW and AFTER can be OR'd together into one variable.
-enum class Timeframe : uint8_t {
+enum class Timeframe : uint8_t 
+{
     NONE   = 0,        // no timeframe selected
     NOW    = 1 << 0,   // binary 0001
     BEFORE = 1 << 1,   // binary 0010
@@ -40,17 +44,20 @@ enum class Timeframe : uint8_t {
 
 // Enable bitwise OR and AND operations on Timeframe values.
 //    This makes combining and testing flags easy.
-inline Timeframe operator|(Timeframe a, Timeframe b) {
+inline Timeframe operator|(Timeframe a, Timeframe b) 
+{
     // Combine flag bits by casting to integer, OR, then cast back.
     return static_cast<Timeframe>(static_cast<uint8_t>(a) | static_cast<uint8_t>(b));
 }
 
-inline Timeframe operator&(Timeframe a, Timeframe b) {
+inline Timeframe operator&(Timeframe a, Timeframe b) 
+{
     // Test common bits by AND-ing underlying integer values.
     return static_cast<Timeframe>(static_cast<uint8_t>(a) & static_cast<uint8_t>(b));
 }
 
-struct TemporalQuery{
+struct TemporalQuery
+{
     Timeframe         frame;
     std::string  date;
     std::string  id;
@@ -59,7 +66,8 @@ struct TemporalQuery{
     std::unordered_map<std::string,std::string> extras;
     std::vector<Filter> filters;
 
-    bool operator==(TemporalQuery const &o) const noexcept {
+    bool operator==(TemporalQuery const &o) const noexcept 
+    {
         return frame   == o.frame
             && date    == o.date
             && id      == o.id
@@ -74,10 +82,18 @@ Timeframe string_to_timeframe(std::string_view view);
 std::string timeframe_to_string(Timeframe frame);
 std::string serialize_temporal_query(const TemporalQuery& q);
 TemporalQuery deserialize_temporal_query(std::string_view json_string);
+std::vector<Filter> parse_filters(std::string_view csv);
+std::string filters_to_csv(const std::vector<Filter>& filters);
 /// Format a TemporalQuery as a path of the form
 ///   /[type]/[id]/params(date="…"&count="…"&timeframe="…")
 /// If q.type is empty, the leading “/type” is omitted.
-std::string to_path(const TemporalQuery& q, const bool include_timeframe=true, const bool include_count=true, const bool include_extras=true);
+std::string to_path(
+    const TemporalQuery& q, 
+    const bool include_timeframe=true, 
+    const bool include_count=true, 
+    const bool include_extras=true,
+    const bool include_filters=true
+);
 
 
 
@@ -88,8 +104,10 @@ std::string to_path(const TemporalQuery& q, const bool include_timeframe=true, c
 namespace std {
 
 template<>
-struct hash<Filter> {
-    size_t operator()(Filter const &f) const noexcept {
+struct hash<Filter> 
+{
+    size_t operator()(Filter const &f) const noexcept 
+    {
         size_t h1 = std::hash<std::string>()(f.key);
         size_t h2 = std::hash<std::string>()(f.value);
         hash_combine(h1, h2);
@@ -98,8 +116,10 @@ struct hash<Filter> {
 };
 
 template<>
-struct hash<TemporalQuery> {
-    size_t operator()(TemporalQuery const &q) const noexcept {
+struct hash<TemporalQuery> 
+{
+    size_t operator()(TemporalQuery const &q) const noexcept 
+    {
         size_t seed = 0;
         // hash the enum
         hash_combine(seed,
@@ -118,13 +138,15 @@ struct hash<TemporalQuery> {
             q.extras.begin(), q.extras.end()
         );
         std::sort(items.begin(), items.end());
-        for (auto const &p : items) {
+        for (auto const &p : items) 
+        {
             hash_combine(seed, std::hash<std::string>()(p.first));
             hash_combine(seed, std::hash<std::string>()(p.second));
         }
 
         // for filters (vector) order is respected
-        for (auto const &f : q.filters) {
+        for (auto const &f : q.filters) 
+        {
             hash_combine(seed, std::hash<Filter>()(f));
         }
 
