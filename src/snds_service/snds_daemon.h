@@ -104,6 +104,7 @@ public:
         ServiceBase::v_to_producer->shutdown();
         ServiceBase::v_to_consumer->shutdown();
         ServiceBase::v_to_service->shutdown();
+        ServiceBase::v_to_worker->shutdown();
         
         // Now join all threads.
         for (auto& t : threads) {
