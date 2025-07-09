@@ -193,6 +193,7 @@ protected:
   	static std::unique_ptr<MessageQueue> v_to_dt;
   	static std::unique_ptr<MessageQueue> v_to_producer;
   	static std::unique_ptr<MessageQueue> v_to_consumer;
+  	static std::unique_ptr<MessageQueue> v_to_worker;
   	static std::unique_ptr<MessageQueue> v_to_service;
 
   	friend class SNDSDaemon;

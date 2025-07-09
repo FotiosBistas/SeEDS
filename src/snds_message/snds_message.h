@@ -24,6 +24,7 @@ enum class SNDS_CLIENT_TYPES {
     DIGITAL_TWIN,     ///< Digital twin component for managing digital replicas of entities.
     SERVICE,          ///< Service component for inter-service communication and orchestration.
     HTTP_SRV,         ///< HTTP server component for handling external requests.
+    WORKER,
     ON_INTEREST       ///< Component triggered on receiving an interest (NDN-specific).
 };
 

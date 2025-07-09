@@ -10,7 +10,7 @@ void Worker::init() {
     while (running.load()) {
         m_logger->info("Reading packet...");
 
-        auto message = v_to_service.get()->readMessage();
+        auto message = v_to_worker.get()->readMessage();
         if (!message) {
             m_logger->debug("Queue shutdown detected, exiting loop.");
             break;
@@ -26,7 +26,8 @@ void Worker::init() {
         std::string count              = std::string(get_from_get_request(content, GET_PARAMETER_COUNT_TAG));
         std::string date               = url_decode(get_from_get_request(content, GET_PARAMETER_DATE_TAG));
         std::string timeframe          = url_decode(get_from_get_request(content, GET_PARAMETER_TIMEFRAME_TAG));
-        std::string fields_csv         = std::string(get_from_get_request(content, GET_PARAMETER_FIELDS_TAG));
+        std::string fields_csv         = url_decode(get_from_get_request(content, GET_PARAMETER_FIELDS_TAG));
+        std::string parent_query_hash  = url_decode(get_from_get_request(content, GET_PARAMETER_PARENT_QUERY_HASH_TAG));
         std::string subUrl             = std::string(getURLfromSubscription(content));
         bool isSub                     = isSubscriptionRequest(content);
 
@@ -38,10 +39,13 @@ void Worker::init() {
 
         if (id.empty() && type.empty()) {
             m_logger->warn("Both ID and Type parameters are empty in GET request. Hopefully name is filled...");
-            //TODO currently this is a message only received by Consumer
-            // sends back the ID to remove it from pending IDs
-            id      = get_from_get_request(name, GET_PARAMETER_ID_TAG);
-            type    = get_from_get_request(name, GET_PARAMETER_TYPE_TAG);
+            // currently this is a message only sent by the Consumer
+            // received here. It is essentially the data we got from the NDN
+            // sends back the ID to remove it from pending IDs if its not a temporal query
+            id                 = get_from_get_request(name, GET_PARAMETER_ID_TAG);
+            type               = get_from_get_request(name, GET_PARAMETER_TYPE_TAG);
+            parent_query_hash  = get_from_get_request(name, GET_PARAMETER_PARENT_QUERY_HASH_TAG);
+            date               = get_from_get_request(name, GET_PARAMETER_DATE_TAG);
             //continue; // Skip processing this message
         }
 
@@ -54,6 +58,7 @@ void Worker::init() {
         m_logger->debug("Extracted Timeframe: {}", timeframe);
         m_logger->debug("Extracted Count: {}", count);
         m_logger->debug("Fields: {}", fields_csv);
+        m_logger->debug("Parent Query Hash: {}", parent_query_hash);
 
         //TODO we can differentiate messages based on type
         //I don't know why are we doing this
@@ -99,20 +104,7 @@ void Worker::init() {
 
                 if(!date.empty()){
                     m_logger->info("Processing temporal query response...");
-                    TemporalQuery query = {
-                        string_to_timeframe(timeframe), 
-                        date,
-                        id,
-                        type,
-                        count,
-                    };
-                    processTemporalQueryResponse(query);
-                    break;
-                }
-
-                if(name.find(metafilePrefix) != std::string::npos){
-                    m_logger->info("Received confirmation that consumer received data...");
-                    processTemporalQueryResponse({});
+                    processTemporalQueryResponse(parent_query_hash, content);
                     break;
                 }
 
@@ -145,14 +137,15 @@ void Worker::init() {
 
 void Worker::processTemporalQueryRequest(const TemporalQuery& temporal_query){
 
-    auto [_, new_request] = pending_temporal_queries.insert(temporal_query);
-
-    if(!new_request)
+    auto query_hash = temporal_query_hash_string(temporal_query);
+    auto [_, inserted] = pending_temporal_queries.emplace(query_hash, temporal_query);
+    if (!inserted) 
     {
         m_logger->info("Duplicate TemporalQuery {} for ID: {}", serialize_temporal_query(temporal_query), temporal_query.id);
         return;
     }
 
+    m_logger->info("Got new temporal query with hash: {}", temporal_query_hash_string(temporal_query));
     auto id = temporal_query.id;
 
     ensureLeadingSlash(id);
@@ -169,9 +162,69 @@ void Worker::processTemporalQueryRequest(const TemporalQuery& temporal_query){
     v_to_consumer.get()->writeMessage(std::move(message));
 }
 
-void Worker::processTemporalQueryResponse(const TemporalQuery& temporal_query){
-    m_logger->debug("Should do something here...");
-    //TODO verify???????///
+void Worker::processTemporalQueryResponse(const std::string& parent_query_hash, const std::string& content){
+
+    auto it = pending_temporal_queries.find(parent_query_hash);
+    if (it == pending_temporal_queries.end()) {
+        m_logger->error("No pending query for hash {}", parent_query_hash);
+        return;
+    }
+
+    auto parent_query = it->second;
+    //weird thing where the data received have some weird characters in front
+    //    �q[
+    //{
+    //"before": [
+    //  {
+    //    "_id": {
+    //      "_id": "car2",
+    //      "timestamp": {
+    //        "$date": 1750835111321
+    //      }
+    //    }
+    //  }
+    //]
+
+    auto pos = content.find_first_of("[{");
+    std::string payload = content;
+    if (pos != std::string::npos) {
+        payload = content.substr(pos);
+        m_logger->debug("Removed extra characters from payload:\n{}", payload);
+    }
+
+    m_logger->info("Found stored temporal query: {}", serialize_temporal_query(parent_query));
+
+    if(!parent_query.filters.empty()){
+        m_logger->info("Applying filters to the data received");
+
+        nlohmann::json document = nlohmann::json::parse(payload);
+
+        std::unordered_set<std::string> keep;
+        for (auto const& f : parent_query.filters) {
+            keep.insert(f.key);
+        }
+
+        nlohmann::json filtered = nlohmann::json::object();
+        for (auto const& key : keep) {
+            if (document.contains(key)) {
+                filtered[key] = document[key];
+            }
+        }
+
+        payload = filtered.dump();
+    }
+
+    m_logger->debug("Sending data to HTTP server: {}", payload);
+
+    auto message = std::make_unique<SNDS_INTRA_MESSAGE>
+    (
+        std::move(payload),
+        SNDS_INTRA_MESSAGE_TYPE::TEMPORAL_QUERY_RESPONSE,
+        SNDS_CLIENT_TYPES::WORKER,
+        ""
+    );
+
+    v_to_service->writeMessage(std::move(message));
 }
 
 void Worker::processSubscriptionRequest(const std::string& id, const std::string& subURL) {

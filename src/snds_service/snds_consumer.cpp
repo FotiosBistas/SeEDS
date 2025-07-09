@@ -157,9 +157,9 @@ void SNDSConsumer::onData(const ndn::Interest& interest, const ndn::Data& data) 
         m_logger->info("Temporal Query Data Response from Metafile...");
         // I'm too tired to use my own data classes here
         std::string message_name = data.getName().at(1).toUri();
-        std::string date  = data.getName().at(2).toUri();
-        std::string metafile  = data.getName().at(3).toUri();
-        std::string parent_query_hash  = data.getName().at(4).toUri();
+        std::string date  = url_decode(data.getName().at(2).toUri());
+        std::string metafile  = url_decode(data.getName().at(3).toUri());
+        std::string parent_query_hash  = url_decode(data.getName().at(4).toUri());
         message_name = "id=" + message_name;
         auto name = "/?" + message_name + "&" + date + "&" + metafile + "&" + parent_query_hash;
         m_logger->info("Sending Temporal Query Data with name: {0} and date: {1} ", message_name, date);
@@ -176,6 +176,19 @@ void SNDSConsumer::onData(const ndn::Interest& interest, const ndn::Data& data) 
 
     if(interest.toUri().find(temporalQueryPrefix) != std::string::npos){
         m_logger->info("Temporal Query Reponse...");
+        //weird thing where the data received have some weird characters in front
+        //    �q[
+        //{
+        //"before": [
+        //  {
+        //    "_id": {
+        //      "_id": "car2",
+        //      "timestamp": {
+        //        "$date": 1750835111321
+        //      }
+        //    }
+        //  }
+        //]
         auto pos = payload.find_first_of("[{");
 
         if (pos != std::string::npos) {

@@ -7,6 +7,7 @@
 #include <string>
 #include <span>
 
+#include <nlohmann/json.hpp>  
 #include "snds_service_base.h"
 #include "temporal_query.h"
 #include "snds_utils.h"
@@ -51,9 +52,10 @@ private:
   std::unordered_set<std::string> pendingGetByIDreqs;
   std::unordered_set<std::string> pendingGetByTYPEreqs;
   // keep track of the temporal queries that are not answered yet
+  // the key is the hash of the query
   // also used to return specific fields from the JSON return for an ID
   // an ID and its specified fields we want to keep
-  std::unordered_set<TemporalQuery> pending_temporal_queries;
+  std::unordered_map<std::string, TemporalQuery> pending_temporal_queries;
 
   void processSubscriptionRequest(const std::string& id, const std::string& url);
   void processByIDRequest(const std::string& id, const bool subscription = false);
@@ -62,7 +64,7 @@ private:
   void processByTYPEResponse(const std::string& name);
   void processRegistryFileRequest(const std::string& payload, const std::string& name);
   void processTemporalQueryRequest(const TemporalQuery& temporal_query);
-  void processTemporalQueryResponse(const TemporalQuery& temporal_query);
+  void processTemporalQueryResponse(const std::string& parent_query_hash, const std::string& content);
 
   static constexpr const char* GET_PARAMETER_ID_TAG="id";
   static constexpr const char* GET_PARAMETER_TYPE_TAG="type";
@@ -71,4 +73,5 @@ private:
   static constexpr const char* GET_PARAMETER_DATE_TAG="date";
   static constexpr const char* GET_PARAMETER_TIMEFRAME_TAG="timeframe";
   static constexpr const char* GET_PARAMETER_COUNT_TAG="count";
+  static constexpr const char* GET_PARAMETER_PARENT_QUERY_HASH_TAG="parentQueryHash";
 };
