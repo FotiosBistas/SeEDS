@@ -285,6 +285,28 @@ set(SNDS_QUEUE_DIR   ${CMAKE_SOURCE_DIR}/src/snds_queue)
 set(SNDS_SERVICE_DIR ${CMAKE_SOURCE_DIR}/src/snds_service)
 set(SNDS_UTILS_DIR   ${CMAKE_SOURCE_DIR}/src/snds_utils)
 set(SNDS_BROKER_DIR  ${CMAKE_SOURCE_DIR}/src/snds_broker)
+set(SNDS_INTEREST_DIR ${CMAKE_SOURCE_DIR}/src/snds_interest)
+
+#####################################################################
+# Build the parsed interest static library
+#####################################################################
+
+set(SNDS_INTEREST_SOURCES
+  ${SNDS_INTEREST_DIR}/parsed_interest.cpp
+)
+
+add_library(snds_interest STATIC ${SNDS_INTEREST_SOURCES})
+
+target_include_directories(snds_interest
+  PUBLIC
+    ${SNDS_INTEREST_DIR}
+    ${NDN_CXX_INCLUDE_DIR}
+)
+
+target_link_libraries(snds_interest
+  PUBLIC
+    ${NDN_CXX_LIBRARY_DIR}/libndn-cxx.so
+)
 
 #####################################################################
 # Build the snds_utils static library
@@ -440,11 +462,13 @@ target_include_directories(snds_service PUBLIC
     ${cpp-httplib_SOURCE_DIR}       # for cpp-httplib header
     ${SNDS_UTILS_DIR}
     ${SNDS_BROKER_DIR}
+    ${SNDS_INTEREST_DIR}
 )
 
 target_link_libraries(snds_service PRIVATE
-    message_queue
     snds_utils
+    snds_interest
+    message_queue
     ${NDN_CXX_LIBRARY_DIR}/libndn-cxx.so
     spdlog::spdlog
     nlohmann_json::nlohmann_json
