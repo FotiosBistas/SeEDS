@@ -48,9 +48,12 @@ private:
   std::unordered_map<std::string, std::unordered_set<std::string>> pendingIDsForTypeMap;
 
   // Unordered sets for deduplicating pending requests.
-  std::unordered_set<std::string_view> pendingGetByIDreqs;
-  std::unordered_set<std::string_view> pendingGetByTYPEreqs;
-  std::unordered_set<std::string_view> pendingTemporalQueryreqs;
+  std::unordered_set<std::string> pendingGetByIDreqs;
+  std::unordered_set<std::string> pendingGetByTYPEreqs;
+  // keep track of the temporal queries that are not answered yet
+  // also used to return specific fields from the JSON return for an ID
+  // an ID and its specified fields we want to keep
+  std::unordered_set<TemporalQuery> pending_temporal_queries;
 
   void processSubscriptionRequest(const std::string& id, const std::string& url);
   void processByIDRequest(const std::string& id, const bool subscription = false);
@@ -63,6 +66,7 @@ private:
 
   static constexpr const char* GET_PARAMETER_ID_TAG="id";
   static constexpr const char* GET_PARAMETER_TYPE_TAG="type";
+  static constexpr const char* GET_PARAMETER_FIELDS_TAG = "filters";
   // all of the below are temporal query related
   static constexpr const char* GET_PARAMETER_DATE_TAG="date";
   static constexpr const char* GET_PARAMETER_TIMEFRAME_TAG="timeframe";

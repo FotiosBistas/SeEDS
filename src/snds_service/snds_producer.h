@@ -3,6 +3,7 @@
 #include <nlohmann/json.hpp>  
 #include "httplib.h"
 #include "snds_service_base.h"
+#include "snds_utils.h"
 #include "parsed_interest.h"
 #include "temporal_query.h"
 
@@ -97,7 +98,7 @@ public:
   }
 
 private:
-  std::string broker_ip;
+    std::string broker_ip;
 
 	std::unordered_map<std::string, std::unordered_set<std::string>> myTypesRegistryMap; //maps Type names to vectors of IDs
 	std::unordered_map<std::string, std::unordered_set<std::string>> subscribedBYID_SNDSnodes; //maps Type names to vectors of IDs

@@ -2,6 +2,7 @@
 #include "snds_service_base.h"
 #include "temporal_query.h"
 #include "parsed_interest.h"
+#include "parsed_interest_to_temporal_query.h"
 
 class SNDSConsumer: public ServiceBase {
 public:
@@ -49,6 +50,7 @@ public:
     void onData(const ndn::Interest& interest, const ndn::Data& data);
 
     std::string handleTemporalQuery(const TemporalQuery& query);
-    void parseTemporalQuery(const std::string& body);
+
+    void send_metafile_interests(const std::string& body, const TemporalQuery& parent_query);
 
 };

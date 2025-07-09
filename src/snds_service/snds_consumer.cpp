@@ -68,10 +68,14 @@ void SNDSConsumer::init(){
 
 //TODO possible disclose spot only for ID and timestamp
 //TODO possible verify spot
-void SNDSConsumer::parseTemporalQuery(const std::string& body){
+void SNDSConsumer::send_metafile_interests(const std::string& body, const TemporalQuery& parent_query){
     nlohmann::json root = nlohmann::json::parse(body);
 
 	std::unordered_set<std::string> seenInterests;
+
+    // included in the interest to know which parent 
+    // query the child query references
+    auto parent_query_hash = temporal_query_hash_string(parent_query);
 
     for (const auto& entry : root) {
         // entry is an object with a single key: "before" or "after" or "now"
@@ -89,6 +93,8 @@ void SNDSConsumer::parseTemporalQuery(const std::string& body){
 				timestamp = url_encode(timestamp);
                 auto name = makeMetafileInterest("/SNDS/" + id, timestamp);
                 name.params.push_back(url_encode("metafile=true"));
+                name.params.push_back(url_encode("parentQueryHash=" + parent_query_hash));
+
                 auto interestUri = toName(name).toUri();
 
                 // try to insert; if it's new, send it
@@ -149,11 +155,13 @@ void SNDSConsumer::onData(const ndn::Interest& interest, const ndn::Data& data) 
     //should verify here.
     if(interest.toUri().find(metafilePrefix) != std::string::npos){
         m_logger->info("Temporal Query Data Response from Metafile...");
+        // I'm too tired to use my own data classes here
         std::string message_name = data.getName().at(1).toUri();
         std::string date  = data.getName().at(2).toUri();
         std::string metafile  = data.getName().at(3).toUri();
+        std::string parent_query_hash  = data.getName().at(4).toUri();
         message_name = "id=" + message_name;
-        auto name = "/?" + message_name + "&" + date + "&" + metafile;
+        auto name = "/?" + message_name + "&" + date + "&" + metafile + "&" + parent_query_hash;
         m_logger->info("Sending Temporal Query Data with name: {0} and date: {1} ", message_name, date);
         //TODO possible spot for disclose
         auto message = std::make_unique<SNDS_INTRA_MESSAGE>(
@@ -175,7 +183,10 @@ void SNDSConsumer::onData(const ndn::Interest& interest, const ndn::Data& data) 
             m_logger->debug("Filtered payload to:\n{}", payload);
         }
 
-        parseTemporalQuery(payload);
+        // equivalent with interest.toUri()
+        auto parsed_interest = parseInterestName(data.getName()); 
+        auto parent_temporal_query = temporal_query_from_interest(parsed_interest);
+        send_metafile_interests(payload, parent_temporal_query);
         return;
     }
 

@@ -26,6 +26,7 @@ void Worker::init() {
         std::string count              = std::string(get_from_get_request(content, GET_PARAMETER_COUNT_TAG));
         std::string date               = url_decode(get_from_get_request(content, GET_PARAMETER_DATE_TAG));
         std::string timeframe          = url_decode(get_from_get_request(content, GET_PARAMETER_TIMEFRAME_TAG));
+        std::string fields_csv         = std::string(get_from_get_request(content, GET_PARAMETER_FIELDS_TAG));
         std::string subUrl             = std::string(getURLfromSubscription(content));
         bool isSub                     = isSubscriptionRequest(content);
 
@@ -52,6 +53,7 @@ void Worker::init() {
         m_logger->debug("Extracted Date: {}", date);
         m_logger->debug("Extracted Timeframe: {}", timeframe);
         m_logger->debug("Extracted Count: {}", count);
+        m_logger->debug("Fields: {}", fields_csv);
 
         //TODO we can differentiate messages based on type
         //I don't know why are we doing this
@@ -62,16 +64,15 @@ void Worker::init() {
                 // Give priority to temporal queries
                 if(!timeframe.empty()){
                     m_logger->info("Processing temporal query request...");
-
-                    TemporalQuery query = {
+                    TemporalQuery query = 
+                    {
                         string_to_timeframe(timeframe), 
                         date,
                         id,
                         type,
                         count,
                     };
-
-
+                    query.filters = parse_filters(fields_csv);
                     processTemporalQueryRequest(query);
                     break;
                 }
@@ -106,13 +107,13 @@ void Worker::init() {
                         count,
                     };
                     processTemporalQueryResponse(query);
-                    continue;
+                    break;
                 }
 
                 if(name.find(metafilePrefix) != std::string::npos){
                     m_logger->info("Received confirmation that consumer received data...");
                     processTemporalQueryResponse({});
-                    return;
+                    break;
                 }
 
                 // First, handle registry file responses.
@@ -144,18 +145,21 @@ void Worker::init() {
 
 void Worker::processTemporalQueryRequest(const TemporalQuery& temporal_query){
 
-    auto id = std::string(temporal_query.id);
-    auto [_, new_request] = pendingTemporalQueryreqs.insert(id);
+    auto [_, new_request] = pending_temporal_queries.insert(temporal_query);
 
-    //if(!new_request){
-    //    m_logger->info("Duplicate TemporalQuery for ID: {}", id);
-    //    return;
-    //}
+    if(!new_request)
+    {
+        m_logger->info("Duplicate TemporalQuery {} for ID: {}", serialize_temporal_query(temporal_query), temporal_query.id);
+        return;
+    }
+
+    auto id = temporal_query.id;
 
     ensureLeadingSlash(id);
-    m_logger->info("Pushing TemporalQuery for ID: {}", id);
+    m_logger->info("Pushing TemporalQuery {} for ID: {}", serialize_temporal_query(temporal_query), id);
 
-    auto message = std::make_unique<SNDS_INTRA_MESSAGE>(
+    auto message = std::make_unique<SNDS_INTRA_MESSAGE>
+    (
         std::move(serialize_temporal_query(temporal_query)),
         SNDS_INTRA_MESSAGE_TYPE::TEMPORAL_QUERY_REQUEST,
         SNDS_CLIENT_TYPES::SERVICE,

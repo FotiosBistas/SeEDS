@@ -123,7 +123,7 @@ void SNDSProducer::init(){
         httplib::Client cli(broker_ip.c_str(), broker_port);
         std::string endpoint = fmt::format(
     		"/get?id={}",
-            httplib::detail::encode_url(removeLeadingSlash(content))
+            url_encode(removeLeadingSlash(content))
         );
 
         m_logger->debug("Sending get request to endpoint: {}", endpoint);
@@ -156,15 +156,18 @@ void SNDSProducer::onInterest(const ndn::Interest& interest) {
 
     m_logger->info("Parsed interest: {}", pi.toString());
 
-    if(pi.params.size() > 1 && hasDateTag(pi.params[0])){
+    if(pi.params.size() > 1 && hasDateTag(pi.params[0]))
+    {
 
-        if(hasDateTag(pi.params[0]) && !isMetaFileTrue(pi.params[1])){ 
+        if(hasDateTag(pi.params[0]) && !isMetaFileTrue(pi.params[1]))
+        { 
             m_logger->info("Received Temporal Query Interest...");
             handleTemporalQuery(pi);
             return;
         }
 
-        if(isMetaFileTrue(pi.params[1])){
+        if(isMetaFileTrue(pi.params[1]))
+        {
             m_logger->info("Received Temporal Query Interest from Metafile...");
             processLocalIdRequest(pi);
             return;
@@ -208,6 +211,7 @@ void SNDSProducer::onInterest(const ndn::Interest& interest) {
 }
 
 void SNDSProducer::handleTemporalQuery(ParsedInterest& interest){
+
     std::string date = url_decode(interest.params[0]);
     std::string id = interest.command;
 
@@ -216,7 +220,8 @@ void SNDSProducer::handleTemporalQuery(ParsedInterest& interest){
     // currently params are count=,timeframe=,
 	// parameters are url encoded by convention
     std::unordered_map<std::string, std::string> parameter_map;
-    for (const auto& parameter : interest.params) {
+    for (const auto& parameter : interest.params) 
+    {
 		auto decoded_parameter = url_decode(parameter);
         auto equal_sign_index = decoded_parameter.find('=');
         if (equal_sign_index == std::string::npos) continue;
@@ -233,11 +238,11 @@ void SNDSProducer::handleTemporalQuery(ParsedInterest& interest){
     httplib::Client cli(broker_ip.c_str(), broker_port);
     std::string endpoint = fmt::format(
  		"/temporal-query?id={}&type={}&count={}&date={}&timeframe={}",
-        httplib::detail::encode_url(id),
-        httplib::detail::encode_url(type),
+        url_encode(id),
+        url_encode(type),
         count,
-        httplib::detail::encode_url(date),
-        httplib::detail::encode_url(timeframe)
+        url_encode(date),
+        url_encode(timeframe)
     );
 
 	m_logger->debug("Requesting to endpoint: {}", endpoint);

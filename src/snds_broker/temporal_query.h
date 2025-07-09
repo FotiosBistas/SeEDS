@@ -76,7 +76,10 @@ struct TemporalQuery
             && extras  == o.extras
             && filters == o.filters;
     }
+
 };
+
+
 
 Timeframe string_to_timeframe(std::string_view view);
 std::string timeframe_to_string(Timeframe frame);
@@ -155,3 +158,7 @@ struct hash<TemporalQuery>
 };
 
 } // namespace std
+
+inline std::string temporal_query_hash_string(TemporalQuery const &q) noexcept {
+    return std::to_string(std::hash<TemporalQuery>{}(q));
+}
