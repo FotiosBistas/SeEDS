@@ -1,4 +1,7 @@
+#pragma once
+
 #include "snds_service_base.h"
+#include "temporal_query.h"
 
 class DigitalTwin: public ServiceBase{
 
@@ -26,5 +29,5 @@ public:
 
     void init();
 private:
-	std::vector<std::string> announcedIDsVec; //stores local annnounced ids
+	std::unordered_set<std::string> announcedIDsVec; //stores local annnounced ids
 };

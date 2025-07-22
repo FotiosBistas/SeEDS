@@ -1,14 +1,15 @@
-#ifndef PARSED_INTEREST_H
-#define PARSED_INTEREST_H
+#pragma once
 
 #include <ndn-cxx/name.hpp>
 #include <string>
 #include <vector>
 
+//TODO rename to ParsedInterestName
+
 /**
  * @brief Represents a parsed NDN Interest name with named fields.
  */
-struct ParsedInterest {
+struct ParsedInterestName {
 
     std::string prefix;              ///< Typically the first component (e.g., "/SNDS")
     std::string command;             ///< The command or type (e.g., "CAR" or "SNDS_ID_scope_X")
@@ -42,6 +43,17 @@ struct ParsedInterest {
     }
 };
 
+
+static ParsedInterestName makeMetafileInterest(const std::string& id,
+                                           const std::string& timestamp)
+{
+    ParsedInterestName pi;
+    pi.prefix  = id;
+    pi.command = timestamp;
+    pi.params  = {};
+    return pi;
+}
+
 /**
  * 
  * @brief Parses an ndn::Name into a ParsedInterest structure.
@@ -54,21 +66,29 @@ struct ParsedInterest {
  *     params  = ["car1"]
  *
  * @param name The NDN name to parse.
- * @return ParsedInterest The structure containing the parsed fields.
+ * @return ParsedInterestName The structure containing the parsed fields.
+ * @warning This is not robust and might fail
  */
-inline ParsedInterest parseInterestName(const ndn::Name& name) {
-    ParsedInterest pi;
-    size_t n = name.size();
-    if(n > 0) {
-        pi.prefix = name.get(0).toUri();
-    }
-    if(n > 1) {
-        pi.command = name.get(1).toUri();
-    }
-    for(size_t i = 2; i < n; ++i) {
-        pi.params.push_back(name.get(i).toUri());
-    }
-    return pi;
-}
+ParsedInterestName parseInterestName(const ndn::Name& name);
 
-#endif 
+/**
+ * @brief Reconstructs the full NDN name from a ParsedInterestName object.
+ *
+ * For example:
+ *   ParsedInterestName with:
+ *     prefix  = "/SNDS"
+ *     command = "CAR"
+ *     params  = ["car1", "123"]
+ *
+ * Produces:
+ *     /SNDS/CAR/car1/123
+ *
+ * @return ndn::Name The reconstructed NDN name.
+ */
+ndn::Name toName(const ParsedInterestName& pi);
+
+/// @brief  This assumes that the parameters already have their tag appended to them.
+/// For example id=car1.
+/// @param pi 
+/// @return 
+std::string toQueryString(const ParsedInterestName& pi);

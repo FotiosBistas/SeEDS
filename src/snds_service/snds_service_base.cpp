@@ -7,3 +7,4 @@ std::unique_ptr<MessageQueue> ServiceBase::v_to_dt = std::make_unique<MessageQue
 std::unique_ptr<MessageQueue> ServiceBase::v_to_producer = std::make_unique<MessageQueue>();
 std::unique_ptr<MessageQueue> ServiceBase::v_to_consumer = std::make_unique<MessageQueue>();
 std::unique_ptr<MessageQueue> ServiceBase::v_to_service = std::make_unique<MessageQueue>();
+std::unique_ptr<MessageQueue> ServiceBase::v_to_worker = std::make_unique<MessageQueue>();

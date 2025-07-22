@@ -7,9 +7,13 @@
 
 /// @brief Defines the type of intra-service messages.
 enum class SNDS_INTRA_MESSAGE_TYPE {
-    GENERIC,           ///< Generic message type, used for general-purpose communication.
-    BY_ID_RESPONSE,    ///< Message is a response identified by a specific ID.
-    BY_TYPE_RESPONSE   ///< Message is a response identified by a specific type.
+    GENERIC,                    ///< Generic message type, used for general-purpose communication.
+    BY_ID_RESPONSE,             ///< Message is a response identified by a specific ID.
+    BY_TYPE_RESPONSE,           ///< Message is a response identified by a specific type.
+    BY_ID_REQUEST,              ///< Message is a request identified by a specific ID.
+    BY_TYPE_REQUEST,            ///< Message is a request identified by a specific type.
+    TEMPORAL_QUERY_REQUEST,     ///< Message is a temporal query request. It is identified by its ID.>
+    TEMPORAL_QUERY_RESPONSE
 };
 
 /// @brief Defines the different components or clients in the SNDS system. Allegendly correctly explained by me
@@ -20,6 +24,7 @@ enum class SNDS_CLIENT_TYPES {
     DIGITAL_TWIN,     ///< Digital twin component for managing digital replicas of entities.
     SERVICE,          ///< Service component for inter-service communication and orchestration.
     HTTP_SRV,         ///< HTTP server component for handling external requests.
+    WORKER,
     ON_INTEREST       ///< Component triggered on receiving an interest (NDN-specific).
 };
 
