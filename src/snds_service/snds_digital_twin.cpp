@@ -24,8 +24,10 @@ void DigitalTwin::init(){
         m_logger->debug("Extracted content length from message {}", length);
 
 
-        std::string id = getFromGETRequest(content, "id");
+        std::string id      = std::string(get_from_get_request(content, "id"));
+        std::string type    = std::string(get_from_get_request(content, "type"));
         std::string idScope = getSNDSNodeScopeNameForSubscription(id, m_idScopePrefix, m_numberOfSndsSrvs);
+
 
         m_logger->debug("Extracted id from message {}", id);
         m_logger->debug("Extracted idScope from message {}", idScope);
@@ -36,6 +38,43 @@ void DigitalTwin::init(){
             if(announcedIDsVec.erase(id) > 0){
                 m_logger->debug("Successfully removed ID {}", id);
             };
+            continue;
+        }
+
+
+        //TODO we can differentiate messages based on type
+        //I don't know why are we doing this
+        auto params = parse_query_params(content);
+        auto it_date = params.find("date");
+
+
+        if(it_date != params.end()){
+            m_logger->info("Received temporal query request...");
+            m_logger->debug("Extracted Date from message {}", it_date->second);
+            TemporalQuery query{
+                Timeframe::NONE,
+                it_date->second,
+                id,
+                type,
+                "",
+                {}  // extras below
+            };
+
+            for (auto const& k : {"id","date","type","count"}) {
+                params.erase(k);
+            }
+
+            query.extras = std::move(params);
+
+
+            auto message = std::make_unique<SNDS_INTRA_MESSAGE>(
+                serialize_temporal_query(query),    
+                SNDS_INTRA_MESSAGE_TYPE::TEMPORAL_QUERY_REQUEST,
+                SNDS_CLIENT_TYPES::DIGITAL_TWIN,
+                ""
+            );
+            m_logger->info("Pushing Temporal Query to Producer: {}", serialize_temporal_query(query));
+            v_to_producer.get()->writeMessage(std::move(message));
             continue;
         }
 
@@ -69,8 +108,6 @@ void DigitalTwin::init(){
             v_to_consumer->writeMessage(std::move(message2));
         }
 
-        std::string type = getFromGETRequest(content, "type");
-        m_logger->debug("Extracted Type from message {}", type);
 
         if(!type.empty()){
             m_logger->info("Received by Type get request...");

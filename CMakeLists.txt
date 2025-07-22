@@ -5,6 +5,8 @@ cmake_minimum_required(VERSION 3.10)
 project(SeEDS LANGUAGES CXX)
 
 find_package(PkgConfig REQUIRED)
+find_package(OpenSSL REQUIRED)
+
 
 # Find libpcap
 pkg_check_modules(PCAP REQUIRED libpcap)
@@ -31,7 +33,42 @@ link_directories(${SQLITE3_LIBRARY_DIRS})
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-# Include FetchContent module
+
+# Include External Project module
+include(ExternalProject)
+
+#####################################################################
+# Fetch and build mongo-cxx
+#####################################################################
+set(MONGO_CXX_VERSION "r4.1.0")
+set(MONGO_CXX_INSTALL_DIR "${CMAKE_BINARY_DIR}/mongo-cxx-driver-install")
+ExternalProject_Add(mongo-cxx-driver
+  URL https://github.com/mongodb/mongo-cxx-driver/releases/download/${MONGO_CXX_VERSION}/mongo-cxx-driver-${MONGO_CXX_VERSION}.tar.gz
+  PREFIX ${CMAKE_BINARY_DIR}/mongo-cxx-driver
+  SOURCE_DIR ${CMAKE_BINARY_DIR}/mongo-cxx-driver-src
+  BINARY_DIR ${CMAKE_BINARY_DIR}/mongo-cxx-driver-src/build
+  CMAKE_ARGS
+    -DCMAKE_BUILD_TYPE=Release
+    -DCMAKE_CXX_STANDARD=17
+    -DBUILD_SHARED_LIBS=ON 
+    -DCMAKE_INSTALL_PREFIX=${MONGO_CXX_INSTALL_DIR}
+  BUILD_COMMAND ${CMAKE_COMMAND} --build .
+  INSTALL_COMMAND ${CMAKE_COMMAND} --build . --target install
+)
+
+
+# MongoDB C++ Driver include and lib directories
+set(MONGOCXX_INCLUDE_DIRS "${MONGO_CXX_INSTALL_DIR}/include/")
+set(BSONCXX_INCLUDE_DIRS  "${MONGO_CXX_INSTALL_DIR}/include/")
+set(BSONCXX_V_NOABI_INCLUDE_DIR "${MONGO_CXX_INSTALL_DIR}/include/bsoncxx/v_noabi")
+set(MONGOCXX_V_NOABI_INCLUDE_DIR "${MONGO_CXX_INSTALL_DIR}/include/mongocxx/v_noabi")
+set(MONGO_CXX_LIBRARY_DIR "${MONGO_CXX_INSTALL_DIR}/lib")
+
+# Libraries
+set(MONGOCXX_LIBRARIES "${MONGO_CXX_LIBRARY_DIR}/libmongocxx.so")
+set(BSONCXX_LIBRARIES  "${MONGO_CXX_LIBRARY_DIR}/libbsoncxx.so")
+
+# Include Fetch Content module 
 include(FetchContent)
 
 #####################################################################
@@ -118,6 +155,7 @@ if(NOT ndn-tools_POPULATED)
   )
 endif()
 
+
 #####################################################################
 # Export environment paths for NFD and ndn-cxx
 #####################################################################
@@ -144,6 +182,10 @@ endif()
 # Append LD_LIBRARY_PATH
 if(NOT BASHRC_CONTENT MATCHES "${NDN_CXX_LIB_DIR}")
   file(APPEND "${BASHRC}" "export LD_LIBRARY_PATH=\$LD_LIBRARY_PATH:${NDN_CXX_LIB_DIR}\n")
+endif()
+
+if(NOT BASHRC_CONTENT MATCHES "${MONGO_CXX_LIBRARY_DIR}")
+  file(APPEND "${BASHRC}" "export LD_LIBRARY_PATH=\$LD_LIBRARY_PATH:${MONGO_CXX_LIBRARY_DIR}\n")
 endif()
 
 # Copy nfd.conf.sample → nfd.conf if it doesn’t exist yet
@@ -185,6 +227,28 @@ file(CHMOD "${NFD_RUNNER_PATH}" PERMISSIONS
 message(STATUS "🛠  Created helper script to run NFD: ${NFD_RUNNER_PATH}")
 message(STATUS "👉  You can run it like this: sudo ./run-nfd.sh")
 
+###################################################################### 
+# Fetch and add nlohmann/json (single-header JSON library)
+###################################################################### 
+include(FetchContent)
+
+FetchContent_Declare(
+  nlohmann_json
+  GIT_REPOSITORY https://github.com/nlohmann/json.git
+  GIT_TAG v3.12.0
+  GIT_SHALLOW TRUE
+)
+
+FetchContent_GetProperties(nlohmann_json)
+if(NOT nlohmann_json_POPULATED)
+  FetchContent_Populate(nlohmann_json)
+  add_subdirectory(
+    ${nlohmann_json_SOURCE_DIR}
+    ${nlohmann_json_BINARY_DIR}
+    EXCLUDE_FROM_ALL
+  )
+endif()
+
 
 #####################################################################
 # Fetch and add spdlog (thread-safe logging library)
@@ -221,6 +285,138 @@ set(SNDS_MESSAGE_DIR ${CMAKE_SOURCE_DIR}/src/snds_message)
 set(SNDS_QUEUE_DIR   ${CMAKE_SOURCE_DIR}/src/snds_queue)
 set(SNDS_SERVICE_DIR ${CMAKE_SOURCE_DIR}/src/snds_service)
 set(SNDS_UTILS_DIR   ${CMAKE_SOURCE_DIR}/src/snds_utils)
+set(SNDS_BROKER_DIR  ${CMAKE_SOURCE_DIR}/src/snds_broker)
+set(SNDS_INTEREST_DIR ${CMAKE_SOURCE_DIR}/src/snds_interest)
+
+#####################################################################
+# Build the parsed interest static library
+#####################################################################
+
+set(SNDS_INTEREST_SOURCES
+  ${SNDS_INTEREST_DIR}/parsed_interest_name.cpp
+)
+
+add_library(snds_interest STATIC ${SNDS_INTEREST_SOURCES})
+
+target_include_directories(snds_interest
+  PUBLIC
+    ${SNDS_INTEREST_DIR}
+    ${NDN_CXX_INCLUDE_DIR}
+)
+
+target_link_libraries(snds_interest
+  PUBLIC
+    ${NDN_CXX_LIBRARY_DIR}/libndn-cxx.so
+)
+
+#####################################################################
+# Build the snds_utils static library
+#####################################################################
+set(SNDS_UTILS_SOURCES
+    ${SNDS_UTILS_DIR}/snds_utils.cpp
+)
+
+add_library(snds_utils STATIC ${SNDS_UTILS_SOURCES})
+target_include_directories(snds_utils PUBLIC
+  ${SNDS_UTILS_DIR}
+  ${spdlog_SOURCE_DIR}/include
+)
+target_link_libraries(snds_utils PUBLIC 
+  spdlog::spdlog 
+  OpenSSL::Crypto
+)
+
+#####################################################################
+# Build the snds_broker static library (MongoDB driver required)
+#####################################################################
+
+# Broker sources
+set(SNDS_BROKER_SOURCES
+    ${SNDS_BROKER_DIR}/broker.cpp
+    ${SNDS_BROKER_DIR}/broker_utils.cpp
+)
+
+# Broker main executable source
+set(SNDS_BROKER_MAIN
+    ${SNDS_BROKER_DIR}/broker_main.cpp
+)
+
+# Temporal query module sources
+set(SNDS_BROKER_TIMEFRAMES_SOURCES
+    ${SNDS_BROKER_DIR}/temporal_query.cpp
+)
+
+# Build the 'temporal_query' static library
+add_library(temporal_query STATIC ${SNDS_BROKER_TIMEFRAMES_SOURCES})
+
+target_include_directories(temporal_query PUBLIC
+  ${SNDS_UTILS_DIR}
+  ${SNDS_BROKER_DIR}
+)
+
+target_link_libraries(temporal_query PUBLIC
+  snds_utils
+  spdlog::spdlog
+  nlohmann_json::nlohmann_json
+)
+
+
+# Build the 'snds_broker' static library and link temporal_query
+add_library(snds_broker STATIC ${SNDS_BROKER_SOURCES})
+
+# Include directories for Mongo, httplib, and broker headers
+target_include_directories(snds_broker PUBLIC
+    ${SNDS_BROKER_DIR}
+    ${cpp-httplib_SOURCE_DIR}
+    ${MONGO_CXX_INSTALL_DIR}/include
+    ${MONGO_CXX_INSTALL_DIR}/include/bsoncxx/v_noabi
+    ${MONGO_CXX_INSTALL_DIR}/include/mongocxx/v_noabi
+    ${OPENSSL_INCLUDE_DIR}
+)
+
+# Link required libraries
+target_link_libraries(snds_broker PUBLIC
+    ${MONGO_CXX_INSTALL_DIR}/lib/libbsoncxx.so
+    ${MONGO_CXX_INSTALL_DIR}/lib/libmongocxx.so
+    temporal_query
+    spdlog::spdlog
+    OpenSSL::Crypto
+    nlohmann_json::nlohmann_json
+    snds_utils
+)
+
+# Create the broker executable
+add_executable(snds_broker_bin ${SNDS_BROKER_MAIN})
+
+# Include broker headers and httplib in the executable
+target_include_directories(snds_broker_bin PRIVATE
+    ${SNDS_BROKER_DIR}
+    ${cpp-httplib_SOURCE_DIR}
+)
+
+# Link broker static library to the executable
+target_link_libraries(snds_broker_bin PRIVATE
+    snds_broker
+)
+
+# Add dependency on Mongo driver build
+add_dependencies(snds_broker_bin mongo-cxx-driver)
+
+set(BROKER_RUNNER_PATH "${CMAKE_BINARY_DIR}/run-broker.sh")
+
+file(WRITE "${BROKER_RUNNER_PATH}" "#!/bin/bash\n")
+file(APPEND "${BROKER_RUNNER_PATH}" "# Auto-generated by CMake - run broker with correct MongoDB lib path\n")
+file(APPEND "${BROKER_RUNNER_PATH}" "export LD_LIBRARY_PATH=\$LD_LIBRARY_PATH:${MONGO_CXX_LIBRARY_DIR}\n")
+file(APPEND "${BROKER_RUNNER_PATH}" "exec ${CMAKE_BINARY_DIR}/snds_broker_bin \"\$@\"\n")
+
+file(CHMOD "${BROKER_RUNNER_PATH}" PERMISSIONS
+  OWNER_READ OWNER_WRITE OWNER_EXECUTE
+  GROUP_READ GROUP_EXECUTE
+  WORLD_READ WORLD_EXECUTE
+)
+
+message(STATUS "🛠  Created helper script to run broker: ${BROKER_RUNNER_PATH}")
+message(STATUS "👉  You can run it like this: ./run-broker.sh")
 
 #####################################################################
 # Build the message_queue static library
@@ -244,64 +440,64 @@ target_link_libraries(message_queue
     spdlog::spdlog
 )
 
-#####################################################################
-# Build the snds_utils static library
-#####################################################################
-set(SNDS_UTILS_SOURCES
-    ${SNDS_UTILS_DIR}/snds_utils.cpp
-)
-
-add_library(snds_utils STATIC ${SNDS_UTILS_SOURCES})
-target_include_directories(snds_utils PUBLIC
-  ${SNDS_UTILS_DIR}
-  ${spdlog_SOURCE_DIR}/include
-)
-target_link_libraries(snds_utils PUBLIC spdlog::spdlog)
-
 
 #####################################################################
 # Build the snds_service static library (excluding main.cpp)
 #####################################################################
 set(SNDS_SERVICE_SOURCES
     ${SNDS_SERVICE_DIR}/snds_service_base.cpp
-    ${SNDS_SERVICE_DIR}/snds_http_service.cpp
-    ${SNDS_SERVICE_DIR}/snds_http_worker.cpp
+    ${SNDS_SERVICE_DIR}/snds_http_server.cpp
+    ${SNDS_SERVICE_DIR}/snds_worker.cpp
     ${SNDS_SERVICE_DIR}/snds_producer.cpp
     ${SNDS_SERVICE_DIR}/snds_consumer.cpp
     ${SNDS_SERVICE_DIR}/snds_digital_twin.cpp
-    ${SNDS_SERVICE_DIR}/old_snds_service.cpp
 )
 
-add_library(snds_service STATIC ${SNDS_SERVICE_SOURCES})
+add_library(snds_service STATIC 
+    ${SNDS_SERVICE_SOURCES}
+)
+
 target_include_directories(snds_service PUBLIC
     ${SNDS_SERVICE_DIR}
     ${NDN_CXX_INCLUDE_DIR}        # for ndn-cxx headers
     ${cpp-httplib_SOURCE_DIR}       # for cpp-httplib header
     ${SNDS_UTILS_DIR}
+    ${SNDS_BROKER_DIR}
+    ${SNDS_INTEREST_DIR}
 )
+
 target_link_libraries(snds_service PRIVATE
-    message_queue
     snds_utils
+    snds_interest
+    message_queue
     ${NDN_CXX_LIBRARY_DIR}/libndn-cxx.so
     spdlog::spdlog
+    nlohmann_json::nlohmann_json
+    snds_broker
 )
-add_dependencies(snds_service ndn-cxx-build)
+
+add_dependencies(snds_service ndn-cxx-build snds_broker)
 
 #####################################################################
 # Build the main executable that runs the daemon
 #####################################################################
 # Compile main.cpp only in the executable.
 add_executable(snds_daemon_bin ${SNDS_SERVICE_DIR}/main.cpp)
+
 target_include_directories(snds_daemon_bin PRIVATE
     ${SNDS_SERVICE_DIR}
     ${NDN_CXX_INCLUDE_DIR}
     ${SNDS_UTILS_DIR}
+    ${SNDS_BROKER_DIR} 
 )
+
 target_link_libraries(snds_daemon_bin PRIVATE
     snds_service
     message_queue
     ${NDN_CXX_LIBRARY_DIR}/libndn-cxx.so
     spdlog::spdlog
+    snds_broker
+    nlohmann_json::nlohmann_json
 )
 add_dependencies(snds_daemon_bin ndn-cxx-build)
 
@@ -311,133 +507,18 @@ add_dependencies(snds_daemon_bin ndn-cxx-build)
 set(SNDS_UTILS_TEST_SOURCES
     ${SNDS_UTILS_DIR}/test_snds_utils.cpp
 )
+
 add_executable(test_snds_utils ${SNDS_UTILS_TEST_SOURCES})
+
 target_include_directories(test_snds_utils PRIVATE
     ${SNDS_UTILS_DIR}
     ${NDN_CXX_INCLUDE_DIR}
 )
+
 target_link_libraries(test_snds_utils PRIVATE
     snds_utils
     ${NDN_CXX_LIBRARY_DIR}/libndn-cxx.so
     spdlog::spdlog
 )
+
 add_dependencies(test_snds_utils ndn-cxx-build)
-
-#####################################################################
-# Find and configure GoogleTest and fmt
-#####################################################################
-#find_package(GTest REQUIRED)
-#find_package(fmt REQUIRED)
-#
-######################################################################
-## Build the test executable for producer tests
-######################################################################
-#add_executable(test_snds_producer tests/test_snds_producer.cpp)
-#target_include_directories(test_snds_producer PRIVATE
-#    ${SNDS_SERVICE_DIR}
-#    ${SNDS_MESSAGE_DIR}
-#    ${SNDS_QUEUE_DIR}
-#    ${NDN_CXX_INCLUDE_DIR}
-#    ${SNDS_UTILS_DIR}
-#)
-#target_link_libraries(test_snds_producer PRIVATE
-#    gtest
-#    gtest_main
-#    snds_service
-#    message_queue
-#    ${NDN_CXX_LIBRARY_DIR}/libndn-cxx.so
-#    pthread
-#    fmt::fmt
-#)
-#add_dependencies(test_snds_producer ndn-cxx-build)
-#add_test(NAME ProducerTests COMMAND test_snds_producer)
-#
-######################################################################
-## Build the test executable for consumer tests
-######################################################################
-#add_executable(test_snds_consumer tests/test_snds_consumer.cpp)
-#target_include_directories(test_snds_consumer PRIVATE
-#    ${SNDS_SERVICE_DIR}
-#    ${SNDS_MESSAGE_DIR}
-#    ${SNDS_QUEUE_DIR}
-#    ${NDN_CXX_INCLUDE_DIR}
-#    ${SNDS_UTILS_DIR}
-#)
-#target_link_libraries(test_snds_consumer PRIVATE
-#    gtest
-#    gtest_main
-#    snds_service
-#    message_queue
-#    ${NDN_CXX_LIBRARY_DIR}/libndn-cxx.so
-#    pthread
-#    fmt::fmt
-#)
-#add_dependencies(test_snds_consumer ndn-cxx-build)
-#add_test(NAME ConsumerTests COMMAND test_snds_consumer)
-
-#####################################################################
-# Build the snds_service standalone executable
-#####################################################################
-add_executable(old_snds_service_bin ${SNDS_SERVICE_DIR}/old_snds_service.cpp)
-
-target_include_directories(old_snds_service_bin PRIVATE
-    ${SNDS_SERVICE_DIR}
-    ${NDN_CXX_INCLUDE_DIR}
-    ${cpp-httplib_SOURCE_DIR}
-    ${SNDS_UTILS_DIR}
-)
-
-target_link_libraries(old_snds_service_bin PRIVATE
-    snds_service
-    message_queue
-    ${NDN_CXX_LIBRARY_DIR}/libndn-cxx.so
-    spdlog::spdlog
-)
-
-add_dependencies(old_snds_service_bin ndn-cxx-build)
-
-#####################################################################
-# Build standalone consumer executable
-#####################################################################
-add_executable(consumer_bin ${CMAKE_SOURCE_DIR}/src/consumer.cpp)
-
-target_include_directories(consumer_bin PRIVATE
-    ${SNDS_SERVICE_DIR}
-    ${SNDS_QUEUE_DIR}
-    ${SNDS_MESSAGE_DIR}
-    ${NDN_CXX_INCLUDE_DIR}
-    ${cpp-httplib_SOURCE_DIR}
-    ${SNDS_UTILS_DIR}
-)
-
-target_link_libraries(consumer_bin PRIVATE
-    snds_service
-    message_queue
-    ${NDN_CXX_LIBRARY_DIR}/libndn-cxx.so
-    spdlog::spdlog
-)
-
-add_dependencies(consumer_bin ndn-cxx-build)
-
-#####################################################################
-# Build standalone producer executable
-#####################################################################
-add_executable(producer_bin ${CMAKE_SOURCE_DIR}/src/producer.cpp)
-
-target_include_directories(producer_bin PRIVATE
-    ${SNDS_SERVICE_DIR}
-    ${SNDS_QUEUE_DIR}
-    ${SNDS_MESSAGE_DIR}
-    ${NDN_CXX_INCLUDE_DIR}
-    ${cpp-httplib_SOURCE_DIR}
-    ${SNDS_UTILS_DIR}
-)
-
-target_link_libraries(producer_bin PRIVATE
-    snds_service
-    message_queue
-    ${NDN_CXX_LIBRARY_DIR}/libndn-cxx.so
-    spdlog::spdlog
-)
-
-add_dependencies(producer_bin ndn-cxx-build)

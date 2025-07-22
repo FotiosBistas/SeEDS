@@ -40,7 +40,7 @@ public:
 
 
     /**
-     * @brief Starts all registered services by calling their init functions in separate threads.
+     * @brief Starts all registered service components by calling their init functions in separate threads.
      *
      * Since service's init (e.g. func_proxy) runs a perpetual loop,
      * this launches each service concurrently.
@@ -104,6 +104,7 @@ public:
         ServiceBase::v_to_producer->shutdown();
         ServiceBase::v_to_consumer->shutdown();
         ServiceBase::v_to_service->shutdown();
+        ServiceBase::v_to_worker->shutdown();
         
         // Now join all threads.
         for (auto& t : threads) {

@@ -7,6 +7,27 @@ unsigned getSNDSNodeForSubscription(const std::string& name, int numberOfSNDSSer
     return hash_value % numberOfSNDSServices;
 }
 
+std::string format_timestamp_ms(long long ms_since_epoch){
+    using namespace std::chrono;
+    // build a time_point
+    system_clock::time_point tp{milliseconds(ms_since_epoch)};
+    // split off whole seconds vs leftover ms
+    auto secs    = floor<seconds>(tp);
+    auto ms_part = duration_cast<milliseconds>(tp - secs).count();
+    // convert to time_t and break out UTC fields
+    std::time_t tt = system_clock::to_time_t(tp);
+    std::tm    tm{};
+    gmtime_r(&tt, &tm);  // POSIX; TODO on Windows use gmtime_s
+
+    std::ostringstream oss;
+    oss << std::put_time(&tm, "%Y-%m-%dT%H:%M:%S")
+        << '.' << std::setw(3) << std::setfill('0') << ms_part
+        << "+00:00";
+    //TODO using a more generic date currently
+    //oss << std::put_time(&tm, "%Y-%m-%d");
+    return oss.str();
+}
+
 void removeIdPrefix(std::string& input) {
     constexpr std::string_view prefix = "id=";
     if (input.compare(0, prefix.size(), prefix) == 0) {
@@ -21,11 +42,117 @@ void removeTypePrefix(std::string& input) {
     }
 }
 
-std::string getFromGETRequest(std::string_view url, std::string_view tag) {
-    constexpr std::string_view delimiter = "&";
-    constexpr std::string_view assignSymbol = "=";
+bool hasDateTag(const std::string& command){
+    std::string decoded = url_decode(command);
+    return decoded.find("date=") != std::string::npos;
+}
 
-    std::string pattern = std::string(tag) + std::string(assignSymbol);
+bool isMetaFileTrue(const std::string& command) {
+    std::string decoded = url_decode(command);
+
+    const std::string key = "metafile=";
+    auto pos = decoded.find(key);
+    if (pos == std::string::npos)
+        return false;
+
+    pos += key.size();
+    auto end = decoded.find('&', pos);
+    std::string value = decoded.substr(pos, end == std::string::npos 
+                                             ? std::string::npos 
+                                             : end - pos);
+
+    return value == "true";
+}
+
+std::string md5_hex(const void* data, std::size_t len) {
+    EVP_MD_CTX* ctx = EVP_MD_CTX_new();
+    if (!ctx) throw std::runtime_error("EVP_MD_CTX_new failed");
+    if (EVP_DigestInit_ex(ctx, EVP_md5(), nullptr) != 1) {
+        EVP_MD_CTX_free(ctx);
+        throw std::runtime_error("EVP_DigestInit_ex failed");
+    }
+
+    if (EVP_DigestUpdate(ctx, data, len) != 1) {
+        EVP_MD_CTX_free(ctx);
+        throw std::runtime_error("EVP_DigestUpdate failed");
+    }
+
+    unsigned char digest[EVP_MAX_MD_SIZE];
+    unsigned int  digest_len = 0;
+    if (EVP_DigestFinal_ex(ctx, digest, &digest_len) != 1) {
+        EVP_MD_CTX_free(ctx);
+        throw std::runtime_error("EVP_DigestFinal_ex failed");
+    }
+    EVP_MD_CTX_free(ctx);
+
+    std::ostringstream oss;
+    oss << std::hex << std::setfill('0');
+    for (unsigned int i = 0; i < digest_len; ++i) {
+        oss << std::setw(2) << static_cast<int>(digest[i]);
+    }
+    return oss.str();
+}
+
+static int hex_val(char c) {
+    if (c >= '0' && c <= '9') return c - '0';
+    if (c >= 'A' && c <= 'F') return c - 'A' + 10;
+    if (c >= 'a' && c <= 'f') return c - 'a' + 10;
+    throw std::invalid_argument(std::string("Invalid hex digit: ") + c);
+}
+
+std::string url_encode(const std::string& value) {
+    std::ostringstream escaped;
+    escaped.fill('0');
+    escaped << std::hex;
+
+    for (std::string::const_iterator i = value.begin(), n = value.end(); i != n; ++i) {
+        std::string::value_type c = (*i);
+
+        // Keep alphanumeric and other accepted characters intact
+        if (isalnum(c) || c == '-' || c == '_' || c == '.' || c == '~') {
+            escaped << c;
+            continue;
+        }
+
+        // Any other characters are percent-encoded
+        escaped << std::uppercase;
+        escaped << '%' << std::setw(2) << int((unsigned char) c);
+        escaped << std::nouppercase;
+    }
+
+    return escaped.str();
+}
+
+// Decode percent‐escapes in a URL‐query fragment.
+// Does NOT treat '+' as space; '+' remains '+'. 
+std::string url_decode(std::string_view in) {
+    std::string out;
+    out.reserve(in.size());
+    for (size_t i = 0; i < in.size(); ++i) {
+        char c = in[i];
+        if (c == '%' && i + 2 < in.size()) {
+            char hi = in[i+1], lo = in[i+2];
+            //Example: 
+            //%3A
+            //00111010
+            //58 -> :
+            auto val = (hex_val(hi) << 4) | hex_val(lo);
+            char decoded = static_cast<unsigned char>(val);
+            out += decoded;
+            i += 2;
+        }
+        else {
+            out += c;
+        }
+    }
+    return out;
+}
+
+std::string_view get_from_get_request(std::string_view url, std::string_view tag) {
+    constexpr std::string_view delimiter = "&";
+    constexpr std::string_view assign_symbol = "=";
+
+    std::string pattern = std::string(tag) + std::string(assign_symbol);
     std::size_t start = url.find(pattern);
 
     if (start == std::string_view::npos) {
@@ -43,8 +170,29 @@ std::string getFromGETRequest(std::string_view url, std::string_view tag) {
         end = url.size();
     }
 
-    std::string_view valueView = url.substr(start, end - start);
-    return std::string(valueView);
+    return url.substr(start, end - start);
+}
+ 
+std::unordered_map<std::string,std::string> parse_query_params(std::string_view qs) {
+    std::unordered_map<std::string,std::string> params;
+    size_t pos = 0;
+    while (pos < qs.size()) {
+        // find next &
+        auto amp = qs.find('&', pos);
+        auto part = qs.substr(pos, amp == std::string_view::npos ? qs.size()-pos : amp-pos);
+
+        // split on '='
+        auto eq = part.find('=');
+        if (eq != std::string_view::npos) {
+            std::string key   = url_decode(std::string(part.substr(0, eq)));
+            std::string value = url_decode(std::string(part.substr(eq+1)));
+            params.emplace(std::move(key), std::move(value));
+        }
+
+        if (amp == std::string_view::npos) break;
+        pos = amp + 1;
+    }
+    return params;
 }
 
 
@@ -54,6 +202,18 @@ void ensureLeadingSlash(std::string &nm) {
     } else if (nm.front() != '/') {
         nm.insert(nm.begin(), '/');
     }
+}
+
+std::string removeLeadingSlash(const std::string &nm) {
+    // make a copy
+    std::string new_string = nm;
+
+    // if it starts with '/', drop that first character
+    if (!new_string.empty() && new_string.front() == '/') {
+        new_string.erase(new_string.begin());
+    }
+
+    return new_string;
 }
 
 std::string getSNDSNodeScopeNameForSubscription(const std::string& id, const std::string& prefix, int numberOfSNDSServices) {

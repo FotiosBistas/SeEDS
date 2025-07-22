@@ -14,16 +14,16 @@ int main()
     std::cout << "Node for subscription '" << testName << "': " << nodeId << std::endl;
 
     // ---------------------------------------------------
-    // Test getFromGETRequest:
+    // Test get_from_get_request:
     // ---------------------------------------------------
     std::string getRequest = "/tag=value1&another=val2";
-    std::string valueForTag = getFromGETRequest(getRequest, "tag");
+    std::string_view valueForTag = get_from_get_request(getRequest, "tag");
     std::cout << "Value for 'tag': " << valueForTag << std::endl;
 
-    std::string valueForAnother = getFromGETRequest(getRequest, "another");
+    std::string_view valueForAnother = get_from_get_request(getRequest, "another");
     std::cout << "Value for 'another': " << valueForAnother << std::endl;
 
-    std::string missingValue = getFromGETRequest(getRequest, "missing");
+    std::string_view missingValue = get_from_get_request(getRequest, "missing");
     std::cout << "Value for 'missing': " << missingValue << std::endl;
 
     // ---------------------------------------------------
@@ -54,7 +54,7 @@ int main()
     bool isSub = isSubscriptionRequest(subRequest);
     std::cout << "Is subscription request: " << std::boolalpha << isSub << std::endl;
 
-    std::string subURL = getURLfromSubscription(subRequest);
+    std::string_view subURL = getURLfromSubscription(subRequest);
     std::cout << "Subscription URL: " << subURL << std::endl;
 
     // ========================

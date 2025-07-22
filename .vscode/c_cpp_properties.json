@@ -1,0 +1,28 @@
+{
+    "configurations": [
+        {
+            "name": "Linux",
+            "includePath": [
+                "${workspaceFolder}/**",
+                "${workspaceFolder}/build/mongo-cxx-driver-install/include",
+                "${workspaceFolder}/build/mongo-cxx-driver-install/include/bsoncxx/v_noabi",
+                "${workspaceFolder}/build/mongo-cxx-driver-install/include/mongocxx/v_noabi",
+                "${workspaceFolder}/build/_deps/spdlog-src/include",
+                "${workspaceFolder}/build/_deps/nlohmann_json-src/include",
+                "${workspaceFolder}/build/_deps/cpp-httplib-src",
+                "/usr/include",
+                "/usr/include/pcap",
+                "/usr/include/sqlite3",
+                "/usr/include/systemd",
+                "${workspaceFolder}/build/ndn-cxx/install/include",
+                "${workspaceFolder}/src/snds_interest"
+            ],
+            "defines": [],
+            "compilerPath": "/usr/bin/g++",
+            "cStandard": "c17",
+            "cppStandard": "c++20",
+            "intelliSenseMode": "linux-gcc-x64"
+        }
+    ],
+    "version": 4
+}

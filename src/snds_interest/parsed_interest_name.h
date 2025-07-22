@@ -1,14 +1,15 @@
-#ifndef PARSED_INTEREST_H
-#define PARSED_INTEREST_H
+#pragma once
 
 #include <ndn-cxx/name.hpp>
 #include <string>
 #include <vector>
 
+//TODO rename to ParsedInterestName
+
 /**
  * @brief Represents a parsed NDN Interest name with named fields.
  */
-struct ParsedInterest {
+struct ParsedInterestName {
 
     std::string prefix;              ///< Typically the first component (e.g., "/SNDS")
     std::string command;             ///< The command or type (e.g., "CAR" or "SNDS_ID_scope_X")
@@ -42,6 +43,17 @@ struct ParsedInterest {
     }
 };
 
+
+static ParsedInterestName makeMetafileInterest(const std::string& id,
+                                           const std::string& timestamp)
+{
+    ParsedInterestName pi;
+    pi.prefix  = id;
+    pi.command = timestamp;
+    pi.params  = {};
+    return pi;
+}
+
 /**
  * 
  * @brief Parses an ndn::Name into a ParsedInterest structure.
@@ -54,28 +66,16 @@ struct ParsedInterest {
  *     params  = ["car1"]
  *
  * @param name The NDN name to parse.
- * @return ParsedInterest The structure containing the parsed fields.
+ * @return ParsedInterestName The structure containing the parsed fields.
+ * @warning This is not robust and might fail
  */
-inline ParsedInterest parseInterestName(const ndn::Name& name) {
-    ParsedInterest pi;
-    size_t n = name.size();
-    if(n > 0) {
-        pi.prefix = name.get(0).toUri();
-    }
-    if(n > 1) {
-        pi.command = name.get(1).toUri();
-    }
-    for(size_t i = 2; i < n; ++i) {
-        pi.params.push_back(name.get(i).toUri());
-    }
-    return pi;
-}
+ParsedInterestName parseInterestName(const ndn::Name& name);
 
 /**
- * @brief Reconstructs the full NDN name from a ParsedInterest object.
+ * @brief Reconstructs the full NDN name from a ParsedInterestName object.
  *
  * For example:
- *   ParsedInterest with:
+ *   ParsedInterestName with:
  *     prefix  = "/SNDS"
  *     command = "CAR"
  *     params  = ["car1", "123"]
@@ -85,24 +85,10 @@ inline ParsedInterest parseInterestName(const ndn::Name& name) {
  *
  * @return ndn::Name The reconstructed NDN name.
  */
-inline ndn::Name toName(const ParsedInterest& pi) {
-    ndn::Name name;
+ndn::Name toName(const ParsedInterestName& pi);
 
-    // Handle the prefix (supports multi-component prefixes like "/SNDS/service")
-    if (!pi.prefix.empty()) {
-        ndn::Name prefixName(pi.prefix);
-        name.append(prefixName);
-    }
-
-    if (!pi.command.empty()) {
-        name.append(pi.command);
-    }
-
-    for (const auto& param : pi.params) {
-        name.append(param);
-    }
-
-    return name;
-}
-
-#endif 
+/// @brief  This assumes that the parameters already have their tag appended to them.
+/// For example id=car1.
+/// @param pi 
+/// @return 
+std::string toQueryString(const ParsedInterestName& pi);
