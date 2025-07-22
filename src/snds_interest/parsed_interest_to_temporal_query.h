@@ -2,9 +2,9 @@
 
 #include "snds_utils.h"
 #include "temporal_query.h" 
-#include "parsed_interest.h"
+#include "parsed_interest_name.h"
 
-inline TemporalQuery temporal_query_from_interest(const ParsedInterest& pi)
+inline TemporalQuery temporal_query_from_interest(const ParsedInterestName& pi)
 {
     TemporalQuery q;
     // we’ll assume:

@@ -33,20 +33,22 @@ public:
    * @param registryFilePostfix The postfix used for registry file names (default: "_registry").
    * @param ackTag The ack tag for acking data
    */
-   ServiceBase(spdlog::level::level_enum logLevel = spdlog::level::info,
-            std::string logFile = "ServiceBase.log",
-            uint8_t numberOfSndsSrvs = 1,
-            std::string sndsPrefix = "/SNDS",
-            std::string mySndsId = "0",
-            std::string idScopePrefix = "/SNDS_ID_scope_",
-            std::string registryFilePostfix = "_registry",
-            std::string ackTag = "THIS_IS_AN_SNDS_ACK",
-            std::string serviceName = "ServiceBase",
-            std::string broker_ip   = "0.0.0.0",
-            int broker_port = 10000,
-			std::string temporalQueryPrefix = "date%3D",
-            std::string metafilePrefix = "metafile%3Dtrue")
-  : m_face(),
+   ServiceBase
+   (
+        spdlog::level::level_enum logLevel = spdlog::level::info,
+        std::string logFile = "ServiceBase.log",
+        uint8_t numberOfSndsSrvs = 1,
+        std::string sndsPrefix = "/SNDS",
+        std::string mySndsId = "0",
+        std::string idScopePrefix = "/SNDS_ID_scope_",
+        std::string registryFilePostfix = "_registry",
+        std::string ackTag = "THIS_IS_AN_SNDS_ACK",
+        std::string serviceName = "ServiceBase",
+        std::string broker_ip   = "0.0.0.0",
+        int broker_port = 10000,
+		std::string temporalQueryPrefix = "date%3D",
+        std::string metafilePrefix = "metafile%3Dtrue"
+    ):m_face(),
     m_keyChain(),
     m_validator(m_face), // m_validator must be initialized after m_face
     m_logger(nullptr), // Will be initialized below
@@ -63,44 +65,43 @@ public:
     broker_port(broker_port),
 	temporalQueryPrefix(temporalQueryPrefix),
 	metafilePrefix(metafilePrefix)
-  {
+    {
+        // Logger initialization
+        auto console_sink = std::make_shared<spdlog::sinks::stdout_color_sink_mt>();
+        // Updated pattern includes [%n] to print the logger's name (i.e., serviceName)
+        console_sink->set_pattern("[%Y-%m-%d %H:%M:%S.%e] [%l] [%n] %v");
 
-    // Logger initialization
-    auto console_sink = std::make_shared<spdlog::sinks::stdout_color_sink_mt>();
-    // Updated pattern includes [%n] to print the logger's name (i.e., serviceName)
-    console_sink->set_pattern("[%Y-%m-%d %H:%M:%S.%e] [%l] [%n] %v");
+        auto file_sink = std::make_shared<spdlog::sinks::basic_file_sink_mt>(logFile, true);
+        file_sink->set_pattern("[%Y-%m-%d %H:%M:%S.%e] [%l] [%n] %v");
 
-    auto file_sink = std::make_shared<spdlog::sinks::basic_file_sink_mt>(logFile, true);
-    file_sink->set_pattern("[%Y-%m-%d %H:%M:%S.%e] [%l] [%n] %v");
+        std::vector<spdlog::sink_ptr> sinks{ console_sink, file_sink };
+        m_logger = std::make_shared<spdlog::logger>(this->serviceName, sinks.begin(), sinks.end());
+        spdlog::register_logger(m_logger);
+        m_logger->set_level(logLevel);
 
-    std::vector<spdlog::sink_ptr> sinks{ console_sink, file_sink };
-    m_logger = std::make_shared<spdlog::logger>(this->serviceName, sinks.begin(), sinks.end());
-    spdlog::register_logger(m_logger);
-    m_logger->set_level(logLevel);
+        m_logger->info("ServiceBase initialized with serviceName: {}", this->serviceName);
+        // Validator setup
+        try {
+            m_validator.load("./trust-schema.conf");
+        } catch (const std::exception& e) {
+            m_logger->error("Error loading validator configuration: {}", e.what());
+        }
 
-    m_logger->info("ServiceBase initialized with serviceName: {}", this->serviceName);
-    // Validator setup
-    try {
-        m_validator.load("./trust-schema.conf");
-    } catch (const std::exception& e) {
-        m_logger->error("Error loading validator configuration: {}", e.what());
+        m_logger->info("========== {} Configuration ==========", this->serviceName);
+        m_logger->info("Log Level: {}", spdlog::level::to_string_view(logLevel));
+        m_logger->info("Log File: {}", logFile);
+        m_logger->info("Number of SNDS Services: {}", m_numberOfSndsSrvs);
+        m_logger->info("SNDS Prefix: {}", m_sndsPrefix);
+        m_logger->info("My SNDS ID: {}", m_mySndsId);
+        m_logger->info("ID Scope Prefix: {}", m_idScopePrefix);
+        m_logger->info("Registry File Postfix: {}", m_registryFilePostfix);
+        m_logger->info("ACK Tag: {}", m_ackTag);
+        m_logger->info("Service Name: {}", this->serviceName);
+        m_logger->info("Computed m_mySndsIdName: {}", m_mySndsIdName);
+        m_logger->info("Computed m_mySndsIdScopeName: {}", m_mySndsIdScopeName);
+        m_logger->info("Temporal Query Prefix: {}", temporalQueryPrefix);
+        m_logger->info("===============================================");
     }
-
-    m_logger->info("========== {} Configuration ==========", this->serviceName);
-    m_logger->info("Log Level: {}", spdlog::level::to_string_view(logLevel));
-    m_logger->info("Log File: {}", logFile);
-    m_logger->info("Number of SNDS Services: {}", m_numberOfSndsSrvs);
-    m_logger->info("SNDS Prefix: {}", m_sndsPrefix);
-    m_logger->info("My SNDS ID: {}", m_mySndsId);
-    m_logger->info("ID Scope Prefix: {}", m_idScopePrefix);
-    m_logger->info("Registry File Postfix: {}", m_registryFilePostfix);
-    m_logger->info("ACK Tag: {}", m_ackTag);
-    m_logger->info("Service Name: {}", this->serviceName);
-    m_logger->info("Computed m_mySndsIdName: {}", m_mySndsIdName);
-    m_logger->info("Computed m_mySndsIdScopeName: {}", m_mySndsIdScopeName);
-    m_logger->info("Temporal Query Prefix: {}", temporalQueryPrefix);
-    m_logger->info("===============================================");
-  }
 
 virtual ~ServiceBase() {}
 
@@ -211,6 +212,7 @@ protected:
   	std::string serviceName;
   	std::string broker_ip;
   	int broker_port;
+
 	std::string m_ackTag = "THIS_IS_AN_SNDS_ACK\r\n";
   	std::string WARNING_ALREADY_REGISTERED = "WARNING_ALREADY_REGISTERED";
   	static constexpr const char* ERASE_PREFIX="erase=";

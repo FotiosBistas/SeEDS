@@ -4,10 +4,12 @@
 #include <string>
 #include <vector>
 
+//TODO rename to ParsedInterestName
+
 /**
  * @brief Represents a parsed NDN Interest name with named fields.
  */
-struct ParsedInterest {
+struct ParsedInterestName {
 
     std::string prefix;              ///< Typically the first component (e.g., "/SNDS")
     std::string command;             ///< The command or type (e.g., "CAR" or "SNDS_ID_scope_X")
@@ -41,10 +43,11 @@ struct ParsedInterest {
     }
 };
 
-static ParsedInterest makeMetafileInterest(const std::string& id,
+
+static ParsedInterestName makeMetafileInterest(const std::string& id,
                                            const std::string& timestamp)
 {
-    ParsedInterest pi;
+    ParsedInterestName pi;
     pi.prefix  = id;
     pi.command = timestamp;
     pi.params  = {};
@@ -63,16 +66,16 @@ static ParsedInterest makeMetafileInterest(const std::string& id,
  *     params  = ["car1"]
  *
  * @param name The NDN name to parse.
- * @return ParsedInterest The structure containing the parsed fields.
+ * @return ParsedInterestName The structure containing the parsed fields.
  * @warning This is not robust and might fail
  */
-ParsedInterest parseInterestName(const ndn::Name& name);
+ParsedInterestName parseInterestName(const ndn::Name& name);
 
 /**
- * @brief Reconstructs the full NDN name from a ParsedInterest object.
+ * @brief Reconstructs the full NDN name from a ParsedInterestName object.
  *
  * For example:
- *   ParsedInterest with:
+ *   ParsedInterestName with:
  *     prefix  = "/SNDS"
  *     command = "CAR"
  *     params  = ["car1", "123"]
@@ -82,10 +85,10 @@ ParsedInterest parseInterestName(const ndn::Name& name);
  *
  * @return ndn::Name The reconstructed NDN name.
  */
-ndn::Name toName(const ParsedInterest& pi);
+ndn::Name toName(const ParsedInterestName& pi);
 
 /// @brief  This assumes that the parameters already have their tag appended to them.
 /// For example id=car1.
 /// @param pi 
 /// @return 
-std::string toQueryString(const ParsedInterest& pi);
+std::string toQueryString(const ParsedInterestName& pi);

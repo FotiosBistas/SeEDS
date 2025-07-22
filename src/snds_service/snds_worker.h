@@ -64,7 +64,7 @@ private:
   void processByTYPEResponse(const std::string& name);
   void processRegistryFileRequest(const std::string& payload, const std::string& name);
   void processTemporalQueryRequest(const TemporalQuery& temporal_query);
-  void processTemporalQueryResponse(const std::string& parent_query_hash, const std::string& content);
+  void processTemporalQueryResponse(const std::string& parent_query_hash, const std::string& content, bool last_interest);
 
   static constexpr const char* GET_PARAMETER_ID_TAG="id";
   static constexpr const char* GET_PARAMETER_TYPE_TAG="type";
@@ -74,4 +74,5 @@ private:
   static constexpr const char* GET_PARAMETER_TIMEFRAME_TAG="timeframe";
   static constexpr const char* GET_PARAMETER_COUNT_TAG="count";
   static constexpr const char* GET_PARAMETER_PARENT_QUERY_HASH_TAG="parentQueryHash";
+  static constexpr const char* GET_PARAMETER_LAST_METAFILE_INTEREST_TAG="lastInterest";
 };

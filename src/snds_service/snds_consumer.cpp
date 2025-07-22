@@ -71,7 +71,7 @@ void SNDSConsumer::init(){
 void SNDSConsumer::send_metafile_interests(const std::string& body, const TemporalQuery& parent_query){
     nlohmann::json root = nlohmann::json::parse(body);
 
-	std::unordered_set<std::string> seenInterests;
+	std::unordered_set<std::string> seen_interests;
 
     // included in the interest to know which parent 
     // query the child query references
@@ -98,25 +98,26 @@ void SNDSConsumer::send_metafile_interests(const std::string& body, const Tempor
                 auto interestUri = toName(name).toUri();
 
                 // try to insert; if it's new, send it
-                if (seenInterests.emplace(interestUri).second) {
-                    m_logger->info("Built interest: {} sending actual interest: {}", name.toString(), interestUri);
-                    ndn::Name interestName(interestUri);
-                    interestName.appendVersion();
-                    m_logger->info("Created interest name {}", interestName.toUri().c_str());
-                    ndn::Interest interest(interestName);
-                    //interest.setMustBeFresh(true);
-                    interest.setCanBePrefix(true);
-                    interest.setInterestLifetime(ndn::time::milliseconds(6000)); 
-                    m_logger->info("Sending actual Interest {}", interest.toUri().c_str());
-
-                    m_face.expressInterest(interest,
-                                                  std::bind(&SNDSConsumer::onData, this,  _1, _2),
-                                                  std::bind(&SNDSConsumer::onNack, this, _1, _2),
-                                                  std::bind(&SNDSConsumer::onTimeout, this, _1));
-                }
-                else {
+                // for example you might have two dates that are the same
+                if (!seen_interests.emplace(interestUri).second) {
                     m_logger->debug("Skipping duplicate interest: {}", interestUri);
+                    continue;
                 }
+
+                m_logger->info("Built interest: {} sending actual interest: {}", name.toString(), interestUri);
+                ndn::Name interestName(interestUri);
+                interestName.appendVersion();
+                m_logger->info("Created interest name {}", interestName.toUri().c_str());
+                ndn::Interest interest(interestName);
+                //interest.setMustBeFresh(true);
+                interest.setCanBePrefix(true);
+                interest.setInterestLifetime(ndn::time::milliseconds(6000)); 
+                m_logger->info("Sending actual Interest {}", interest.toUri().c_str());
+
+                m_face.expressInterest(interest,
+                                              std::bind(&SNDSConsumer::onData, this,  _1, _2),
+                                              std::bind(&SNDSConsumer::onNack, this, _1, _2),
+                                              std::bind(&SNDSConsumer::onTimeout, this, _1));
             }
         }
     }
@@ -196,7 +197,7 @@ void SNDSConsumer::onData(const ndn::Interest& interest, const ndn::Data& data) 
             m_logger->debug("Filtered payload to:\n{}", payload);
         }
 
-        // equivalent with interest.toUri()
+        // data.getName() equivalent with interest.toUri()
         auto parsed_interest = parseInterestName(data.getName()); 
         auto parent_temporal_query = temporal_query_from_interest(parsed_interest);
         send_metafile_interests(payload, parent_temporal_query);

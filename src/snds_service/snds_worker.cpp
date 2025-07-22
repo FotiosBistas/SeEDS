@@ -1,4 +1,4 @@
-#include "worker.h"
+#include "snds_worker.h"
 
 void Worker::init() {
     m_logger->info("Starting service: {}", serviceName);
@@ -28,6 +28,7 @@ void Worker::init() {
         std::string timeframe          = url_decode(get_from_get_request(content, GET_PARAMETER_TIMEFRAME_TAG));
         std::string filters            = url_decode(get_from_get_request(content, GET_PARAMETER_FIELDS_TAG));
         std::string parent_query_hash  = url_decode(get_from_get_request(content, GET_PARAMETER_PARENT_QUERY_HASH_TAG));
+        std::string last_interest      = url_decode(get_from_get_request(content, GET_PARAMETER_LAST_METAFILE_INTEREST_TAG));
         std::string subUrl             = std::string(getURLfromSubscription(content));
         bool isSub                     = isSubscriptionRequest(content);
 
@@ -41,12 +42,13 @@ void Worker::init() {
             m_logger->warn("Both ID and Type parameters are empty in GET request. Hopefully name is filled...");
             // currently this is a message only sent by the Consumer
             // received here. It is essentially the data we got from the NDN
+            // and the consumer sends it back inside the onData function
             // sends back the ID to remove it from pending IDs if its not a temporal query
             id                 = get_from_get_request(name, GET_PARAMETER_ID_TAG);
             type               = get_from_get_request(name, GET_PARAMETER_TYPE_TAG);
             parent_query_hash  = get_from_get_request(name, GET_PARAMETER_PARENT_QUERY_HASH_TAG);
             date               = get_from_get_request(name, GET_PARAMETER_DATE_TAG);
-            //continue; // Skip processing this message
+            last_interest      = get_from_get_request(name, GET_PARAMETER_LAST_METAFILE_INTEREST_TAG);
         }
 
         m_logger->debug("Extracted ID: {}", id);
@@ -59,6 +61,7 @@ void Worker::init() {
         m_logger->debug("Extracted Count: {}", count);
         m_logger->debug("Filters: {}", filters);
         m_logger->debug("Parent Query Hash: {}", parent_query_hash);
+        m_logger->debug("Last Interest: {}", last_interest);
 
         //TODO we can differentiate messages based on type
         //I don't know why are we doing this
@@ -104,7 +107,7 @@ void Worker::init() {
 
                 if(!date.empty()){
                     m_logger->info("Processing temporal query response...");
-                    processTemporalQueryResponse(parent_query_hash, content);
+                    processTemporalQueryResponse(parent_query_hash, content, false);
                     break;
                 }
 
@@ -162,7 +165,11 @@ void Worker::processTemporalQueryRequest(const TemporalQuery& temporal_query){
     v_to_consumer.get()->writeMessage(std::move(message));
 }
 
-void Worker::processTemporalQueryResponse(const std::string& parent_query_hash, const std::string& content){
+void Worker::processTemporalQueryResponse(
+    const std::string& parent_query_hash, 
+    const std::string& content,
+    bool  last_interest
+){
 
     auto it = pending_temporal_queries.find(parent_query_hash);
     if (it == pending_temporal_queries.end()) {
@@ -184,7 +191,6 @@ void Worker::processTemporalQueryResponse(const std::string& parent_query_hash, 
     //    }
     //  }
     //]
-
     auto pos = content.find_first_of("[{");
     std::string payload = content;
     if (pos != std::string::npos) {

@@ -40,7 +40,7 @@ public:
 
 
     /**
-     * @brief Starts all registered services by calling their init functions in separate threads.
+     * @brief Starts all registered service components by calling their init functions in separate threads.
      *
      * Since service's init (e.g. func_proxy) runs a perpetual loop,
      * this launches each service concurrently.

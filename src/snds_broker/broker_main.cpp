@@ -16,8 +16,7 @@ int main(int argc, char* argv[]){
     std::string password = argv[2];
     std::string database = argv[3];
 
-    std::string uri_str = "mongodb+srv://" + username + ":" + password +
-                          "@cluster0.czndtc9.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0";
+    std::string uri_str = "mongodb+srv://" + username + ":" + password + "@cluster0.czndtc9.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0";
 
     try {
         mongocxx::instance instance{};

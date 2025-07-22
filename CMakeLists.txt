@@ -155,27 +155,6 @@ if(NOT ndn-tools_POPULATED)
   )
 endif()
 
-###################################################################### 
-# Fetch and add nlohmann/json (single-header JSON library)
-###################################################################### 
-include(FetchContent)
-
-FetchContent_Declare(
-  nlohmann_json
-  GIT_REPOSITORY https://github.com/nlohmann/json.git
-  GIT_TAG v3.12.0
-  GIT_SHALLOW TRUE
-)
-
-FetchContent_GetProperties(nlohmann_json)
-if(NOT nlohmann_json_POPULATED)
-  FetchContent_Populate(nlohmann_json)
-  add_subdirectory(
-    ${nlohmann_json_SOURCE_DIR}
-    ${nlohmann_json_BINARY_DIR}
-    EXCLUDE_FROM_ALL
-  )
-endif()
 
 #####################################################################
 # Export environment paths for NFD and ndn-cxx
@@ -248,6 +227,28 @@ file(CHMOD "${NFD_RUNNER_PATH}" PERMISSIONS
 message(STATUS "🛠  Created helper script to run NFD: ${NFD_RUNNER_PATH}")
 message(STATUS "👉  You can run it like this: sudo ./run-nfd.sh")
 
+###################################################################### 
+# Fetch and add nlohmann/json (single-header JSON library)
+###################################################################### 
+include(FetchContent)
+
+FetchContent_Declare(
+  nlohmann_json
+  GIT_REPOSITORY https://github.com/nlohmann/json.git
+  GIT_TAG v3.12.0
+  GIT_SHALLOW TRUE
+)
+
+FetchContent_GetProperties(nlohmann_json)
+if(NOT nlohmann_json_POPULATED)
+  FetchContent_Populate(nlohmann_json)
+  add_subdirectory(
+    ${nlohmann_json_SOURCE_DIR}
+    ${nlohmann_json_BINARY_DIR}
+    EXCLUDE_FROM_ALL
+  )
+endif()
+
 
 #####################################################################
 # Fetch and add spdlog (thread-safe logging library)
@@ -292,7 +293,7 @@ set(SNDS_INTEREST_DIR ${CMAKE_SOURCE_DIR}/src/snds_interest)
 #####################################################################
 
 set(SNDS_INTEREST_SOURCES
-  ${SNDS_INTEREST_DIR}/parsed_interest.cpp
+  ${SNDS_INTEREST_DIR}/parsed_interest_name.cpp
 )
 
 add_library(snds_interest STATIC ${SNDS_INTEREST_SOURCES})
@@ -445,8 +446,8 @@ target_link_libraries(message_queue
 #####################################################################
 set(SNDS_SERVICE_SOURCES
     ${SNDS_SERVICE_DIR}/snds_service_base.cpp
-    ${SNDS_SERVICE_DIR}/snds_http_service.cpp
-    ${SNDS_SERVICE_DIR}/worker.cpp
+    ${SNDS_SERVICE_DIR}/snds_http_server.cpp
+    ${SNDS_SERVICE_DIR}/snds_worker.cpp
     ${SNDS_SERVICE_DIR}/snds_producer.cpp
     ${SNDS_SERVICE_DIR}/snds_consumer.cpp
     ${SNDS_SERVICE_DIR}/snds_digital_twin.cpp

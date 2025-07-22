@@ -1,74 +1,74 @@
 #include "snds_producer.h"
 
 void SNDSProducer::init(){
-  m_logger->info("Starting service: {}", this->serviceName);
-  if (serviceName.empty()) {
-      m_logger->warn("Warning: serviceName is EMPTY! Check constructor initialization.");
-  }
-  m_logger->info("Thread started.");
+    m_logger->info("Starting service: {}", this->serviceName);
+    if (serviceName.empty()) {
+        m_logger->warn("Warning: serviceName is EMPTY! Check constructor initialization.");
+    }
+    m_logger->info("Thread started.");
 
-  // Set up your initial interest filters
-  std::string tmp_name = m_mySndsIdName;
-  //[2025-03-04 08:35:24.437] [info] Announcing ID name: /SNDS_0
-  m_logger->info("Announcing ID name: {}", tmp_name);
-  m_face.setInterestFilter(tmp_name,
-          std::bind(&SNDSProducer::onInterest, this, std::placeholders::_2),
-          std::bind(&SNDSProducer::onRegisterSuccess, this, std::placeholders::_1),
-          std::bind(&SNDSProducer::onRegisterFailed, this, std::placeholders::_1, std::placeholders::_2));
+    // Set up your initial interest filters
+    std::string tmp_name = m_mySndsIdName;
+    //[2025-03-04 08:35:24.437] [info] Announcing ID name: /SNDS_0
+    m_logger->info("Announcing ID name: {}", tmp_name);
+    m_face.setInterestFilter(tmp_name,
+            std::bind(&SNDSProducer::onInterest, this, std::placeholders::_2),
+            std::bind(&SNDSProducer::onRegisterSuccess, this, std::placeholders::_1),
+            std::bind(&SNDSProducer::onRegisterFailed, this, std::placeholders::_1, std::placeholders::_2));
 
-  tmp_name = m_mySndsIdScopeName;
-  // [2025-03-04 08:29:36.980] [info] Announcing name: /SNDS/SNDS_ID_scope_0
-  m_logger->info("Announcing ID Scope name: {}", tmp_name);
-  m_face.setInterestFilter(tmp_name,
-          std::bind(&SNDSProducer::onInterest, this, std::placeholders::_2),
-          std::bind(&SNDSProducer::onRegisterSuccess, this, std::placeholders::_1),
-          std::bind(&SNDSProducer::onRegisterFailed, this, std::placeholders::_1, std::placeholders::_2));
+    tmp_name = m_mySndsIdScopeName;
+    // [2025-03-04 08:29:36.980] [info] Announcing name: /SNDS/SNDS_ID_scope_0
+    m_logger->info("Announcing ID Scope name: {}", tmp_name);
+    m_face.setInterestFilter(tmp_name,
+            std::bind(&SNDSProducer::onInterest, this, std::placeholders::_2),
+            std::bind(&SNDSProducer::onRegisterSuccess, this, std::placeholders::_1),
+            std::bind(&SNDSProducer::onRegisterFailed, this, std::placeholders::_1, std::placeholders::_2));
 
-  // Advertise for each type in your registry map
-  // [2025-03-04 08:29:36.980] [info] Announcing name: /SNDS/CAR
-  // [2025-03-04 08:29:36.980] [info] Announcing name: /SNDS/CAR_registry
-  for (const auto &myPair : myTypesRegistryMap) {
-      tmp_name = m_sndsPrefix + myPair.first;
-      m_logger->info("Announcing name: {}", tmp_name);
-      m_face.setInterestFilter(tmp_name,
-          std::bind(&SNDSProducer::onInterest, this, std::placeholders::_2),
-          std::bind(&SNDSProducer::onRegisterSuccess, this, std::placeholders::_1),
-          std::bind(&SNDSProducer::onRegisterFailed, this, std::placeholders::_1, std::placeholders::_2));
+    // Advertise for each type in your registry map
+    // [2025-03-04 08:29:36.980] [info] Announcing name: /SNDS/CAR
+    // [2025-03-04 08:29:36.980] [info] Announcing name: /SNDS/CAR_registry
+    for (const auto &myPair : myTypesRegistryMap) {
+        tmp_name = m_sndsPrefix + myPair.first;
+        m_logger->info("Announcing name: {}", tmp_name);
+        m_face.setInterestFilter(tmp_name,
+            std::bind(&SNDSProducer::onInterest, this, std::placeholders::_2),
+            std::bind(&SNDSProducer::onRegisterSuccess, this, std::placeholders::_1),
+            std::bind(&SNDSProducer::onRegisterFailed, this, std::placeholders::_1, std::placeholders::_2));
 
-      // For the registry file
-      tmp_name += m_registryFilePostfix;
-      m_logger->info("Announcing name: {}", tmp_name);
-      m_face.setInterestFilter(tmp_name,
-          std::bind(&SNDSProducer::onInterest, this, std::placeholders::_2),
-          std::bind(&SNDSProducer::onRegisterSuccess, this, std::placeholders::_1),
-          std::bind(&SNDSProducer::onRegisterFailed, this, std::placeholders::_1, std::placeholders::_2));
-  }
+        // For the registry file
+        tmp_name += m_registryFilePostfix;
+        m_logger->info("Announcing name: {}", tmp_name);
+        m_face.setInterestFilter(tmp_name,
+            std::bind(&SNDSProducer::onInterest, this, std::placeholders::_2),
+            std::bind(&SNDSProducer::onRegisterSuccess, this, std::placeholders::_1),
+            std::bind(&SNDSProducer::onRegisterFailed, this, std::placeholders::_1, std::placeholders::_2));
+    }
 
-  // Optionally register a certificate filter (if needed)
-  ndn::security::Certificate cert;
-  try {
-    cert = m_keyChain.getPib().getDefaultIdentity().getDefaultKey().getDefaultCertificate();
-    m_certServeHandle = m_face.setInterestFilter(
-      ndn::security::extractIdentityFromCertName(cert.getName()),
-      [this, cert] (auto&&...) {
-        m_face.put(cert);
-      },
-    std::bind(&SNDSProducer::onRegisterFailed, this, _1, _2));
-  } catch (const ndn::security::pib::Pib::Error &e) {
-      m_logger->error("No default identity found: {}", e.what());
-      ndn::Name identityName("Producer");
-      // create in PIB, which also installs a key and certificate
-      auto identity = m_keyChain.createIdentity(identityName);
-      // mark it as the default
-      m_keyChain.setDefaultIdentity(identity);
-      m_logger->info("Created and set default identity: {}", identityName.toUri());
-  }
+    // Optionally register a certificate filter (if needed)
+    ndn::security::Certificate cert;
+    try {
+      cert = m_keyChain.getPib().getDefaultIdentity().getDefaultKey().getDefaultCertificate();
+      m_certServeHandle = m_face.setInterestFilter(
+        ndn::security::extractIdentityFromCertName(cert.getName()),
+        [this, cert] (auto&&...) {
+          m_face.put(cert);
+        },
+      std::bind(&SNDSProducer::onRegisterFailed, this, _1, _2));
+    } catch (const ndn::security::pib::Pib::Error &e) {
+        m_logger->error("No default identity found: {}", e.what());
+        ndn::Name identityName("Producer");
+        // create in PIB, which also installs a key and certificate
+        auto identity = m_keyChain.createIdentity(identityName);
+        // mark it as the default
+        m_keyChain.setDefaultIdentity(identity);
+        m_logger->info("Created and set default identity: {}", identityName.toUri());
+    }
 
-  // Process events in a blocking mode once (if needed)
-  m_face.processEvents(ndn::time::milliseconds(-1));
+    // Process events in a blocking mode once (if needed)
+    m_face.processEvents(ndn::time::milliseconds(-1));
 
-  // Run the loop until 'running' is false.
-  while (running.load()) {
+    // Run the loop until 'running' is false.
+    while (running.load()) {
         // m_logger->debug("Reading packet...");
         // Process events non-blockingly (or with a timeout)
         m_face.processEvents(ndn::time::seconds(2)); // Process for 1 second
@@ -85,7 +85,7 @@ void SNDSProducer::init(){
         std::unique_ptr<SNDS_INTRA_MESSAGE> message = v_to_producer->tryReadMessage();
 
         if (message == nullptr) {
-          continue;
+            continue;
         }
 
         auto content = message.get()->getMessage();
@@ -122,7 +122,7 @@ void SNDSProducer::init(){
         //TODO should sign these data.
         httplib::Client cli(broker_ip.c_str(), broker_port);
         std::string endpoint = fmt::format(
-    		"/get?id={}",
+      		"/get?id={}",
             url_encode(removeLeadingSlash(content))
         );
 
@@ -143,16 +143,16 @@ void SNDSProducer::init(){
             std::bind(&SNDSProducer::onInterest, this, std::placeholders::_2),
             std::bind(&SNDSProducer::onRegisterSuccess, this, std::placeholders::_1),
             std::bind(&SNDSProducer::onRegisterFailed, this, std::placeholders::_1, std::placeholders::_2));
-  }
+    }
 
-  m_logger->info("Producer thread exiting.");
+    m_logger->info("Producer thread exiting.");
 }
 
 void SNDSProducer::onInterest(const ndn::Interest& interest) {
     ndn::Name name = interest.getName();
     m_logger->info("Received interest in function: {0}, name: {1}", __FUNCTION__, name.toUri());
 
-    ParsedInterest pi = parseInterestName(name);
+    ParsedInterestName pi = parseInterestName(name);
 
     m_logger->info("Parsed interest: {}", pi.toString());
 
@@ -210,7 +210,7 @@ void SNDSProducer::onInterest(const ndn::Interest& interest) {
     //m_logger->warn("Interest left unprocessed. No matching handler found.");
 }
 
-void SNDSProducer::handleTemporalQuery(ParsedInterest& interest){
+void SNDSProducer::handleTemporalQuery(ParsedInterestName& interest){
 
     std::string date = url_decode(interest.params[0]);
     std::string id = interest.command;
@@ -250,7 +250,6 @@ void SNDSProducer::handleTemporalQuery(ParsedInterest& interest){
     auto res = cli.Get(endpoint.c_str());
     if (res && res->status == 200) {
         m_logger->info("Successfully queried /temporal-query");
-        //TODO SIGNING 
         sendData(toName(interest), nlohmann::json::parse(res->body).dump(2));
     } else {
         m_logger->error("Failed to query /temporal-query: {}", res ? res->body : "No response");
@@ -258,7 +257,7 @@ void SNDSProducer::handleTemporalQuery(ParsedInterest& interest){
 }
 
 
-void SNDSProducer::processTypeAdvertisement(ParsedInterest& interest) {
+void SNDSProducer::processTypeAdvertisement(ParsedInterestName& interest) {
 
   	m_logger->info("Processing Type Advertisement");
   	// Attempt to get the advertised ID from the parsed parameters.
@@ -297,28 +296,28 @@ void SNDSProducer::processTypeAdvertisement(ParsedInterest& interest) {
   	sendData(toName(interest), m_ackTag);
 }
 
-void SNDSProducer::processSubscription(ParsedInterest& interest) {
+void SNDSProducer::processSubscription(ParsedInterestName& interest) {
 
 
-  // TODO this needs to be modified
-  std::string prepared_name    = interest.getParam(0).value_or("Missing parameter");
-  std::string prepared_snds_id = interest.getParam(1).value_or("Missing parameter");
-  m_logger->info("Got interest indicating new SUBSCRIPTION getByid for {0} from SNDS_NODE {1}", prepared_name, prepared_snds_id);
-  ensureLeadingSlash(prepared_name);
-  ensureLeadingSlash(prepared_snds_id);
+    // TODO this needs to be modified
+    std::string prepared_name    = interest.getParam(0).value_or("Missing parameter");
+    std::string prepared_snds_id = interest.getParam(1).value_or("Missing parameter");
+    m_logger->info("Got interest indicating new SUBSCRIPTION getByid for {0} from SNDS_NODE {1}", prepared_name, prepared_snds_id);
+    ensureLeadingSlash(prepared_name);
+    ensureLeadingSlash(prepared_snds_id);
 
-  auto& subscribers = subscribedBYID_SNDSnodes[prepared_name];
+    auto& subscribers = subscribedBYID_SNDSnodes[prepared_name];
 
-  // Try to insert the ID into the set
-  auto [_, inserted] = subscribers.insert(prepared_snds_id);
+    // Try to insert the ID into the set
+    auto [_, inserted] = subscribers.insert(prepared_snds_id);
 
-  if (inserted) {
-      m_logger->info("New subscription: {} subscribed to {}", prepared_snds_id, prepared_name);
-      sendData(toName(interest), m_ackTag + " to_new_subscription");
-  }
+    if (inserted) {
+        m_logger->info("New subscription: {} subscribed to {}", prepared_snds_id, prepared_name);
+        sendData(toName(interest), m_ackTag + " to_new_subscription");
+    }
 }
 
-void SNDSProducer::processRegistryRequest(ParsedInterest& interest) {
+void SNDSProducer::processRegistryRequest(ParsedInterestName& interest) {
 
   	std::string name = interest.command;
   	// Parse the incoming Interest name.
@@ -345,7 +344,7 @@ void SNDSProducer::processRegistryRequest(ParsedInterest& interest) {
   	sendData(toName(interest), payload);
 }
 
-void SNDSProducer::processNotification(ParsedInterest& interest){
+void SNDSProducer::processNotification(ParsedInterestName& interest){
 
     std::string prepared_name = interest.getParam(0).value_or("Missing parameter");
     ensureLeadingSlash(prepared_name);
@@ -378,7 +377,7 @@ void SNDSProducer::processNotification(ParsedInterest& interest){
     sendData(toName(interest), m_ackTag + " notification_for_new_subscription");
 }
 
-void SNDSProducer::processLocalIdRequest(ParsedInterest& interest) {
+void SNDSProducer::processLocalIdRequest(ParsedInterestName& interest) {
     std::string local_id = interest.command;
     // Parse the incoming Interest name.
     m_logger->info("ID request received: id = {}", local_id);

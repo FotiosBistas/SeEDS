@@ -1,7 +1,7 @@
-#include "parsed_interest.h"
+#include "parsed_interest_name.h"
 
-ParsedInterest parseInterestName(const ndn::Name& name) {
-    ParsedInterest pi;
+ParsedInterestName parseInterestName(const ndn::Name& name) {
+    ParsedInterestName pi;
     size_t n = name.size();
     if(n > 0) {
         pi.prefix = name.get(0).toUri();
@@ -16,7 +16,7 @@ ParsedInterest parseInterestName(const ndn::Name& name) {
     return pi;
 }
 
-ndn::Name toName(const ParsedInterest& pi) {
+ndn::Name toName(const ParsedInterestName& pi) {
     ndn::Name name;
 
     // Handle the prefix (supports multi-component prefixes like "/SNDS/service")
@@ -36,7 +36,7 @@ ndn::Name toName(const ParsedInterest& pi) {
     return name;
 }
 
-std::string toQueryString(const ParsedInterest& pi) {
+std::string toQueryString(const ParsedInterestName& pi) {
     std::ostringstream oss;
     oss << "/?";
 

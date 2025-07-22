@@ -1,8 +1,8 @@
 #include "snds_consumer.h"
-#include "snds_http_service.h"
+#include "snds_http_server.h"
 #include "snds_producer.h"
 #include "snds_digital_twin.h"
-#include "worker.h"
+#include "snds_worker.h"
 #include "snds_daemon.h"
 #include <csignal>
 #include <atomic>
