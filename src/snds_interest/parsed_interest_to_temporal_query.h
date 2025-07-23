@@ -4,15 +4,15 @@
 #include "temporal_query.h" 
 #include "parsed_interest_name.h"
 
-inline TemporalQuery temporal_query_from_interest(const ParsedInterestName& pi)
+inline TemporalQuery temporal_query_from_interest(const parsed_interest_name::ParsedInterestName& pi)
 {
     TemporalQuery q;
     // we’ll assume:
     //   pi.prefix  holds the “type” (or service) component
-    //   pi.command holds the “id”
+    //   pi.name holds the “id”
     // adjust as your naming scheme requires
     // q.type = pi.prefix;
-    q.id   = pi.command;
+    q.id   = pi.name;
 
     for (auto const& raw_param: pi.params) {
         // decode any %-escapes
