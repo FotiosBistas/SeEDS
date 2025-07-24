@@ -55,37 +55,37 @@ public:
         logger->info("SNDSDaemon: All services have been started.");
     }
 
-    void broadcastDummyData(){
+    //void broadcastDummyData(){
 
-        auto data1 = std::make_unique<SNDS_INTRA_MESSAGE>(
-            "/Car1",
-            SNDS_INTRA_MESSAGE_TYPE::BY_ID_RESPONSE,
-            SNDS_CLIENT_TYPES::CONSUMER,
-            "Car"
-        ); 
-        ServiceBase::v_to_consumer->writeMessage(std::move(data1));
-        auto data2 = std::make_unique<SNDS_INTRA_MESSAGE>(
-            "/Car1",
-            SNDS_INTRA_MESSAGE_TYPE::BY_ID_RESPONSE,
-            SNDS_CLIENT_TYPES::PRODUCER,
-            "Car"
-        ); 
-        ServiceBase::v_to_producer->writeMessage(std::move(data2));
-        auto data3 = std::make_unique<SNDS_INTRA_MESSAGE>(
-            "/Car1/id=hey",
-            SNDS_INTRA_MESSAGE_TYPE::BY_ID_RESPONSE,
-            SNDS_CLIENT_TYPES::DIGITAL_TWIN,
-            "Car"
-        ); 
-        ServiceBase::v_to_dt->writeMessage(std::move(data3));
-        auto data4 = std::make_unique<SNDS_INTRA_MESSAGE>(
-            "/Car1/type=car",
-            SNDS_INTRA_MESSAGE_TYPE::BY_ID_RESPONSE,
-            SNDS_CLIENT_TYPES::DIGITAL_TWIN,
-            "Car"
-        ); 
-        ServiceBase::v_to_dt->writeMessage(std::move(data4));
-    }
+    //    auto data1 = std::make_unique<SNDS_INTRA_MESSAGE>(
+    //        "/Car1",
+    //        SNDS_INTRA_MESSAGE_TYPE::BY_ID_RESPONSE,
+    //        SNDS_CLIENT_TYPES::CONSUMER,
+    //        "Car"
+    //    ); 
+    //    ServiceBase::v_to_consumer->writeMessage(std::move(data1));
+    //    auto data2 = std::make_unique<SNDS_INTRA_MESSAGE>(
+    //        "/Car1",
+    //        SNDS_INTRA_MESSAGE_TYPE::BY_ID_RESPONSE,
+    //        SNDS_CLIENT_TYPES::PRODUCER,
+    //        "Car"
+    //    ); 
+    //    ServiceBase::v_to_producer->writeMessage(std::move(data2));
+    //    auto data3 = std::make_unique<SNDS_INTRA_MESSAGE>(
+    //        "/Car1/id=hey",
+    //        SNDS_INTRA_MESSAGE_TYPE::BY_ID_RESPONSE,
+    //        SNDS_CLIENT_TYPES::DIGITAL_TWIN,
+    //        "Car"
+    //    ); 
+    //    ServiceBase::v_to_dt->writeMessage(std::move(data3));
+    //    auto data4 = std::make_unique<SNDS_INTRA_MESSAGE>(
+    //        "/Car1/type=car",
+    //        SNDS_INTRA_MESSAGE_TYPE::BY_ID_RESPONSE,
+    //        SNDS_CLIENT_TYPES::DIGITAL_TWIN,
+    //        "Car"
+    //    ); 
+    //    ServiceBase::v_to_dt->writeMessage(std::move(data4));
+    //}
 
     /**
      * @brief Stops the daemon by joining all service threads.

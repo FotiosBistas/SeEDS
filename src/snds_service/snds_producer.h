@@ -13,23 +13,23 @@ public:
 	(
 		spdlog::level::level_enum logLevel = spdlog::level::info,
         std::string logFile = "Producer.log",
-        uint8_t numberOfSndsSrvs = 1,
-        std::string sndsPrefix = "/SNDS",
-        std::string mySndsId = "0",
-        std::string idScopePrefix = "/SNDS_ID_scope_",
+        size_t number_of_snds_services = 1,
+        std::string snds_prefix        = "SNDS",
+        std::string snds_id            = "0",
+        std::string id_scope_prefix    = "SNDS_ID_scope_",
         std::string registryFilePostfix = "_registry",
         std::string serviceName = "Producer",
         std::string broker_ip = "0.0.0.0",
-        int         broker_port = 10000,
-		std::string registryType = "/CAR"
+        size_t      broker_port = 10000,
+		std::string registryType = "CAR"
 	):ServiceBase
 	(
 		logLevel,
         logFile,
-        numberOfSndsSrvs,
-        sndsPrefix,
-        mySndsId,
-        idScopePrefix,
+        number_of_snds_services,
+        snds_prefix,
+        snds_id,
+        id_scope_prefix,
         registryFilePostfix,
         "THIS_IS_AN_SNDS_ACK\n",
         serviceName,
@@ -39,13 +39,13 @@ public:
   	{
   	    m_logger->info("SNDSProducer initialized with serviceName: {}", this->serviceName);
 		m_logger->info("SNDSProducer will connect to Broker with IP: {0} and port: {1}", broker_ip, broker_port);
-  	    myTypesRegistryMap[registryType] = std::unordered_set<std::string>{};
+  	    type_registry[registryType] = std::unordered_set<std::string>{};
   	}
 
 	void init();
 
 	void onInterest(const ndn::Interest& interest);
-	void processRegistryRequest(ParsedInterestName& interest);
+	void processRegistryRequest(const parsed_interest_name::ParsedInterestName& interest);
 	/**
 	 * @brief Processes an Interest that advertises a new content type.
 	 *
@@ -79,22 +79,14 @@ public:
 	 *
 	 * @param interest The Parsed Interest packet.
 	 */
-	void processSubscription(ParsedInterestName& interest);
-	void processNotification(ParsedInterestName& interest);
-	void processLocalIdRequest(ParsedInterestName& interest);
-	void processTypeAdvertisement(ParsedInterestName& interest);
-	void handleTemporalQuery(ParsedInterestName& interest);
+	void processSubscription(const parsed_interest_name::ParsedInterestName& interest);
+	void processNotification(const parsed_interest_name::ParsedInterestName& interest);
+	void processByIDInterest(const parsed_interest_name::ParsedInterestName& interest);
+	void processTypeAdvertisement(const parsed_interest_name::ParsedInterestName& interest);
+	void handleTemporalQuery(parsed_interest_name::ParsedInterestName& interest);
 	void parseTemporalQuery(const std::string& body);
 
-	void advertise() {
-	  	m_logger->info("Advertising SNDSProducer with ID: {}", m_mySndsIdName);
-	  	// Use inherited members such as m_face, m_mySndsIdName, etc.
-	}
-
 private:
-    std::string broker_ip;
-
-	std::unordered_map<std::string, std::unordered_set<std::string>> myTypesRegistryMap; //maps Type names to vectors of IDs
-	std::unordered_map<std::string, std::unordered_set<std::string>> subscribedBYID_SNDSnodes; //maps Type names to vectors of IDs
-	std::unordered_map<std::string, std::string> locallyAnnouncedIDsMap; //stores the IDs of locally advertised items and their data
+	std::unordered_map<std::string, std::unordered_set<std::string>> type_registry; //maps Type names to vectors of IDs
+	std::unordered_map<std::string, std::unordered_set<std::string>> subscribed_nodes_for_id; //maps ID to subscribed nodes
 };

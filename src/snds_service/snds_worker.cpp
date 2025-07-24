@@ -7,11 +7,13 @@ void Worker::init() {
     }
     m_logger->info("Thread started.");
 
-    while (running.load()) {
+    while (running.load()) 
+    {
         m_logger->info("Reading packet...");
 
         auto message = v_to_worker.get()->readMessage();
-        if (!message) {
+        if (!message) 
+        {
             m_logger->debug("Queue shutdown detected, exiting loop.");
             break;
         }
@@ -21,24 +23,28 @@ void Worker::init() {
         m_logger->info("Received content: {}", content);
         std::string name               = message->getName();
         m_logger->info("Received name: {}", name);
-        std::string id                 = std::string(get_from_get_request(content, GET_PARAMETER_ID_TAG));
-        std::string type               = std::string(get_from_get_request(content, GET_PARAMETER_TYPE_TAG));
-        std::string count              = std::string(get_from_get_request(content, GET_PARAMETER_COUNT_TAG));
+        std::string_view id                 = get_from_get_request(content, GET_PARAMETER_ID_TAG);
+        std::string_view type               = get_from_get_request(content, GET_PARAMETER_TYPE_TAG);
+        std::string_view count              = get_from_get_request(content, GET_PARAMETER_COUNT_TAG);
         std::string date               = url_decode(get_from_get_request(content, GET_PARAMETER_DATE_TAG));
         std::string timeframe          = url_decode(get_from_get_request(content, GET_PARAMETER_TIMEFRAME_TAG));
         std::string filters            = url_decode(get_from_get_request(content, GET_PARAMETER_FIELDS_TAG));
         std::string parent_query_hash  = url_decode(get_from_get_request(content, GET_PARAMETER_PARENT_QUERY_HASH_TAG));
         std::string last_interest      = url_decode(get_from_get_request(content, GET_PARAMETER_LAST_METAFILE_INTEREST_TAG));
-        std::string subUrl             = std::string(getURLfromSubscription(content));
-        bool isSub                     = isSubscriptionRequest(content);
+
+        std::string_view subscription_url = get_url_of_subscription(content, GET_PARAMETER_SUB_URL_TAG);
+        bool is_subscription              = is_subscription_request(content, GET_PARAMETER_IS_SUB_TAG);
 
         // If subscription flag is set but no subUrl provided, log a warning and treat as a regular request.
-        if (isSub && subUrl.empty()) {
+        if (is_subscription && subscription_url.empty()) 
+        {
             m_logger->warn("Subscription request with empty URL, treating as regular request.");
-            isSub = false;
+            is_subscription = false;
         }
 
-        if (id.empty() && type.empty()) {
+        //TODO this is not needed at all
+        if (id.empty() && type.empty()) 
+        {
             m_logger->warn("Both ID and Type parameters are empty in GET request. Hopefully name is filled...");
             // currently this is a message only sent by the Consumer
             // received here. It is essentially the data we got from the NDN
@@ -53,8 +59,8 @@ void Worker::init() {
 
         m_logger->debug("Extracted ID: {}", id);
         m_logger->debug("Extracted TYPE: {}", type);
-        m_logger->debug("Extracted subURL: {}", subUrl);
-        m_logger->debug("Extracted isSub: {}", isSub);
+        m_logger->debug("Extracted subURL: {}", subscription_url);
+        m_logger->debug("Extracted isSub: {}", is_subscription);
         m_logger->debug("Temporal query related data");
         m_logger->debug("Extracted Date: {}", date);
         m_logger->debug("Extracted Timeframe: {}", timeframe);
@@ -67,63 +73,76 @@ void Worker::init() {
         //I don't know why are we doing this
         // Process according to sender type.
         switch (message->getSender()) {
-            case SNDS_CLIENT_TYPES::HTTP_SRV: {
+            case snds_intra_message::SNDS_CLIENT_TYPES::HTTP_SRV: 
+            {
                 m_logger->info("Received HTTP SERVER message.");
                 // Give priority to temporal queries
-                if(!timeframe.empty()){
+                if(!timeframe.empty())
+                {
                     m_logger->info("Processing temporal query request...");
                     TemporalQuery query = 
                     {
                         string_to_timeframe(timeframe), 
                         date,
-                        id,
-                        type,
-                        count,
+                        std::string(id),
+                        std::string(type),
+                        std::string(count),
                     };
                     query.filters = parse_filters(url_decode(filters));
                     processTemporalQueryRequest(query);
                     break;
                 }
                 // Handle subscription requests.
-                if (isSub && !id.empty()) {
+                if (is_subscription && !id.empty()) 
+                {
                     m_logger->info("Processing subscription request...");
-                    processSubscriptionRequest(id.data(), subUrl.data());
+                    processSubscriptionRequest(std::string(id), std::string(subscription_url.data()));
+                    break;
                 }
+                //TODO I don't remember why I don't return 
                 // Next, handle regular getByID requests.
-                if (!id.empty()) {
+                if (!id.empty()) 
+                {
                     m_logger->info("Processing ID request...");
-                    processByIDRequest(id.data());
+                    processNewGetID(std::string(id));
+                    break;
                 }
                 // Otherwise, handle getByType requests.
-                if (!type.empty()) {
+                if (!type.empty()) 
+                {
                     m_logger->info("Processing TYPE request...");
                     processByTYPERequest(type.data());
+                    break;
                 }
                 break;
             }
-            case SNDS_CLIENT_TYPES::CONSUMER:
+            case snds_intra_message::SNDS_CLIENT_TYPES::CONSUMER:
                 //Note here that all the responses have to do with the name
                 m_logger->info("Received consumer message.");
 
-                if(!date.empty()){
+                if(!date.empty())
+                {
                     m_logger->info("Processing temporal query response...");
                     processTemporalQueryResponse(parent_query_hash, content, false);
                     break;
                 }
 
                 // First, handle registry file responses.
-                if (name.find(m_registryFilePostfix) != std::string::npos) {
+                if (name.find(m_registryFilePostfix) != std::string::npos) 
+                {
                     m_logger->info("Processing registry file response...");
-                    processRegistryFileRequest(content, name);
+                    processRegistryFile(content, name);
                 }
                 // A request can be both byID and byTYPE
                 // Next, handle getById responses.
-                if (!id.empty()) {
+                if (!id.empty()) 
+                {
                     m_logger->info("Processing getByIDConsumer request...");
-                    processByIDRequest(name, true);
+                    processProcessedGetID(name, content);
                 }
                 // Otherwise, handle getByType responses.
-                if (!type.empty()) {
+                if (!type.empty()) 
+                {
                     m_logger->info("Processing getByTYPEConsumer response...");
                     processByTYPERequest(name, true);
                 }
@@ -138,7 +157,8 @@ void Worker::init() {
 }
 
 
-void Worker::processTemporalQueryRequest(const TemporalQuery& temporal_query){
+void Worker::processTemporalQueryRequest(const TemporalQuery& temporal_query)
+{
 
     auto query_hash = temporal_query_hash_string(temporal_query);
     auto [_, inserted] = pending_temporal_queries.emplace(query_hash, temporal_query);
@@ -154,25 +174,28 @@ void Worker::processTemporalQueryRequest(const TemporalQuery& temporal_query){
     ensureLeadingSlash(id);
     m_logger->info("Pushing TemporalQuery {} for ID: {}", serialize_temporal_query(temporal_query), id);
 
-    auto message = std::make_unique<SNDS_INTRA_MESSAGE>
+    auto message = std::make_unique<snds_intra_message::SNDS_INTRA_MESSAGE>
     (
         std::move(serialize_temporal_query(temporal_query)),
-        SNDS_INTRA_MESSAGE_TYPE::TEMPORAL_QUERY_REQUEST,
-        SNDS_CLIENT_TYPES::SERVICE,
+        snds_intra_message::SNDS_INTRA_MESSAGE_TYPE::TEMPORAL_QUERY_REQUEST,
+        snds_intra_message::SNDS_CLIENT_TYPES::SERVICE,
         ""
     );
 
     v_to_consumer.get()->writeMessage(std::move(message));
 }
 
-void Worker::processTemporalQueryResponse(
+void Worker::processTemporalQueryResponse
+(
     const std::string& parent_query_hash, 
     const std::string& content,
     bool  last_interest
-){
+)
+{
 
     auto it = pending_temporal_queries.find(parent_query_hash);
-    if (it == pending_temporal_queries.end()) {
+    if (it == pending_temporal_queries.end()) 
+    {
         m_logger->error("No pending query for hash {}", parent_query_hash);
         return;
     }
@@ -193,27 +216,32 @@ void Worker::processTemporalQueryResponse(
     //]
     auto pos = content.find_first_of("[{");
     std::string payload = content;
-    if (pos != std::string::npos) {
+    if (pos != std::string::npos) 
+    {
         payload = content.substr(pos);
         m_logger->debug("Removed extra characters from payload:\n{}", payload);
     }
 
     m_logger->info("Found stored temporal query: {}", serialize_temporal_query(parent_query));
 
-    if(!parent_query.filters.empty()){
+    if(!parent_query.filters.empty())
+    {
         m_logger->info("Applying filters to the data received");
 
         nlohmann::json document = nlohmann::json::parse(payload);
 
         std::unordered_set<std::string> keep;
-        for (auto const& f : parent_query.filters) {
+        for (auto const& f : parent_query.filters) 
+        {
             m_logger->debug("Adding filter: {} with value: {} to keep set", f.key, f.value);
             keep.insert(f.key);
         }
 
         nlohmann::json filtered = nlohmann::json::object();
-        for (auto const& key : keep) {
-            if (document.contains(key)) {
+        for (auto const& key : keep) 
+        {
+            if (document.contains(key)) 
+            {
                 filtered[key] = document[key];
             }
         }
@@ -223,118 +251,153 @@ void Worker::processTemporalQueryResponse(
 
     m_logger->debug("Sending data to HTTP server: {}", payload);
 
-    auto message = std::make_unique<SNDS_INTRA_MESSAGE>
+    auto message = std::make_unique<snds_intra_message::SNDS_INTRA_MESSAGE>
     (
         std::move(payload + "\n"),
-        SNDS_INTRA_MESSAGE_TYPE::TEMPORAL_QUERY_RESPONSE,
-        SNDS_CLIENT_TYPES::WORKER,
+        snds_intra_message::SNDS_INTRA_MESSAGE_TYPE::TEMPORAL_QUERY_RESPONSE,
+        snds_intra_message::SNDS_CLIENT_TYPES::WORKER,
         ""
     );
 
     v_to_service->writeMessage(std::move(message));
 }
 
-void Worker::processSubscriptionRequest(const std::string& id, const std::string& subURL) {
+void Worker::processSubscriptionRequest(const std::string& id, const std::string& subURL)
+{
     // Retrieve the subscription set for this ID.
     // If 'id' is new, operator[] creates an empty set.
-    auto& subs = subscribedBYID_users[id];
+    auto& subscriptions = subscribed_by_id_users[id];
 
-    // Record whether this is the first subscription for the ID.
-    bool wasEmpty = subs.empty();
+    // Record whether this is the first subscription for the ID in order to send the interest
+    bool first_subscription = subscriptions.empty();
 
     // Insert the new subscription URL into the set.
-    bool isNewSubscription = subs.insert(subURL).second;
+    bool is_new_subscription = subscriptions.insert(subURL).second;
 
-    if (isNewSubscription) {
-        m_logger->info("Stored new subscription for ID: {0} and URL {1}", id, subURL);
-    } else {
+    if (!is_new_subscription) 
+    {
         m_logger->info("Duplicate subscription for ID: {0} and URL {1}. Ignored...", id, subURL);
+        return;
+    } 
+
+    if(!first_subscription)
+    {
+        m_logger->info("This is not the first subscription for ID: {0} and URL {1}. Ignored...", id, subURL);
+        return;
     }
 
-    // Only send the subscription interest if this is the first subscription for the ID.
-    if (wasEmpty && isNewSubscription) {
-        // Prepare the ID (ensure it starts with '/')
-        std::string preparedID = id; // Copy for modification
-        ensureLeadingSlash(preparedID);
+    m_logger->info("Stored new subscription for ID: {0} and URL: {1}", id, subURL);
 
-        m_logger->info("Pushing getByID subscription interest for ID: {}", preparedID);
+    m_logger->info("Pushing getByID subscription interest for ID: {}", id);
+    // Build the interest name using the scope name and the prepared ID.
+    // NOTE: you need to append you own SNDS ID that you want to subscribe to
+    // This will return something like SNDS_ID_scope_0
+    auto node_scope_name = getSNDSNodeScopeNameForSubscription(id, id_scope_prefix, number_of_snds_services);
+    m_logger->info("Created new node scope name: {} for ID: {} with URL: {}", node_scope_name, id, subURL);
 
-        // Build the interest name using the scope name and the prepared ID.
-        // NOTE: you need to append you own SNDS ID that you want to subscribe to
-        std::string interestName = getSNDSNodeScopeNameForSubscription(preparedID, m_idScopePrefix, m_numberOfSndsSrvs) + preparedID + m_idScopePrefix + m_mySndsId;
+    auto interest_name = parsed_interest_name::toCustomNDNName
+    (
+        parsed_interest_name::makeParsedInterestName
+        (
+            snds_prefix,
+            node_scope_name, 
+            interest_message_type::INTEREST_MESSAGE_TYPE::SUBSCRIPTION,
+            {id, id_scope_prefix + snds_id}
+        )
+    );
 
+    m_logger->info("Created interest name: {}", interest_name);
+    // Create the intra-SNDS message (using the proper constructor)
+    auto message = std::make_unique<snds_intra_message::SNDS_INTRA_MESSAGE>
+    (
+        std::move(interest_name),
+        snds_intra_message::SNDS_INTRA_MESSAGE_TYPE::BY_ID_SUBSCRIPTION,
+        snds_intra_message::SNDS_CLIENT_TYPES::WORKER,
+        ""
+    );
 
-        m_logger->info("Created interest name: {}", interestName);
-        // Create the intra-SNDS message (using the proper constructor)
-        auto message = std::make_unique<SNDS_INTRA_MESSAGE>(
-            std::move(interestName),
-            SNDS_INTRA_MESSAGE_TYPE::BY_ID_RESPONSE,
-            SNDS_CLIENT_TYPES::SERVICE,
-            ""
-        );
-
-        m_logger->debug("Sending message to consumer...\n{}", message.get()->printDetails());
-        v_to_consumer.get()->writeMessage(std::move(message));
-    }
+    m_logger->debug("Sending message to consumer...\n{}", message.get()->printDetails());
+    v_to_consumer.get()->writeMessage(std::move(message));
 }
 
-void Worker::processByIDRequest(const std::string& id, const bool subscription){
+void Worker::processNewGetID(const std::string& id)
+{
 
-    if(subscription){
-        processByIDResponse(id);
+    auto [_, new_request] = pending_get_by_id_requests.insert(id);
+    if(!new_request)
+    {
+        m_logger->info("Duplicate get by ID request for ID: {}.", id);
         return;
     }
 
-    auto [_, newRequest] = pendingGetByIDreqs.insert(id);
-    if(!newRequest){
-        m_logger->info("Duplicate getByID request for ID: {} redoing operation.", id);
-        return;
-    }
+    m_logger->info("Inserted ID: {} into set. Pushing regular getByID request for ID: {}", id, id);
 
-    std::string modifiableId = id;  // Create a modifiable copy
-    ensureLeadingSlash(modifiableId);
-    m_logger->info("Pushing regular getByID request for ID: {}", modifiableId);
+    auto interest_name = parsed_interest_name::toCustomNDNName
+    (
+        parsed_interest_name::makeParsedInterestName
+        (
+            snds_prefix,
+            id, 
+            interest_message_type::INTEREST_MESSAGE_TYPE::GET_ID,
+            {id}
+        )
+    );
 
-    auto message = std::make_unique<SNDS_INTRA_MESSAGE>(
-        std::move(modifiableId),
-        SNDS_INTRA_MESSAGE_TYPE::BY_ID_RESPONSE,
-        SNDS_CLIENT_TYPES::SERVICE,
+    auto message = std::make_unique<snds_intra_message::SNDS_INTRA_MESSAGE>
+    (
+        std::move(interest_name),
+        snds_intra_message::SNDS_INTRA_MESSAGE_TYPE::BY_ID_REQUEST,
+        snds_intra_message::SNDS_CLIENT_TYPES::WORKER,
         ""
     );
 
     v_to_consumer.get()->writeMessage(std::move(message));
 }
 
-void Worker::processByIDResponse(const std::string& name){
-    m_logger->info("Subscription response with name {} received...", name);
-    auto temp = std::string(name);
-    removeIdPrefix(temp);
-    m_logger->debug("Checking if PendingGetByIDreqs contains {}...", temp);
+void Worker::processProcessedGetID(const std::string& id, const std::string& payload)
+{
+    m_logger->info("Subscription response with name {} received...", id);
+    m_logger->debug("Checking if pending_get_by_id_requests contains {}...", id);
 
-    if(pendingGetByIDreqs.erase(temp) > 0){
-        m_logger->info("Got successfull data for previous requestByID. Removing state...");
-        auto message = std::make_unique<SNDS_INTRA_MESSAGE>(
-            "erase=id=" + std::string(temp),
-            SNDS_INTRA_MESSAGE_TYPE::GENERIC,
-            SNDS_CLIENT_TYPES::SERVICE,
+    if(pending_get_by_id_requests.erase(id) > 0)
+    {
+        m_logger->info("Got successful data for previous requestByID. Removing state...");
+
+        auto message1 = std::make_unique<snds_intra_message::SNDS_INTRA_MESSAGE>
+        (
+            "erase=id=" + std::string(id),
+            snds_intra_message::SNDS_INTRA_MESSAGE_TYPE::GENERIC,
+            snds_intra_message::SNDS_CLIENT_TYPES::WORKER,
             ""
         );
 
-        v_to_dt->writeMessage(std::move(message));
-        return; 
+        v_to_dt->writeMessage(std::move(message1));
+
+        auto message2 = std::make_unique<snds_intra_message::SNDS_INTRA_MESSAGE>
+        (
+            std::move(payload + "\n"),
+            snds_intra_message::SNDS_INTRA_MESSAGE_TYPE::TEMPORAL_QUERY_RESPONSE,
+            snds_intra_message::SNDS_CLIENT_TYPES::WORKER,
+            ""
+        );
+
+        v_to_service->writeMessage(std::move(message2));
     }
 }
 
-void Worker::processByTYPERequest(const std::string& type, const bool subscription){
+void Worker::processByTYPERequest(const std::string& type, const bool subscription)
+{
 
-    if(subscription){
+    if(subscription)
+    {
         processByTYPEResponse(type);
         return;
     }
 
     auto [_, newRequest] = pendingGetByTYPEreqs.insert(type);
 
-    if (!newRequest){
+    if (!newRequest)
+    {
         m_logger->info("Duplicate getByType request for type: {} ignored.", type);
         return;
     }
@@ -343,17 +406,19 @@ void Worker::processByTYPERequest(const std::string& type, const bool subscripti
     ensureLeadingSlash(fullType);
     m_logger->info("Pushing getByType request for type: {}", fullType);
 
-    auto message = std::make_unique<SNDS_INTRA_MESSAGE>(
+    auto message = std::make_unique<snds_intra_message::SNDS_INTRA_MESSAGE>
+    (
         std::move(fullType),
-        SNDS_INTRA_MESSAGE_TYPE::BY_TYPE_RESPONSE,
-        SNDS_CLIENT_TYPES::SERVICE,
+        snds_intra_message::SNDS_INTRA_MESSAGE_TYPE::BY_TYPE_RESPONSE,
+        snds_intra_message::SNDS_CLIENT_TYPES::SERVICE,
         ""
     );
 
     v_to_consumer.get()->writeMessage(std::move(message));
 }
 
-void Worker::processByTYPEResponse(const std::string& name){
+void Worker::processByTYPEResponse(const std::string& name)
+{
     //TODO yes here type is an ID
     // in the end I guess not
     // i'm not sure why
@@ -361,7 +426,8 @@ void Worker::processByTYPEResponse(const std::string& name){
     auto temp = std::string(name);
     //removeTypePrefix(temp);
     //ensureLeadingSlash(temp);
-    if(!pendingIDsForTypeMap.contains(name)){
+    if(!pendingIDsForTypeMap.contains(name))
+    {
         m_logger->info("Name {} is not in pendingIDsForTypeMap", name);
         return; 
     }
@@ -371,17 +437,20 @@ void Worker::processByTYPEResponse(const std::string& name){
     std::vector<std::string> idsToErase;
 
 
-    for(const auto& id: ids){
+    for(const auto& id: ids)
+    {
 
         auto& types = pendingTypesForIDMap.at(id);
-        if(types.erase(name) < 0){
+        if(types.erase(name) < 0)
+        {
             m_logger->info("Could not find name {0} for id {1}", name, id);
             //TODO I guess this was originally used for debugging purposes
             m_logger->error("State inconsistency...");
             return;
         }
 
-        if(types.empty()){
+        if(types.empty())
+        {
             m_logger->info("Successfully removed name {0} from the pendingTypesforID for ID {1}", name, id);
             // There are no more pending types for the id
             // Can safely erase without check since we got the ids
@@ -393,31 +462,36 @@ void Worker::processByTYPEResponse(const std::string& name){
     }
 
     // Now remove the empty types from the set for this ID
-    for (const auto& id: idsToErase) {
+    for (const auto& id: idsToErase) 
+    {
         m_logger->debug("Removing ID {0} from pendingIDsForTypeMap for name {1}", id, name);
         ids.erase(id);
 
-        auto message = std::make_unique<SNDS_INTRA_MESSAGE>(
+        auto message = std::make_unique<snds_intra_message::SNDS_INTRA_MESSAGE>
+        (
             "erase=id=" + std::string(id),
-            SNDS_INTRA_MESSAGE_TYPE::GENERIC,
-            SNDS_CLIENT_TYPES::SERVICE,
+            snds_intra_message::SNDS_INTRA_MESSAGE_TYPE::GENERIC,
+            snds_intra_message::SNDS_CLIENT_TYPES::SERVICE,
             ""
         );
 
         v_to_dt->writeMessage(std::move(message));
     }
 
-    if (ids.empty()){
+    if (ids.empty())
+    {
         m_logger->info("Removing name {} from pendingIDsForType since IDs are empty", name);
         // Can safely remove without check 
         pendingIDsForTypeMap.erase(name);
     }
 }
 
-void Worker::processRegistryFileRequest(const std::string& payload, const std::string& name) {
+void Worker::processRegistryFile(const std::string& payload, const std::string& name) 
+{
 
     // Parse the payload into a vector of IDs.
-    std::vector<std::string> ids = parseIDsFromRegistryFilePayload(
+    std::vector<std::string> ids = parseIDsFromRegistryFilePayload
+    (
         std::span<const uint8_t>(
             reinterpret_cast<const uint8_t*>(payload.data()),
             payload.size()
@@ -431,7 +505,8 @@ void Worker::processRegistryFileRequest(const std::string& payload, const std::s
     std::unordered_set<std::string> idSet;
     
     // Process each extracted ID.
-    for (auto& id : ids) {
+    for (auto& id : ids) 
+    {
 
         ensureLeadingSlash(id);
         m_logger->debug("Processing registry id: {}", id);
@@ -443,10 +518,11 @@ void Worker::processRegistryFileRequest(const std::string& payload, const std::s
         pendingTypesForIDMap[id].insert(name);
         
         // Create a message for this id.
-        auto message = std::make_unique<SNDS_INTRA_MESSAGE>(
+        auto message = std::make_unique<snds_intra_message::SNDS_INTRA_MESSAGE>
+        (
             std::string(id),  // Using the processed id. Note we need to copy here
-            SNDS_INTRA_MESSAGE_TYPE::BY_ID_RESPONSE,
-            SNDS_CLIENT_TYPES::SERVICE,
+            snds_intra_message::SNDS_INTRA_MESSAGE_TYPE::BY_ID_RESPONSE,
+            snds_intra_message::SNDS_CLIENT_TYPES::SERVICE,
             std::string("")   // Empty message name.
         );
         

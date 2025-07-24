@@ -14,8 +14,10 @@
 std::atomic<bool> g_stop{false};
 
 // Signal handler for SIGINT (Ctrl-C)
-void signalHandler(int signal) {
-    if(signal == SIGINT) {
+void signalHandler(int signal) 
+{
+    if(signal == SIGINT) 
+    {
         g_stop.store(true);
     }
 }
@@ -48,7 +50,8 @@ int main() {
     
     // daemon.broadcastDummyData();
     // Wait until Ctrl-C is pressed.
-    while (!g_stop.load()) {
+    while (!g_stop.load()) 
+    {
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
     }
 

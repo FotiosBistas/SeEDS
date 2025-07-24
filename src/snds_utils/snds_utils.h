@@ -12,10 +12,15 @@
 #include <cstring>      // for std::memcpy
 #include <span>         // for std::span (C++20)
 #include <stdexcept>    // for std::length_error, std::invalid_argument, std::out_of_range
-#include <unordered_set>
+#include <unordered_map>
 #include <iomanip>
 #include <sstream>
+#include <memory>
+#include <span>
+#include <cstdint>  
 #include <openssl/evp.h>
+
+#include <spdlog/logger.h>
 #include <spdlog/spdlog.h>
 
 void removeIdPrefix(std::string& input);
@@ -64,10 +69,14 @@ bool hasDateTag(const std::string& command);
  * by taking the hash modulo the total number of SNDS servers.
  *
  * @param name The subscription name for which to determine the responsible node.
- * @param numberOfSNDSServices The total number of SNDS servers.
- * @return The ID (an unsigned integer) of the responsible SNDS node.
+ * @param number_of_snds_services The total number of SNDS servers.
+ * @return The ID of the responsible SNDS node.
  */
-unsigned getSNDSNodeForSubscription(const std::string& name, int numberOfSNDSServices);
+size_t getSNDSNodeForSubscription
+(
+    const std::string& name, 
+    const size_t number_of_snds_services
+);
 
 /**
  * @brief Extracts the value associated with a specific tag from a GET request URL.
@@ -105,10 +114,10 @@ std::string removeLeadingSlash(const std::string &nm);
  *
  * @param id The subscription identifier.
  * @param prefix The scope prefix to use (for example, "/SNDS_ID_scope_").
- * @param numberOfSNDSServices The total number of SNDS servers.
+ * @param number_of_snds_services The total number of SNDS servers.
  * @return A string representing the scope name for the SNDS node.
  */
-std::string getSNDSNodeScopeNameForSubscription(const std::string& id, const std::string& prefix, int numberOfSNDSServices);
+std::string getSNDSNodeScopeNameForSubscription(const std::string& id, const std::string& prefix, const size_t number_of_snds_services);
 
 /**
  * @brief Determines if the GET request URL indicates a subscription request.
@@ -119,9 +128,8 @@ std::string getSNDSNodeScopeNameForSubscription(const std::string& id, const std
  * @param url The GET request URL as a std::string_view.
  * @return true if the "isSub" parameter equals "true", false otherwise.
  */
-inline bool isSubscriptionRequest(std::string_view url) {
-    constexpr std::string_view SUBtag = "isSub";
-    return get_from_get_request(url, SUBtag) == "true";
+inline bool is_subscription_request(std::string_view url, std::string_view is_sub_tag) {
+    return get_from_get_request(url, is_sub_tag) == "true";
 }
 
 /**
@@ -131,11 +139,11 @@ inline bool isSubscriptionRequest(std::string_view url) {
  * If the parameter is not present, an empty string is returned.
  *
  * @param url The GET request URL as a std::string_view.
+ * @param subscription_url_tag The GET request tag for the URL as a std::string_view.
  * @return A std::string containing the subscription URL.
  */
-inline std::string_view getURLfromSubscription(std::string_view url) {
-    constexpr std::string_view SUBURLtag = "suburl";
-    return get_from_get_request(url, SUBURLtag);
+inline std::string_view get_url_of_subscription(std::string_view url, std::string_view subscription_url_tag) {
+    return get_from_get_request(url, subscription_url_tag);
 }
 
 //TODO these functions below require their own data type

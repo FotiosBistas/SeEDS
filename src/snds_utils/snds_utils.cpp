@@ -1,10 +1,15 @@
 #include "snds_utils.h"
 #include <iostream>
 
-unsigned getSNDSNodeForSubscription(const std::string& name, int numberOfSNDSServices) {
+size_t getSNDSNodeForSubscription
+(
+    const std::string& name, 
+    const size_t number_of_snds_services
+) 
+{
     std::hash<std::string> hash_fn;
     size_t hash_value = hash_fn(name);
-    return hash_value % numberOfSNDSServices;
+    return hash_value % number_of_snds_services;
 }
 
 std::string format_timestamp_ms(long long ms_since_epoch){
@@ -155,18 +160,21 @@ std::string_view get_from_get_request(std::string_view url, std::string_view tag
     std::string pattern = std::string(tag) + std::string(assign_symbol);
     std::size_t start = url.find(pattern);
 
-    if (start == std::string_view::npos) {
+    if (start == std::string_view::npos) 
+    {
         return "";
     }
 
     start += pattern.size();
 
-    if (start >= url.size()) {
+    if (start >= url.size()) 
+    {
         return "";
     }
 
     std::size_t end = url.find(delimiter, start);
-    if (end == std::string_view::npos) {
+    if (end == std::string_view::npos) 
+    {
         end = url.size();
     }
 
@@ -216,19 +224,28 @@ std::string removeLeadingSlash(const std::string &nm) {
     return new_string;
 }
 
-std::string getSNDSNodeScopeNameForSubscription(const std::string& id, const std::string& prefix, int numberOfSNDSServices) {
-    unsigned nodeIndex = getSNDSNodeForSubscription(id, numberOfSNDSServices);
-    return prefix + std::to_string(nodeIndex);
+std::string getSNDSNodeScopeNameForSubscription(
+    const std::string& id, 
+    const std::string& prefix, 
+    const size_t number_of_snds_services
+) 
+{
+    size_t node_index = getSNDSNodeForSubscription(id, number_of_snds_services);
+    return prefix + std::to_string(node_index);
 }
 
-std::vector<std::string> parseIDsFromRegistryFilePayload(
+std::vector<std::string> parseIDsFromRegistryFilePayload
+(
     std::span<const uint8_t> payload,
-    std::shared_ptr<spdlog::logger> logger) 
+    std::shared_ptr<spdlog::logger> logger
+) 
 {
     //Points to the place where the header ends
     constexpr size_t header_size = 2; 
-    if (payload.size() <= header_size) {
-        if (logger) {
+    if (payload.size() <= header_size) 
+    {
+        if (logger) 
+        {
             logger->error("Payload too short to contain header. Size: {}", payload.size());
         }         
         throw std::invalid_argument("Payload too short to contain header.");
@@ -237,8 +254,10 @@ std::vector<std::string> parseIDsFromRegistryFilePayload(
     size_t offset = header_size;
 
     // Read a 2‐byte big‐endian count of how many IDs follow
-    if (offset + 1 >= payload.size()) {
-        if (logger) {
+    if (offset + 1 >= payload.size()) 
+    {
+        if (logger) 
+        {
             logger->error("Payload truncated before reading number_of_ids. Offset: {}, Size: {}", offset, payload.size());
         }
         throw std::out_of_range("Payload truncated before reading number_of_ids.");
@@ -247,7 +266,8 @@ std::vector<std::string> parseIDsFromRegistryFilePayload(
                            | (static_cast<uint16_t>(payload[offset + 1]));
     offset += 2;
 
-    if (logger) {
+    if (logger) 
+    {
         logger->debug("Number of IDs in payload: {}", number_of_ids);
     } 
 
@@ -255,10 +275,13 @@ std::vector<std::string> parseIDsFromRegistryFilePayload(
     // Preallocate space in the vector
     ids.reserve(number_of_ids);
 
-    for (uint16_t i = 0; i < number_of_ids; ++i) {
+    for (uint16_t i = 0; i < number_of_ids; ++i) 
+    {
         // Ensure we have at least 2 bytes left for the next length field
-        if (offset + 1 >= payload.size()) {
-            if (logger) {
+        if (offset + 1 >= payload.size()) 
+        {
+            if (logger) 
+            {
                 logger->error("Payload truncated before reading ID size. Offset: {}, Size: {}", offset, payload.size());
             }
             throw std::out_of_range("Payload truncated before reading ID size.");
@@ -272,8 +295,10 @@ std::vector<std::string> parseIDsFromRegistryFilePayload(
             logger->debug("Reading ID #{} with size {}", i + 1, size_of_id);
         }
 
-        if (offset + size_of_id > payload.size()) {
-            if (logger) {
+        if (offset + size_of_id > payload.size()) 
+        {
+            if (logger) 
+            {
                 logger->error("Payload truncated before reading entire ID. Offset: {}, Needed: {}, Size: {}", offset, size_of_id, payload.size());
             }
             throw std::out_of_range("Payload truncated before reading entire ID.");
@@ -284,7 +309,8 @@ std::vector<std::string> parseIDsFromRegistryFilePayload(
         offset += size_of_id;
         ids.emplace_back(id);
 
-        if (logger) {
+        if (logger) 
+        {
             logger->info("Parsed ID #{}: {}", i + 1, id);
         }
     }

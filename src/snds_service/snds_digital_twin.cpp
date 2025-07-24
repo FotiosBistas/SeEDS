@@ -9,11 +9,13 @@ void DigitalTwin::init(){
     m_logger->info("Thread started.");
 
 
-    while(running.load()){
+    while(running.load())
+    {
         m_logger->debug("DigitalTwin: Reading packet...");
 
-        std::unique_ptr<SNDS_INTRA_MESSAGE> message = v_to_dt->readMessage();
-        if (message == nullptr) {
+        std::unique_ptr<snds_intra_message::SNDS_INTRA_MESSAGE> message = v_to_dt->readMessage();
+        if (message == nullptr) 
+        {
             m_logger->debug("DigitalTwin: Queue shutdown detected, exiting loop.");
             break;
         }
@@ -26,16 +28,17 @@ void DigitalTwin::init(){
 
         std::string id      = std::string(get_from_get_request(content, "id"));
         std::string type    = std::string(get_from_get_request(content, "type"));
-        std::string idScope = getSNDSNodeScopeNameForSubscription(id, m_idScopePrefix, m_numberOfSndsSrvs);
+        std::string id_scope = getSNDSNodeScopeNameForSubscription(id, id_scope_prefix, number_of_snds_services);
 
 
         m_logger->debug("Extracted id from message {}", id);
-        m_logger->debug("Extracted idScope from message {}", idScope);
+        m_logger->debug("Extracted id Scope from message {}", id_scope);
 
-        if(content.find(ERASE_PREFIX) != std::string::npos){
+        if(content.find(ERASE_PREFIX) != std::string::npos)
+        {
             m_logger->info("Received erase ID command for ID {}...", id);
-            ensureLeadingSlash(id);
-            if(announcedIDsVec.erase(id) > 0){
+            if(announcedIDs.erase(id) > 0)
+            {
                 m_logger->debug("Successfully removed ID {}", id);
             };
             continue;
@@ -67,10 +70,11 @@ void DigitalTwin::init(){
             query.extras = std::move(params);
 
 
-            auto message = std::make_unique<SNDS_INTRA_MESSAGE>(
+            auto message = std::make_unique<snds_intra_message::SNDS_INTRA_MESSAGE>
+            (
                 serialize_temporal_query(query),    
-                SNDS_INTRA_MESSAGE_TYPE::TEMPORAL_QUERY_REQUEST,
-                SNDS_CLIENT_TYPES::DIGITAL_TWIN,
+                snds_intra_message::SNDS_INTRA_MESSAGE_TYPE::TEMPORAL_QUERY_REQUEST,
+                snds_intra_message::SNDS_CLIENT_TYPES::DIGITAL_TWIN,
                 ""
             );
             m_logger->info("Pushing Temporal Query to Producer: {}", serialize_temporal_query(query));
@@ -78,29 +82,51 @@ void DigitalTwin::init(){
             continue;
         }
 
-        if(!id.empty()){
+        if(!id.empty())
+        {
             m_logger->info("Received by ID get request...");
-            ensureLeadingSlash(id);
-            auto [_, new_request] = announcedIDsVec.insert(id);
-            if(!new_request){
+            //ensureLeadingSlash(id);
+            auto [_, new_request] = announcedIDs.insert(id);
+            if(!new_request)
+            {
                 m_logger->debug("ID {} is already in the announcedIDsVec. Skipping...", id);
                 continue;
             }
+
             m_logger->debug("Pushed ID {} to the announced IDs vector...", id);
-            auto message1 = std::make_unique<SNDS_INTRA_MESSAGE>(
-                std::string(id),
-                SNDS_INTRA_MESSAGE_TYPE::BY_ID_RESPONSE,
-                SNDS_CLIENT_TYPES::DIGITAL_TWIN,
+
+            auto interest_name = parsed_interest_name::makeParsedInterestName
+            (
+                snds_prefix, 
+                id,
+                interest_message_type::INTEREST_MESSAGE_TYPE::POST_ID,
+                {id}
+            );
+
+            auto message1 = std::make_unique<snds_intra_message::SNDS_INTRA_MESSAGE>
+            (
+                parsed_interest_name::toCustomNDNName(interest_name),
+                snds_intra_message::SNDS_INTRA_MESSAGE_TYPE::BY_ID_ADVERTISEMENT,
+                snds_intra_message::SNDS_CLIENT_TYPES::DIGITAL_TWIN,
                 ""
             );
+
             m_logger->info("Pushing byID advertisement to the Producer...\n{}", message1.get()->printDetails());
             v_to_producer->writeMessage(std::move(message1));
 
+            interest_name = parsed_interest_name::makeParsedInterestName
+            (
+                snds_prefix, 
+                id_scope,
+                interest_message_type::INTEREST_MESSAGE_TYPE::SCOPE,
+                {id}
+            );
 
-            auto message2 = std::make_unique<SNDS_INTRA_MESSAGE>(
-                std::string(idScope) + std::string(id),
-                SNDS_INTRA_MESSAGE_TYPE::GENERIC,
-                SNDS_CLIENT_TYPES::DIGITAL_TWIN,
+            auto message2 = std::make_unique<snds_intra_message::SNDS_INTRA_MESSAGE>
+            (
+                parsed_interest_name::toCustomNDNName(interest_name),
+                snds_intra_message::SNDS_INTRA_MESSAGE_TYPE::BY_ID_WITH_SCOPE_ADVERTISEMENT,
+                snds_intra_message::SNDS_CLIENT_TYPES::DIGITAL_TWIN,
                 ""
             );
 
@@ -115,10 +141,11 @@ void DigitalTwin::init(){
             m_logger->debug("The Type is the following: {}", type);
             ensureLeadingSlash(id);
             m_logger->debug("The ID is the following: {}", id);
-            auto message = std::make_unique<SNDS_INTRA_MESSAGE>(
+            auto message = std::make_unique<snds_intra_message::SNDS_INTRA_MESSAGE>
+            (
                 type+id,
-                SNDS_INTRA_MESSAGE_TYPE::BY_TYPE_RESPONSE,
-                SNDS_CLIENT_TYPES::DIGITAL_TWIN,
+                snds_intra_message::SNDS_INTRA_MESSAGE_TYPE::BY_TYPE_RESPONSE,
+                snds_intra_message::SNDS_CLIENT_TYPES::DIGITAL_TWIN,
                 ""
             );
             m_logger->info("Pushing byType advertisement to the Consumer...\n{}", message.get()->printDetails());

@@ -1,30 +1,5 @@
 #include "parsed_interest_name.h"
 
-interest_message_type::InterestMessageType interest_message_type::parseInterestMessageType(const std::string& message_component)
-{
-    constexpr std::string_view delimiter = ":";
-    // find the ':' that terminates the type token
-    auto pos = message_component.find(delimiter);
-    if (pos == std::string::npos) {
-        return InterestMessageType::EMPTY;
-    }
-
-    std::string_view message_string_type = message_component.substr(0, pos);
-
-    if (message_string_type == "temporalQuery") 
-    {
-        return InterestMessageType::TEMPORAL_QUERY;
-    }
-    else if (message_string_type == "version") 
-    {
-        return InterestMessageType::VERSION;
-    }
-    else if (message_string_type == "")
-    {
-        return InterestMessageType::EMPTY;
-    }
-}
-
 parsed_interest_name::ParsedInterestName parsed_interest_name::parseInterestName(const ndn::Name& name) 
 {
     ParsedInterestName pi;
@@ -43,7 +18,7 @@ parsed_interest_name::ParsedInterestName parsed_interest_name::parseInterestName
 
     if(n > 2) 
     {
-        pi.command = interest_message_type::parseInterestMessageType(name.get(2).toUri());
+        pi.command = interest_message_type::from_string(name.get(2).toUri());
     }
 
     for(size_t i = 3; i < n; ++i) 
@@ -55,7 +30,7 @@ parsed_interest_name::ParsedInterestName parsed_interest_name::parseInterestName
 }
 
 
-std::string parsed_interest_name::toCustomNDNName(const parsed_interest_name::ParsedInterestName& pi) 
+std::string parsed_interest_name::toCustomNDNName(const parsed_interest_name::ParsedInterestName& pi, const bool url_encode_flag) 
 {
 
     std::string name; 
@@ -71,14 +46,17 @@ std::string parsed_interest_name::toCustomNDNName(const parsed_interest_name::Pa
         name.append("/" + pi.name);
     }
 
-    if (pi.command != interest_message_type::InterestMessageType::EMPTY) 
+    if (pi.command != interest_message_type::INTEREST_MESSAGE_TYPE::EMPTY) 
     {
-        name.append("/" + interest_message_type::toString(pi.command));
+        name.push_back('/');
+        name.append(interest_message_type::to_string(pi.command));
+        url_encode_flag ? name.append(url_encode(":")) : name.append(":");
     }
 
     //TODO these theoretically shouldn't be inside the scopes
-    for (const auto& param : pi.params) {
-        name.append(param + "&");
+    for (const auto& param : pi.params) 
+    {
+        url_encode_flag ? name.append(url_encode(param + "&")) : name.append(param + "&");
     }
 
     return name;
@@ -95,7 +73,7 @@ std::string parsed_interest_name::toQueryString(const parsed_interest_name::Pars
     oss << "&" << pi.name;
 
     // command = third param
-    oss << "&" << interest_message_type::toString(pi.command);
+    oss << "&" << interest_message_type::to_string(pi.command);
 
     // any extra params get generic names “param2”, “param3”, …
     //TODO these theoretically shouldn't be inside the scopes
@@ -104,4 +82,104 @@ std::string parsed_interest_name::toQueryString(const parsed_interest_name::Pars
     }
 
     return oss.str();
+}
+
+std::vector<std::string> parsed_interest_name::split
+(
+    std::string_view view,
+    const char delimeter
+)
+{
+    std::vector<std::string> tokens;
+    size_t last = 0;
+
+    // find each delimiter, extract the token before it
+    while (true) {
+        auto next = view.find(delimeter, last);
+        if (next == std::string_view::npos) 
+        {
+            break;
+        }
+        // get substring [last, next)
+        if (next > last)
+        {
+            tokens.emplace_back(view.substr(last, next - last));
+        }
+        // advance past the delimiter
+        last = next + 1;
+    }
+
+    // handle the final segment after the last delimiter
+    if (last < view.size()) 
+    {
+        tokens.emplace_back(view.substr(last));
+    }
+
+    return tokens;
+}
+
+
+parsed_interest_name::ParsedInterestName parsed_interest_name::parseFromString(const std::string& name)
+{
+    //split on '/' and ignore empty pieces
+    auto parts = split(name, '/');
+    ParsedInterestName pi;
+
+    // assign prefix and name
+    if (parts.size() > 0)
+    {
+        pi.prefix = parts[0];
+    }
+
+
+    size_t command_index = parts.size();
+
+    for (size_t i = 1; i < parts.size(); ++i) 
+    {
+        // parse all the parts and find the possible command index
+        auto t = interest_message_type::from_string(parts[i]);
+        if (t != interest_message_type::INTEREST_MESSAGE_TYPE::EMPTY) {
+            pi.command = t;
+            command_index = i;
+            break;
+        }
+    }
+
+    size_t name_end = (command_index < parts.size() ? command_index : parts.size());
+    std::ostringstream oss;
+    for (size_t i = 1; i < name_end; ++i) 
+    {
+        if (i > 1) oss << '/';
+        oss << parts[i];
+    }
+    pi.name = oss.str();
+
+    // parse the “command” token (e.g. "temporalQuery:date=2025…&timeframe=…")
+    if (command_index < parts.size()) 
+    {
+        const auto& command_string = parts[command_index];
+        auto pos = command_string.find(':');
+        if (pos != std::string::npos && pos + 1 < command_string.size()) 
+        {
+            auto parameter_list = command_string.substr(pos + 1);
+            for (auto& kv : split(parameter_list, '&')) 
+            {
+                if (!kv.empty()) 
+                {
+                    pi.params.push_back(std::move(kv));
+                }
+            }
+        }
+    }
+
+    // any further slash-separated parts are treated as extra params
+    if (command_index < parts.size()) 
+    {
+        for (size_t i = command_index + 1; i < parts.size(); ++i) 
+        {
+            pi.params.push_back(parts[i]);
+        }
+    }
+
+    return pi;
 }

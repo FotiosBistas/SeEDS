@@ -1,5 +1,4 @@
-#ifndef MESSAGE_QUEUE_H
-#define MESSAGE_QUEUE_H
+#pragma once
 
 #include <deque>
 #include <memory>
@@ -18,7 +17,7 @@
  */
 class MessageQueue {
 private:
-    std::deque<std::unique_ptr<SNDS_INTRA_MESSAGE>> queue; ///< The underlying queue storing messages.
+    std::deque<std::unique_ptr<snds_intra_message::SNDS_INTRA_MESSAGE>> queue; ///< The underlying queue storing messages.
     mutable std::mutex mtx;                                ///< Mutex to protect access to the queue.
     std::condition_variable cv;                            ///< Condition variable for synchronization.
     std::atomic<bool> shutdownFlag { false };            ///< Flag to signal shutdown for waiting threads.
@@ -33,9 +32,9 @@ public:
      *
      * @return A unique_ptr to a SNDS_INTRA_MESSAGE if available; otherwise, nullptr.
      */
-    std::unique_ptr<SNDS_INTRA_MESSAGE> readMessage();
+    std::unique_ptr<snds_intra_message::SNDS_INTRA_MESSAGE> readMessage();
 
-    std::unique_ptr<SNDS_INTRA_MESSAGE> tryReadMessage(); // Non-blocking
+    std::unique_ptr<snds_intra_message::SNDS_INTRA_MESSAGE> tryReadMessage(); // Non-blocking
 
     /**
      * @brief Writes a message to the queue.
@@ -45,7 +44,7 @@ public:
      *
      * @param msg A unique_ptr to the SNDS_INTRA_MESSAGE to add to the queue.
      */
-    virtual void writeMessage(std::unique_ptr<SNDS_INTRA_MESSAGE> msg);
+    virtual void writeMessage(std::unique_ptr<snds_intra_message::SNDS_INTRA_MESSAGE> msg);
 
     /**
      * @brief Returns the current size of the queue.
@@ -64,5 +63,3 @@ public:
      */
     void shutdown();
 };
-
-#endif // MESSAGE_QUEUE_H

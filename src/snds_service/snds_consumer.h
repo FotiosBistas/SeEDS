@@ -11,20 +11,20 @@ public:
     (
         spdlog::level::level_enum logLevel = spdlog::level::info,
         std::string logFile = "Consumer.log",
-        uint8_t numberOfSndsSrvs = 1,
-        std::string sndsPrefix = "/SNDS",
-        std::string mySndsId = "0",
-        std::string idScopePrefix = "/SNDS_ID_scope_",
+        size_t  number_of_snds_services = 1,
+        std::string snds_prefix = "SNDS",
+        std::string snds_id     = "0",
+        std::string id_scope_prefix = "SNDS_ID_scope_",
         std::string registryFilePostfix = "_registry",
         std::string serviceName = "Consumer"
     ):ServiceBase
     (
         logLevel,
         logFile,
-        numberOfSndsSrvs,
-        sndsPrefix,
-        mySndsId,
-        idScopePrefix,
+        number_of_snds_services,
+        snds_prefix,
+        snds_id,
+        id_scope_prefix,
         registryFilePostfix,
         "THIS_IS_AN_SNDS_ACK",  
         serviceName

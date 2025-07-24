@@ -47,14 +47,14 @@ int main()
     std::cout << "SNDS Node Scope Name for id 'exampleID': " << scopeName << std::endl;
 
     // ---------------------------------------------------
-    // Test inline functions: isSubscriptionRequest and getURLfromSubscription
+    // Test inline functions: is_subscription_request and get_url_of_subscription
     // ---------------------------------------------------
     // Create a GET request string that includes subscription parameters.
     std::string subRequest = "/isSub=true&suburl=http://example.com";
-    bool isSub = isSubscriptionRequest(subRequest);
+    bool isSub = is_subscription_request(subRequest, "isSub");
     std::cout << "Is subscription request: " << std::boolalpha << isSub << std::endl;
 
-    std::string_view subURL = getURLfromSubscription(subRequest);
+    std::string_view subURL = get_url_of_subscription(subRequest, "subUrl");
     std::cout << "Subscription URL: " << subURL << std::endl;
 
     // ========================

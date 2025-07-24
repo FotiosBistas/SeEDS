@@ -1,36 +1,145 @@
 #pragma once
 
-#include <ndn-cxx/name.hpp>
 #include <string>
+#include <sstream>
+#include <type_traits>
+#include <cstddef>
+#include <cassert>
 #include <vector>
+
+#include <ndn-cxx/name.hpp>
+
+#define INTEREST_MESSAGE_TYPE_LIST \
+    X(EMPTY,                     "") \
+    X(TEMPORAL_QUERY,            "temporalQuery") \
+    X(VERSION,                   "version") \
+    X(POST_ID,                   "postID") \
+    X(GET_ID,                    "getID") \
+    X(SCOPE,                     "scope") \
+    X(SCOPE_NOTIFICATION,        "scopeNotification") \
+    X(SUBSCRIPTION,              "subscription") \
+    X(SUBSCRIPTION_NOTIFICATION, "subscriptionNotification")
 
 //TODO place it inside the interests
 namespace interest_message_type{
 
-    enum class InterestMessageType 
+    /// @brief Defines the type of intra-service messages.
+    enum class INTEREST_MESSAGE_TYPE
     {
-        EMPTY,
-        TEMPORAL_QUERY, 
-        VERSION,
+        #define X(name, str) name,
+            INTEREST_MESSAGE_TYPE_LIST
+        #undef X
+    };
+
+    static constexpr const char* INTEREST_MESSAGE_TYPE_STRINGS[] = 
+    {
+        #define X(name, str) str,
+            INTEREST_MESSAGE_TYPE_LIST
+        #undef X
     };
 
 
-    inline std::string toString(const InterestMessageType type)
+    constexpr const char* to_string(const INTEREST_MESSAGE_TYPE type) noexcept
     {
-        switch (type) {
-            case InterestMessageType::TEMPORAL_QUERY:
-                return "temporalQuery:";
-            case InterestMessageType::VERSION:
-                return "version:";
-            default:
-                return "";
-        }
+        using U = std::underlying_type_t<INTEREST_MESSAGE_TYPE>;
+        constexpr std::size_t N = sizeof(INTEREST_MESSAGE_TYPE_STRINGS) / sizeof(*INTEREST_MESSAGE_TYPE_STRINGS);
+
+        U idx = static_cast<U>(type);
+
+        return idx < N ? INTEREST_MESSAGE_TYPE_STRINGS[idx]: "";
     }
 
-    InterestMessageType parseInterestMessageType(const std::string& message_component);
+    constexpr INTEREST_MESSAGE_TYPE from_string(std::string_view message_component) noexcept
+    {
+        constexpr std::string_view delimiter = ":";
+        auto pos = message_component.find(delimiter);
+        if (pos == std::string::npos) 
+        {
+            return INTEREST_MESSAGE_TYPE::EMPTY;
+        }
+
+        std::string_view message_string_type = message_component.substr(0, pos);
+
+        constexpr std::size_t N = sizeof(INTEREST_MESSAGE_TYPE_STRINGS) / sizeof(*INTEREST_MESSAGE_TYPE_STRINGS);
+
+        for (std::size_t i = 0; i < N; ++i)
+        {
+            if (message_string_type == INTEREST_MESSAGE_TYPE_STRINGS[i])
+            {
+                return static_cast<INTEREST_MESSAGE_TYPE>(i);
+            }
+        }
+
+        return INTEREST_MESSAGE_TYPE::EMPTY;
+    }
 };
 
 namespace parsed_interest_name{
+
+    //TODO I can't be bothered to include the snds utils lib
+    static std::string url_encode(const std::string& value) 
+    {
+        std::ostringstream escaped;
+        escaped.fill('0');
+        escaped << std::hex;
+
+        for (std::string::const_iterator i = value.begin(), n = value.end(); i != n; ++i) 
+        {
+            std::string::value_type c = (*i);
+
+            // Keep alphanumeric and other accepted characters intact
+            if (isalnum(c) || c == '-' || c == '_' || c == '.' || c == '~') 
+            {
+                escaped << c;
+                continue;
+            }
+
+            // Any other characters are percent-encoded
+            escaped << std::uppercase;
+            escaped << '%' << std::setw(2) << int((unsigned char) c);
+            escaped << std::nouppercase;
+        }
+
+        return escaped.str();
+    }
+
+    //TODO I can't be bothered to include the snds utils lib
+    static int hex_val(char c) {
+        if (c >= '0' && c <= '9') return c - '0';
+        if (c >= 'A' && c <= 'F') return c - 'A' + 10;
+        if (c >= 'a' && c <= 'f') return c - 'a' + 10;
+        throw std::invalid_argument(std::string("Invalid hex digit: ") + c);
+    }
+
+    // Decode percent‐escapes in a URL‐query fragment.
+    // Does NOT treat '+' as space; '+' remains '+'. 
+    //TODO I can't be bothered to include the snds utils lib
+    static std::string url_decode(std::string_view in) 
+    {
+        std::string out;
+        out.reserve(in.size());
+        for (size_t i = 0; i < in.size(); ++i) 
+        {
+            char c = in[i];
+            if (c == '%' && i + 2 < in.size()) 
+            {
+                char hi = in[i+1], lo = in[i+2];
+                //Example: 
+                //%3A
+                //00111010
+                //58 -> :
+                auto val = (hex_val(hi) << 4) | hex_val(lo);
+                char decoded = static_cast<unsigned char>(val);
+                out += decoded;
+                i += 2;
+            }
+            else 
+            {
+                out += c;
+            }
+        }
+        return out;
+    }
     /**
      * @brief Represents a parsed NDN Interest name with named fields.
      */
@@ -42,19 +151,18 @@ namespace parsed_interest_name{
         // TODO below 
         // SNDS/<name>_registry/
         // transfer to this SNDS/<name>/registry
-        std::string                                prefix;               ///< Typically the first component (e.g., "/SNDS")
-        std::string                                name;                 ///< The name (e.g., "CAR" or "SNDS_ID_scope_X" or "car2")
-        interest_message_type::InterestMessageType command;              /// This can be version:, temporalQuery: etc
-        std::vector<std::string> params;                                 ///< Any additional parameters (e.g., IDs, node identifiers)
-
-
+        std::string                                 prefix;   ///< Typically the first component (e.g., "SNDS")
+        //TODO should probably store as a vector of scopes
+        std::string                                  name;     ///< The name (e.g., "CAR" or "SNDS_ID_scope_X" or "car2")
+        interest_message_type::INTEREST_MESSAGE_TYPE command;  /// This can be version:, temporalQuery: etc
+        std::vector<std::string>                     params;   ///< Any additional parameters (e.g., IDs, node identifiers)
 
         /**
          * @brief Returns a string representation of the parsed interest.
         */
         std::string toString() const {
             std::ostringstream oss;
-            oss << "Prefix: " << prefix << ", Name: " << name << ", Command: " << interest_message_type::toString(command) << ", Params: [";
+            oss << "Prefix: " << prefix << ", Name: " << name << ", Command: " << interest_message_type::to_string(command) << ", Params: [";
             for (size_t i = 0; i < params.size(); ++i) {
             oss << params[i];
             if (i + 1 < params.size())
@@ -90,9 +198,10 @@ namespace parsed_interest_name{
         ParsedInterestName pi;
         pi.prefix  = prefix;
         pi.name    = id;
-        pi.command = interest_message_type::parseInterestMessageType(command);
+        pi.command = interest_message_type::from_string(command);
         pi.params  = {};
         pi.params.push_back(timestamp);
+
         return pi;
     }
 
@@ -127,12 +236,36 @@ namespace parsed_interest_name{
      *
      * @return ndn::Name The reconstructed NDN name.
      */
-    std::string toCustomNDNName(const ParsedInterestName& pi);
+    std::string toCustomNDNName(const ParsedInterestName& pi, const bool url_encode_flag = false);
 
     /// @brief  This assumes that the parameters already have their tag appended to them.
     /// For example id=car1.
     /// @param pi 
     /// @return 
     std::string toQueryString(const ParsedInterestName& pi);
+
+    /**
+    * Build a ParsedInterestName from its individual parts.
+    *
+    * @param prefix        first component (e.g. "SNDS" or "SNDS/service")
+    * @param name          second component (e.g. "car2")
+    * @param command       ENUM identifying temporalQuery vs. version
+    * @param params        any extra parameters (already URI-encoded, without leading '/')
+    * @returns             a filled-in ParsedInterestName
+    */
+    inline ParsedInterestName
+    makeParsedInterestName
+    (
+        const std::string& prefix,
+        const std::string& name,
+        interest_message_type::INTEREST_MESSAGE_TYPE command,
+        const std::vector<std::string>& params
+    )
+    {
+        return ParsedInterestName{prefix, name, command, params};
+    }
+
+    std::vector<std::string> split(std::string_view view, const char delimeter);
+    ParsedInterestName parseFromString(const std::string& name);
 
 }
