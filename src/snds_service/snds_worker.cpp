@@ -117,6 +117,15 @@ void Worker::init() {
                 break;
             }
             case snds_intra_message::SNDS_CLIENT_TYPES::CONSUMER:
+
+                switch(message->getMessageType()){
+                    case(snds_intra_message::SNDS_INTRA_MESSAGE_TYPE::BY_ID_RESPONSE):
+                        m_logger->info("Processing getByID Consumer response...");
+                        processProcessedGetID(std::string(id), content);
+                        break;
+                    default: 
+                        m_logger->info("HI");
+                }
                 //Note here that all the responses have to do with the name
                 m_logger->info("Received consumer message.");
 
