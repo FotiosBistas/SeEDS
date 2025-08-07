@@ -1,4 +1,4 @@
-#include "snds_producer.h"
+#include "snds_producer.hpp"
 
 void SNDSProducer::init(){
     m_logger->info("Starting service: {}", this->serviceName);
@@ -32,13 +32,13 @@ void SNDSProducer::init(){
     // [2025-03-04 08:29:36.980] [info] Announcing name: /SNDS/CAR_registry
     for (const auto &type: type_registry) 
     {
-        auto tmp_name = parsed_interest_name::toCustomNDNName
+        auto tmp_name = parsed_interest_name::to_custom_ndn_name
         (
-            parsed_interest_name::makeParsedInterestName
+            parsed_interest_name::make_parsed_interest_name
             (
                 snds_prefix, 
                 type.first,
-                interest_message_type::INTEREST_MESSAGE_TYPE::EMPTY,
+                parsed_interest_name::interest_message_type::INTEREST_MESSAGE_TYPE::EMPTY,
                 {}
             )
         );
@@ -52,13 +52,13 @@ void SNDSProducer::init(){
             std::bind(&SNDSProducer::onRegisterFailed, this, std::placeholders::_1, std::placeholders::_2)
         );
 
-        tmp_name = parsed_interest_name::toCustomNDNName
+        tmp_name = parsed_interest_name::to_custom_ndn_name
         (
-            parsed_interest_name::makeParsedInterestName
+            parsed_interest_name::make_parsed_interest_name
             (
                 snds_prefix, 
-                type.first + m_registryFilePostfix,
-                interest_message_type::INTEREST_MESSAGE_TYPE::EMPTY,
+                type.first + registry_file_postfix,
+                parsed_interest_name::interest_message_type::INTEREST_MESSAGE_TYPE::EMPTY,
                 {}
             )
         );
@@ -126,11 +126,12 @@ void SNDSProducer::init(){
             continue;
         }
 
-        auto content = message.get()->getMessage();
-        auto length = message.get()->getMessageLength();
-        if(message.get()->getMessageType() == snds_intra_message::SNDS_INTRA_MESSAGE_TYPE::TEMPORAL_QUERY_REQUEST)
+        auto content = message.get()->get_message();
+        auto length = message.get()->get_message_length();
+        auto type = message.get()->get_message_type();
+        if(type == snds_intra_message::SNDS_INTRA_MESSAGE_TYPE::TEMPORAL_QUERY_REQUEST)
         {
-            m_logger->info("Got new Temporal Query request...\n{}", message.get()->printDetails());
+            m_logger->info("Got new Temporal Query request...\n{}", message.get()->print_details());
             auto query = deserialize_temporal_query(content);
             //query.date = md5_hex(&query.date, query.date.size());
             auto name = to_path(query, false, false, false);
@@ -157,20 +158,20 @@ void SNDSProducer::init(){
                 m_logger->error("Failed to POST to /add: {}", res ? res->body : "No response");
             }
         }
-        else if(message.get()->getMessageType() == snds_intra_message::SNDS_INTRA_MESSAGE_TYPE::BY_ID_ADVERTISEMENT)
+        else if(type == snds_intra_message::SNDS_INTRA_MESSAGE_TYPE::BY_ID_ADVERTISEMENT)
         {
-            m_logger->info("Got new ID advertisement request...\n{}", message.get()->printDetails());
-            auto parsed_interest = parsed_interest_name::parseFromString(content);
-            m_logger->debug("Parsed interest {} from string", parsed_interest.toString());
+            m_logger->info("Got new ID advertisement request...\n{}", message.get()->print_details());
+            auto parsed_interest = parsed_interest_name::parse_from_string(content);
+            m_logger->debug("Parsed interest {} from string", parsed_interest.to_string());
 
             // we know that the structure of the interest should be /prefix/id
-            auto to_be_announced_name = parsed_interest_name::toCustomNDNName
+            auto to_be_announced_name = parsed_interest_name::to_custom_ndn_name
             (
-                parsed_interest_name::makeParsedInterestName
+                parsed_interest_name::make_parsed_interest_name
                 (
                     parsed_interest.prefix, 
                     parsed_interest.name, 
-                    interest_message_type::INTEREST_MESSAGE_TYPE::EMPTY, 
+                    parsed_interest_name::interest_message_type::INTEREST_MESSAGE_TYPE::EMPTY, 
                     {}
                 )
             );
@@ -195,61 +196,31 @@ void SNDSProducer::onInterest(const ndn::Interest& interest)
 {
     const ndn::Name name = interest.getName();
     m_logger->info("Received interest in function: {0}, name: {1}", __FUNCTION__, name.toUri());
-    parsed_interest_name::ParsedInterestName pi = parsed_interest_name::parseFromString(url_decode(name.toUri()));
-    m_logger->info("Parsed interest: {}", pi.toString());
+    parsed_interest_name::ParsedInterestName pi = parsed_interest_name::parse_from_string(url_decode(name.toUri()));
+    m_logger->info("Parsed interest: {}", pi.to_string());
 
 
     switch (pi.command)
     {
-    case interest_message_type::INTEREST_MESSAGE_TYPE::SCOPE_NOTIFICATION:
-        processNotification(pi);
+    case parsed_interest_name::interest_message_type::INTEREST_MESSAGE_TYPE::SCOPE_NOTIFICATION:
+        process_scope_notification_interest(pi);
         break;
-    case interest_message_type::INTEREST_MESSAGE_TYPE::SUBSCRIPTION:
-        processSubscription(pi);
+    case parsed_interest_name::interest_message_type::INTEREST_MESSAGE_TYPE::NEW_SUBSCRIPTION:
+        process_new_subscription_interest(pi);
         break;
-    case interest_message_type::INTEREST_MESSAGE_TYPE::GET_ID:
-        processByIDInterest(pi);
+    case parsed_interest_name::interest_message_type::INTEREST_MESSAGE_TYPE::GET_BY_ID:
+        process_get_by_id_interest(pi);
+        break;
+    case parsed_interest_name::interest_message_type::INTEREST_MESSAGE_TYPE::BY_ID_AND_TYPE_ADVERTISEMENT:
+        process_by_type_advertisement_interest(pi);
+        break;
+    case parsed_interest_name::interest_message_type::INTEREST_MESSAGE_TYPE::GET_BY_TYPE:
+        process_get_by_type_interest(pi); 
         break;
     default:
         break;
     }
 
-    //if(pi.params.size() > 1 && hasDateTag(pi.params[0]))
-    //{
-
-    //    if(hasDateTag(pi.params[0]) && !isMetaFileTrue(pi.params[1]))
-    //    { 
-    //        m_logger->info("Received Temporal Query Interest...");
-    //        handleTemporalQuery(pi);
-    //        return;
-    //    }
-
-    //    if(isMetaFileTrue(pi.params[1]))
-    //    {
-    //        m_logger->info("Received Temporal Query Interest from Metafile...");
-    //        processLocalIdRequest(pi);
-    //        return;
-    //    }
-    //}
-
-
-    //// Type advertisements
-    //if (myTypesRegistryMap.find("/" + pi.name) != myTypesRegistryMap.end()) 
-    //{
-    //    processTypeAdvertisement(pi);
-    //    return;
-    //}
-
-    //// If the name contains the registry postfix, handle registry requests.
-    //if (pi.name.find(m_registryFilePostfix) != std::string::npos) {
-    //    processRegistryRequest(pi);
-    //    return;
-    //}
-
-    ////TODO I don't think this is correct
-    ////TODO figure out the new if statement here
-    //processByIDInterest(pi);
-    //m_logger->warn("Interest left unprocessed. No matching handler found.");
 }
 
 //void SNDSProducer::handleTemporalQuery(parsed_interest_name::ParsedInterestName& interest)
@@ -301,56 +272,65 @@ void SNDSProducer::onInterest(const ndn::Interest& interest)
 //}
 //
 //
-//void SNDSProducer::processTypeAdvertisement(ParsedInterestName& interest) {
-//
-//  	m_logger->info("Processing Type Advertisement");
-//  	// Attempt to get the advertised ID from the parsed parameters.
-//  	// TODO hopefully one ID received here
-//  	std::string id_for_type = interest.params[0];
-//  	std::string type = interest.name;
-//  	ensureLeadingSlash(type);
-//  	if (id_for_type.empty()) {
-//  	  	m_logger->warn("No ID provided in type advertisement. Ignoring.");
-//  	  	return;
-//  	}
-//
-//  	m_logger->info("Type advertisement: name(registry) = {0}, ID = {1}", type, id_for_type);
-//
-//  	// Look up the content type (with a preceding slash) in the registry map.
-//  	auto iter = myTypesRegistryMap.find(type);
-//
-//  	if (iter == myTypesRegistryMap.end()){
-//  	  	m_logger->warn("Type {} not found in registry. Ignoring advertisement.", type);
-//  	}
-//
-//  	// Access the vector of IDs stored by value.
-//  	auto& ids = iter->second;
-//
-//  	// Try to insert the ID; check if it was already present
-//  	auto [_, inserted] = ids.insert(id_for_type);
-//
-//  	if (!inserted) {
-//  	  	m_logger->warn("ID already registered for type {}. Skipping...", type);
-//  	  	std::string warn_message = "WARNING_ALREADY_REGISTERED::ID already registered for type {" + type+ "}";
-//  	  	sendData(toName(interest), warn_message);
-//  	  	return;
-//  	}
-//
-//  	m_logger->info("Registered new ID {0} for type {1}. Sending ACK.", id_for_type, type);
-//  	sendData(toName(interest), m_ackTag);
-//}
-//
 
-void SNDSProducer::processSubscription(const parsed_interest_name::ParsedInterestName& interest) 
+void SNDSProducer::process_by_type_advertisement_interest(const parsed_interest_name::ParsedInterestName& interest) {
+  	m_logger->info("Processing Type Advertisement");
+    auto interest_response = parsed_interest_name::to_custom_ndn_name(interest, true);
+  	// Attempt to get the advertised ID from the parsed parameters.
+  	// TODO hopefully one ID received here
+  	auto maybe_id = interest.get_interest_parameter(0);
+  	auto maybe_type = interest.get_interest_parameter(1);
+
+    if(!maybe_id.has_value())
+    {
+        m_logger->warn("Received ID with no value in {}", __func__);
+        return;
+    }
+
+    if(!maybe_type.has_value())
+    {
+        m_logger->warn("Received type with not value in {}", __func__);
+        return;
+    }
+
+    std::string id = maybe_id.value();
+    std::string type = maybe_type.value();
+
+  	m_logger->info("Type advertisement: name(registry) = {0}, ID = {1}", type, id);
+  	// Look up the content type (with a preceding slash) in the registry map.
+  	auto iter = type_registry.find(type);
+  	if (iter == type_registry.end())
+    {
+  	  	m_logger->warn("Type {} not found in registry. Ignoring advertisement.", type);
+  	}
+  	// Access the vector of IDs stored by value.
+  	auto& ids = iter->second;
+  	// Try to insert the ID; check if it was already present
+  	auto [_, inserted] = ids.insert(id);
+
+  	if (!inserted) 
+    {
+  	  	m_logger->warn("ID already registered for type {}. Skipping...", type);
+        auto warn_message = snds_intra_message::to_string(snds_intra_message::SNDS_CONTROL_MESSAGE_TYPE::WARNING_ALREADY_REGISTERED);
+  	  	sendData(interest_response, warn_message);
+  	  	return;
+  	}
+
+  	m_logger->info("Registered new ID {0} for type {1}. Sending CONTROL.", id, type);
+    auto ack_message = snds_intra_message::to_string(snds_intra_message::SNDS_CONTROL_MESSAGE_TYPE::ACK_ID_REGISTERED);
+  	sendData(interest_response, ack_message);
+}
+
+void SNDSProducer::process_new_subscription_interest(const parsed_interest_name::ParsedInterestName& interest) 
 {
-    auto maybe_name         = interest.getParam(0);
-    auto maybe_snds_node_id = interest.getParam(1);
-    auto interest_response = parsed_interest_name::toCustomNDNName(interest, true);
+    auto maybe_name         = interest.get_interest_parameter(0);
+    auto maybe_snds_node_id = interest.get_interest_parameter(1);
+    auto interest_response = parsed_interest_name::to_custom_ndn_name(interest, true);
 
     if (!maybe_name.has_value() || !maybe_snds_node_id.has_value())
     {
         m_logger->error("In function {} got Name or SNDS Node ID with no value.", __func__);
-        auto nack_message = snds_intra_message::to_string(snds_intra_message::SNDS_ACK_MESSAGE_TYPE::NACK_ERROR);
+        auto nack_message = snds_intra_message::to_string(snds_intra_message::SNDS_CONTROL_MESSAGE_TYPE::NACK_ERROR);
         sendData(interest_response, nack_message);
         return;
     }
@@ -367,49 +347,56 @@ void SNDSProducer::processSubscription(const parsed_interest_name::ParsedInteres
         m_logger->info("New subscription: {} subscribed to {}", snds_node_id, name);
         m_logger->info("Responding to interest: {}", interest_response);
         //TODO proper ack messages
-        auto ack_message = snds_intra_message::to_string(snds_intra_message::SNDS_ACK_MESSAGE_TYPE::ACK_SUBSCRIPTION_NEW);
+        auto ack_message = snds_intra_message::to_string(snds_intra_message::SNDS_CONTROL_MESSAGE_TYPE::ACK_SUBSCRIPTION_NEW);
         sendData(interest_response, ack_message);
     }
 }
-//
-//void SNDSProducer::processRegistryRequest(ParsedInterestName& interest) {
-//
-//  	std::string name = interest.name;
-//  	// Parse the incoming Interest name.
-//  	m_logger->info("Registry request received: name = {}", name);
-//
-//  	// Remove the registry postfix from the name to get the base type.
-//  	std::string base_type = name.substr(0, name.find(m_registryFilePostfix));
-//
-//  	// Look up the registry for the base type (the keys in myTypesRegistryMap are stored with a leading slash).
-//  	auto iter = myTypesRegistryMap.find("/" + base_type);
-//  	if (iter == myTypesRegistryMap.end()) {
-//  	  	m_logger->warn("Unknown registry for type {}.", base_type);
-//  	  	return;
-//  	}
-//
-//  	std::vector<std::byte> byte_vector;
-//  	byte_vector.push_back(std::byte{'R'});  // registry response marker
-//  	byte_vector.push_back(std::byte{0x00}); // reserved/future use
-//  	byte_vector = serializeRegistryFilePayload(iter->second);
-//
-//  	std::string payload(reinterpret_cast<const char*>(byte_vector.data()), byte_vector.size());
-//
-//  	m_logger->info("Sending registry file payload for type {}.", base_type);
-//  	sendData(toName(interest), payload);
-//}
-//
 
-void SNDSProducer::processNotification(const parsed_interest_name::ParsedInterestName& interest)
+void SNDSProducer::process_get_by_type_interest(const parsed_interest_name::ParsedInterestName& interest) 
+{
+    auto interest_response = parsed_interest_name::to_custom_ndn_name(interest, true);
+    auto maybe_type = interest.get_interest_parameter(0);
+
+    if(!maybe_type.has_value())
+    {
+        m_logger->warn("Received TYPE with no value in {}", __func__);
+        return;
+    }
+
+    auto type = maybe_type.value();
+
+  	// Look up the registry for the base type (the keys in myTypesRegistryMap are stored with a leading slash).
+  	auto iter = type_registry.find(type);
+  	if (iter == type_registry.end()) 
+    {
+  	  	m_logger->warn("Unknown registry for type {}.", type);
+  	  	return;
+  	}
+
+  	std::vector<std::byte> byte_vector;
+    std::vector<std::byte> body = serialize_registry_file_payload(iter->second);
+    byte_vector.reserve(2 + body.size());
+  	byte_vector.push_back(std::byte{'R'});  // registry response marker
+  	byte_vector.push_back(std::byte{0x00}); // reserved/future use
+  	byte_vector.insert(byte_vector.end(), body.begin(), body.end());
+
+  	std::string payload(reinterpret_cast<const char*>(byte_vector.data()), byte_vector.size());
+
+  	m_logger->info("Sending registry file payload for type {}.", type);
+  	sendData(interest_response, payload);
+}
+
+
+void SNDSProducer::process_scope_notification_interest(const parsed_interest_name::ParsedInterestName& interest)
 {
 
-    auto interest_response = parsed_interest_name::toCustomNDNName(interest, true);
+    auto interest_response = parsed_interest_name::to_custom_ndn_name(interest, true);
     // this name is an ID like car1
-    auto maybe_name = interest.getParam(0);
+    auto maybe_name = interest.get_interest_parameter(0);
     if (!maybe_name.has_value())
     {
         m_logger->error("Received interest in {} with incorrect value for parameter.", __func__);
-        auto nack_message = snds_intra_message::to_string(snds_intra_message::SNDS_ACK_MESSAGE_TYPE::NACK_ERROR);
+        auto nack_message = snds_intra_message::to_string(snds_intra_message::SNDS_CONTROL_MESSAGE_TYPE::NACK_ERROR);
         sendData(interest_response, nack_message);
         return;
     }
@@ -424,7 +411,7 @@ void SNDSProducer::processNotification(const parsed_interest_name::ParsedInteres
         m_logger->info("No subscribers found for ID {}.", name);
         m_logger->info("Responding to interest: {}", interest_response);
         //TODO proper ack messages
-        auto ack_message = snds_intra_message::to_string(snds_intra_message::SNDS_ACK_MESSAGE_TYPE::ACK_SUBSCRIPTION_NO_SUBSCRIBERS);
+        auto ack_message = snds_intra_message::to_string(snds_intra_message::SNDS_CONTROL_MESSAGE_TYPE::ACK_SUBSCRIPTION_NO_SUBSCRIBERS);
         sendData(interest_response, ack_message);
         return;
     }
@@ -433,13 +420,13 @@ void SNDSProducer::processNotification(const parsed_interest_name::ParsedInteres
     const auto& subscribers = iterator->second;
     for (const auto& snds_node : subscribers) 
     {
-        auto interest_name = parsed_interest_name::toCustomNDNName
+        auto interest_name = parsed_interest_name::to_custom_ndn_name
         (
-            parsed_interest_name::makeParsedInterestName
+            parsed_interest_name::make_parsed_interest_name
             (
                 snds_prefix, 
                 snds_node + "/" + name,
-                interest_message_type::INTEREST_MESSAGE_TYPE::SUBSCRIPTION_NOTIFICATION,
+                parsed_interest_name::interest_message_type::INTEREST_MESSAGE_TYPE::SUBSCRIPTION_NOTIFICATION,
                 {}
             )
         );
@@ -451,26 +438,36 @@ void SNDSProducer::processNotification(const parsed_interest_name::ParsedInteres
             std::move(interest_name),
             snds_intra_message::SNDS_INTRA_MESSAGE_TYPE::SUBSCRIPTION_NOTIFICATION,
             snds_intra_message::SNDS_CLIENT_TYPES::PRODUCER,
-            ""
+            "",
+            snds_intra_message::HTTP_MESSAGE_TYPE::HTTP_EMPTY
         );
         v_to_consumer->writeMessage(std::move(message));
     }
     //TODO proper ack meesages
-    auto ack_message = snds_intra_message::to_string(snds_intra_message::SNDS_ACK_MESSAGE_TYPE::ACK_SUBSCRIPTION_NOTIFICATION);
+    auto ack_message = snds_intra_message::to_string(snds_intra_message::SNDS_CONTROL_MESSAGE_TYPE::ACK_SUBSCRIPTION_NOTIFICATION);
     sendData(interest_response, ack_message);
 }
 
-void SNDSProducer::processByIDInterest(const parsed_interest_name::ParsedInterestName& interest) 
+void SNDSProducer::process_get_by_id_interest(const parsed_interest_name::ParsedInterestName& interest) 
 {
-    auto interest_response = parsed_interest_name::toCustomNDNName(interest, true);
-    m_logger->info("ID request received: id = {}", interest.name);
+    auto interest_response = parsed_interest_name::to_custom_ndn_name(interest, true);
+    auto maybe_id = interest.get_interest_parameter(0);
+
+    if(!maybe_id.has_value())
+    {
+        m_logger->warn("Received ID with no value in {}", __func__);
+        return;
+    }
+
+    auto id = maybe_id.value();
+
+    m_logger->info("ID request received: id = {}", id);
     // In local ID requests, we assume the name field itself is the requested ID.
-    //TODO send data directly from the broker
     httplib::Client cli(broker_ip.c_str(), broker_port);
     std::string endpoint = fmt::format
     (
       	"/get?id={}",
-        url_encode(removeLeadingSlash(interest.name))
+        url_encode(id)
     );
 
     auto res = cli.Get(endpoint.c_str());
@@ -485,7 +482,7 @@ void SNDSProducer::processByIDInterest(const parsed_interest_name::ParsedInteres
     else 
     {
         m_logger->error("Failed to query /get: {}", res ? res->body : "No response");
-        auto nack_message = snds_intra_message::to_string(snds_intra_message::SNDS_ACK_MESSAGE_TYPE::ACK_SUBSCRIPTION_NOTIFICATION);
+        auto nack_message = snds_intra_message::to_string(snds_intra_message::SNDS_CONTROL_MESSAGE_TYPE::NACK_ERROR);
         sendData(interest_response, nack_message);
     }
 

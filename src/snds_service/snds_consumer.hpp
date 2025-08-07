@@ -1,8 +1,8 @@
-#include <spdlog/spdlog.h>
-#include "snds_service_base.h"
-#include "temporal_query.h"
-#include "parsed_interest_name.h"
-#include "parsed_interest_to_temporal_query.h"
+#include "snds_service_base.hpp"
+
+#include "temporal_query.hpp"
+#include "parsed_interest_name.hpp"
+#include "parsed_interest_to_temporal_query.hpp"
 
 class SNDSConsumer: public ServiceBase {
 public:
@@ -34,6 +34,16 @@ public:
     }
 
     void init();
+
+
+    void process_temporal_query_intra_message();
+    void express_get_by_id_interest(const std::string& content);
+    void express_get_by_type_interest(const std::string& content);
+    void express_id_with_scope_interest(const std::string& content);
+    void express_id_subscription_interest(const std::string& content);
+    void express_id_subscription_notification(const std::string& content);
+    void express_temporal_query_interest(const std::string& content);
+    void express_by_id_and_type_advertisement_interest(const std::string& content);
 
     /**
     * @brief Callback invoked when a Data packet is received from the ndn network.

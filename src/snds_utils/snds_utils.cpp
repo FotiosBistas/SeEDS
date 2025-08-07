@@ -234,7 +234,7 @@ std::string getSNDSNodeScopeNameForSubscription(
     return prefix + std::to_string(node_index);
 }
 
-std::vector<std::string> parseIDsFromRegistryFilePayload
+std::vector<std::string> parse_ids_from_registry_file_payload
 (
     std::span<const uint8_t> payload,
     std::shared_ptr<spdlog::logger> logger
@@ -262,8 +262,7 @@ std::vector<std::string> parseIDsFromRegistryFilePayload
         }
         throw std::out_of_range("Payload truncated before reading number_of_ids.");
     }
-    uint16_t number_of_ids = (static_cast<uint16_t>(payload[offset]) << 8)
-                           | (static_cast<uint16_t>(payload[offset + 1]));
+    uint16_t number_of_ids = (static_cast<uint16_t>(payload[offset]) << 8) | (static_cast<uint16_t>(payload[offset + 1]));
     offset += 2;
 
     if (logger) 
@@ -291,7 +290,8 @@ std::vector<std::string> parseIDsFromRegistryFilePayload
         uint16_t size_of_id = (static_cast<uint16_t>(payload[offset]) << 8)
                             | (static_cast<uint16_t>(payload[offset + 1]));
         offset += 2;
-        if (logger) {
+        if (logger) 
+        {
             logger->debug("Reading ID #{} with size {}", i + 1, size_of_id);
         }
 
@@ -319,10 +319,12 @@ std::vector<std::string> parseIDsFromRegistryFilePayload
 }
 
 
-std::vector<std::byte> serializeRegistryFilePayload(const std::unordered_set<std::string>& ids){
+std::vector<std::byte> serialize_registry_file_payload(const std::unordered_set<std::string>& ids)
+{
 
     // now we use a 2‐byte count, so up to 65 535 IDs:
-    if (ids.size() > 65535) {
+    if (ids.size() > 65535) 
+    {
         throw std::length_error("Limited description size: cannot describe more than 65535 IDs.");
     }
 
@@ -330,8 +332,10 @@ std::vector<std::byte> serializeRegistryFilePayload(const std::unordered_set<std
     // We are about to create the payload
     // so we need to know the size of the byte buffer
     size_t payload_length = 2;
-    for(const auto& id: ids){
-        if (id.size() > 65535){
+    for(const auto& id: ids)
+    {
+        if (id.size() > 65535)
+        {
             throw std::length_error("ID exceeds the size that can be described by 2 bytes (2^16).");
         }
         // Allocate size for describing the length of the ID and the ID itself
@@ -346,7 +350,8 @@ std::vector<std::byte> serializeRegistryFilePayload(const std::unordered_set<std
     payload[offset++] = static_cast<std::byte>((count >> 8) & 0xFF);
     payload[offset++] = static_cast<std::byte>( count       & 0xFF);
 
-    for (const auto& id : ids) {
+    for (const auto& id : ids) 
+    {
         uint16_t len = static_cast<uint16_t>(id.size());
         payload[offset++] = static_cast<std::byte>((len >> 8) & 0xFF);
         payload[offset++] = static_cast<std::byte>( len       & 0xFF);

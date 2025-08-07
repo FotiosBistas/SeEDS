@@ -10,71 +10,75 @@
 #include <ndn-cxx/name.hpp>
 
 #define INTEREST_MESSAGE_TYPE_LIST \
-    X(EMPTY,                     "") \
-    X(TEMPORAL_QUERY,            "temporalQuery") \
-    X(VERSION,                   "version") \
-    X(POST_ID,                   "postID") \
-    X(GET_ID,                    "getID") \
-    X(SCOPE,                     "scope") \
-    X(SCOPE_NOTIFICATION,        "scopeNotification") \
-    X(SUBSCRIPTION,              "subscription") \
-    X(SUBSCRIPTION_NOTIFICATION, "subscriptionNotification")
+    X(EMPTY,                          "") \
+    X(TEMPORAL_QUERY,                 "temporalQuery") \
+    X(VERSION,                        "version") \
+    X(METAFILE,                       "metafile") \
+    X(POST_ID,                        "postID") \
+    X(BY_TYPE_ADVERTISEMENT,          "byTypeAdvertisement") \
+    X(BY_ID_AND_TYPE_ADVERTISEMENT,   "byIDAndTypeAdvertisement") \
+    X(SCOPE,                          "scope") \
+    X(SCOPE_NOTIFICATION,             "scopeNotification") \
+    X(NEW_SUBSCRIPTION,               "newSubscription") \
+    X(SUBSCRIPTION_NOTIFICATION,      "subscriptionNotification") \
+    X(GET_BY_TYPE,                    "getbyType") \
+    X(GET_BY_ID,                      "getbyID") 
 
-//TODO place it inside the interests
-namespace interest_message_type{
+namespace parsed_interest_name {
 
-    /// @brief Defines the type of intra-service messages.
-    enum class INTEREST_MESSAGE_TYPE
-    {
-        #define X(name, str) name,
-            INTEREST_MESSAGE_TYPE_LIST
-        #undef X
-    };
+    namespace interest_message_type {
 
-    static constexpr const char* INTEREST_MESSAGE_TYPE_STRINGS[] = 
-    {
-        #define X(name, str) str,
-            INTEREST_MESSAGE_TYPE_LIST
-        #undef X
-    };
-
-
-    constexpr const char* to_string(const INTEREST_MESSAGE_TYPE type) noexcept
-    {
-        using U = std::underlying_type_t<INTEREST_MESSAGE_TYPE>;
-        constexpr std::size_t N = sizeof(INTEREST_MESSAGE_TYPE_STRINGS) / sizeof(*INTEREST_MESSAGE_TYPE_STRINGS);
-
-        U idx = static_cast<U>(type);
-
-        return idx < N ? INTEREST_MESSAGE_TYPE_STRINGS[idx]: "";
-    }
-
-    constexpr INTEREST_MESSAGE_TYPE from_string(std::string_view message_component) noexcept
-    {
-        constexpr std::string_view delimiter = ":";
-        auto pos = message_component.find(delimiter);
-        if (pos == std::string::npos) 
+        /// @brief Defines the type of intra-service messages.
+        enum class INTEREST_MESSAGE_TYPE
         {
+            #define X(name, str) name,
+                INTEREST_MESSAGE_TYPE_LIST
+            #undef X
+        };
+
+        static constexpr const char* INTEREST_MESSAGE_TYPE_STRINGS[] = 
+        {
+            #define X(name, str) str,
+                INTEREST_MESSAGE_TYPE_LIST
+            #undef X
+        };
+
+
+        constexpr const char* to_string(const INTEREST_MESSAGE_TYPE type) noexcept
+        {
+            using U = std::underlying_type_t<INTEREST_MESSAGE_TYPE>;
+            constexpr std::size_t N = sizeof(INTEREST_MESSAGE_TYPE_STRINGS) / sizeof(*INTEREST_MESSAGE_TYPE_STRINGS);
+
+            U idx = static_cast<U>(type);
+
+            return idx < N ? INTEREST_MESSAGE_TYPE_STRINGS[idx]: "";
+        }
+
+        constexpr INTEREST_MESSAGE_TYPE from_string(std::string_view message_component) noexcept
+        {
+            constexpr std::string_view delimiter = ":";
+            auto pos = message_component.find(delimiter);
+            if (pos == std::string::npos) 
+            {
+                return INTEREST_MESSAGE_TYPE::EMPTY;
+            }
+
+            std::string_view message_string_type = message_component.substr(0, pos);
+
+            constexpr std::size_t N = sizeof(INTEREST_MESSAGE_TYPE_STRINGS) / sizeof(*INTEREST_MESSAGE_TYPE_STRINGS);
+
+            for (std::size_t i = 0; i < N; ++i)
+            {
+                if (message_string_type == INTEREST_MESSAGE_TYPE_STRINGS[i])
+                {
+                    return static_cast<INTEREST_MESSAGE_TYPE>(i);
+                }
+            }
+
             return INTEREST_MESSAGE_TYPE::EMPTY;
         }
+    };
 
-        std::string_view message_string_type = message_component.substr(0, pos);
-
-        constexpr std::size_t N = sizeof(INTEREST_MESSAGE_TYPE_STRINGS) / sizeof(*INTEREST_MESSAGE_TYPE_STRINGS);
-
-        for (std::size_t i = 0; i < N; ++i)
-        {
-            if (message_string_type == INTEREST_MESSAGE_TYPE_STRINGS[i])
-            {
-                return static_cast<INTEREST_MESSAGE_TYPE>(i);
-            }
-        }
-
-        return INTEREST_MESSAGE_TYPE::EMPTY;
-    }
-};
-
-namespace parsed_interest_name{
 
     //TODO I can't be bothered to include the snds utils lib
     static std::string url_encode(const std::string& value) 
@@ -160,7 +164,7 @@ namespace parsed_interest_name{
         /**
          * @brief Returns a string representation of the parsed interest.
         */
-        std::string toString() const {
+        std::string to_string() const {
             std::ostringstream oss;
             oss << "Prefix: " << prefix << ", Name: " << name << ", Command: " << interest_message_type::to_string(command) << ", Params: [";
             for (size_t i = 0; i < params.size(); ++i) {
@@ -178,7 +182,7 @@ namespace parsed_interest_name{
          * @param index The parameter index (0-based).
          * @return std::optional<std::string> containing the parameter if it exists; std::nullopt otherwise.
         */
-        std::optional<std::string> getParam(size_t index) const {
+        std::optional<std::string> get_interest_parameter(size_t index) const {
             if (index < params.size())
                 return params[index];
             return std::nullopt;
@@ -187,7 +191,7 @@ namespace parsed_interest_name{
 
 
 
-    static ParsedInterestName makeInterestNameFromMetafile
+    static ParsedInterestName make_interest_name_from_metafile
     (
         const std::string& prefix,
         const std::string& id,
@@ -220,7 +224,7 @@ namespace parsed_interest_name{
      * @return ParsedInterestName The structure containing the parsed fields.
      * @warning This is not robust and might fail
      */
-    ParsedInterestName parseInterestName(const ndn::Name& name);
+    ParsedInterestName parse_interest_name(const ndn::Name& name);
 
     /**
      * @brief Reconstructs the full NDN name from a ParsedInterestName object.
@@ -236,13 +240,13 @@ namespace parsed_interest_name{
      *
      * @return ndn::Name The reconstructed NDN name.
      */
-    std::string toCustomNDNName(const ParsedInterestName& pi, const bool url_encode_flag = false);
+    std::string to_custom_ndn_name(const ParsedInterestName& pi, const bool url_encode_flag = false);
 
     /// @brief  This assumes that the parameters already have their tag appended to them.
     /// For example id=car1.
     /// @param pi 
     /// @return 
-    std::string toQueryString(const ParsedInterestName& pi);
+    std::string to_query_string(const ParsedInterestName& pi);
 
     /**
     * Build a ParsedInterestName from its individual parts.
@@ -254,7 +258,7 @@ namespace parsed_interest_name{
     * @returns             a filled-in ParsedInterestName
     */
     inline ParsedInterestName
-    makeParsedInterestName
+    make_parsed_interest_name
     (
         const std::string& prefix,
         const std::string& name,
@@ -266,6 +270,6 @@ namespace parsed_interest_name{
     }
 
     std::vector<std::string> split(std::string_view view, const char delimeter);
-    ParsedInterestName parseFromString(const std::string& name);
+    ParsedInterestName parse_from_string(const std::string& name);
 
 }

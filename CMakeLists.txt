@@ -99,6 +99,13 @@ endif()
 
 set(NDN_CXX_INCLUDE_DIR ${CMAKE_BINARY_DIR}/ndn-cxx/install/include)
 set(NDN_CXX_LIBRARY_DIR ${CMAKE_BINARY_DIR}/ndn-cxx/install/lib)
+
+add_library(ndn-cxx::ndn-cxx UNKNOWN IMPORTED)
+
+set_target_properties(ndn-cxx::ndn-cxx PROPERTIES
+  INTERFACE_INCLUDE_DIRECTORIES "${NDN_CXX_INCLUDE_DIR}"
+  IMPORTED_LOCATION             "${NDN_CXX_LIBRARY_DIR}/libndn-cxx.so"
+)
 #####################################################################
 # Fetch and build NFD
 #####################################################################
@@ -281,49 +288,83 @@ endif()
 #####################################################################
 # Set up common include directories for custom headers
 #####################################################################
-set(SNDS_MESSAGE_DIR ${CMAKE_SOURCE_DIR}/src/snds_message)
-set(SNDS_QUEUE_DIR   ${CMAKE_SOURCE_DIR}/src/snds_queue)
-set(SNDS_SERVICE_DIR ${CMAKE_SOURCE_DIR}/src/snds_service)
-set(SNDS_UTILS_DIR   ${CMAKE_SOURCE_DIR}/src/snds_utils)
-set(SNDS_BROKER_DIR  ${CMAKE_SOURCE_DIR}/src/snds_broker)
-set(SNDS_INTEREST_DIR ${CMAKE_SOURCE_DIR}/src/snds_interest)
+set(SNDS_MESSAGE_DIR        ${CMAKE_SOURCE_DIR}/src/snds_message)
+set(SNDS_QUERY_PARAMS_DIR   ${CMAKE_SOURCE_DIR}/src/snds_query_params)
+set(SNDS_QUEUE_DIR          ${CMAKE_SOURCE_DIR}/src/snds_queue)
+set(SNDS_SERVICE_DIR        ${CMAKE_SOURCE_DIR}/src/snds_service)
+set(SNDS_UTILS_DIR          ${CMAKE_SOURCE_DIR}/src/snds_utils)
+set(SNDS_BROKER_DIR         ${CMAKE_SOURCE_DIR}/src/snds_broker)
+set(SNDS_INTEREST_DIR       ${CMAKE_SOURCE_DIR}/src/snds_interest)
+set(SNDS_TEMPORAL_QUERY_DIR ${CMAKE_SOURCE_DIR}/src/snds_temporal_query)
+
+#####################################################################
+# Build the snds query params header only library
+#####################################################################
+
+add_library(snds_query_params INTERFACE)
+
+target_include_directories(snds_query_params 
+  INTERFACE 
+  ${SNDS_QUERY_PARAMS_DIR} 
+  ${cpp-httplib_SOURCE_DIR}
+)
+
+#####################################################################
+# Build the snds message header only library
+#####################################################################
+
+add_library(snds_message INTERFACE)
+
+target_include_directories(snds_message INTERFACE ${SNDS_MESSAGE_DIR})
+
+target_link_libraries(snds_message INTERFACE snds_query_params)
 
 #####################################################################
 # Build the parsed interest static library
 #####################################################################
 
-set(SNDS_INTEREST_SOURCES
-  ${SNDS_INTEREST_DIR}/parsed_interest_name.cpp
-)
-
+set(SNDS_INTEREST_SOURCES ${SNDS_INTEREST_DIR}/parsed_interest_name.cpp)
 add_library(snds_interest STATIC ${SNDS_INTEREST_SOURCES})
 
-target_include_directories(snds_interest
-  PUBLIC
-    ${SNDS_INTEREST_DIR}
-    ${NDN_CXX_INCLUDE_DIR}
-)
+target_include_directories(snds_interest PUBLIC ${SNDS_INTEREST_DIR})
 
-target_link_libraries(snds_interest
-  PUBLIC
-    ${NDN_CXX_LIBRARY_DIR}/libndn-cxx.so
-)
+target_link_libraries(snds_interest PUBLIC ndn-cxx::ndn-cxx)
 
 #####################################################################
 # Build the snds_utils static library
 #####################################################################
-set(SNDS_UTILS_SOURCES
-    ${SNDS_UTILS_DIR}/snds_utils.cpp
-)
+
+set(SNDS_UTILS_SOURCES ${SNDS_UTILS_DIR}/snds_utils.cpp)
 
 add_library(snds_utils STATIC ${SNDS_UTILS_SOURCES})
+
 target_include_directories(snds_utils PUBLIC
   ${SNDS_UTILS_DIR}
-  ${spdlog_SOURCE_DIR}/include
 )
+
 target_link_libraries(snds_utils PUBLIC 
   spdlog::spdlog 
   OpenSSL::Crypto
+)
+
+target_link_libraries(snds_query_params INTERFACE snds_utils)
+
+#####################################################################
+# Build the temporal query static library
+#####################################################################
+
+set(SNDS_TEMPORAL_QUERY_SOURCES ${SNDS_TEMPORAL_QUERY_DIR}/temporal_query.cpp)
+
+add_library(temporal_query STATIC ${SNDS_TEMPORAL_QUERY_SOURCES})
+
+#target_include_directories(temporal_query PUBLIC ${SNDS_TEMPORAL_QUERY_SOURCES})
+
+target_include_directories(temporal_query PUBLIC ${SNDS_TEMPORAL_QUERY_DIR})
+
+target_link_libraries(temporal_query PRIVATE
+  snds_utils
+  spdlog::spdlog
+  nlohmann_json::nlohmann_json
 )
 
 #####################################################################
@@ -332,148 +373,103 @@ target_link_libraries(snds_utils PUBLIC
 
 # Broker sources
 set(SNDS_BROKER_SOURCES
-    ${SNDS_BROKER_DIR}/broker.cpp
-    ${SNDS_BROKER_DIR}/broker_utils.cpp
+  ${SNDS_BROKER_DIR}/broker.cpp
+  ${SNDS_BROKER_DIR}/broker_utils.cpp
 )
 
 # Broker main executable source
-set(SNDS_BROKER_MAIN
-    ${SNDS_BROKER_DIR}/broker_main.cpp
-)
-
-# Temporal query module sources
-set(SNDS_BROKER_TIMEFRAMES_SOURCES
-    ${SNDS_BROKER_DIR}/temporal_query.cpp
-)
-
-# Build the 'temporal_query' static library
-add_library(temporal_query STATIC ${SNDS_BROKER_TIMEFRAMES_SOURCES})
-
-target_include_directories(temporal_query PUBLIC
-  ${SNDS_UTILS_DIR}
-  ${SNDS_BROKER_DIR}
-)
-
-target_link_libraries(temporal_query PUBLIC
-  snds_utils
-  spdlog::spdlog
-  nlohmann_json::nlohmann_json
-)
-
+set(SNDS_BROKER_MAIN ${SNDS_BROKER_DIR}/broker_main.cpp)
 
 # Build the 'snds_broker' static library and link temporal_query
 add_library(snds_broker STATIC ${SNDS_BROKER_SOURCES})
 
 # Include directories for Mongo, httplib, and broker headers
 target_include_directories(snds_broker PUBLIC
-    ${SNDS_BROKER_DIR}
-    ${cpp-httplib_SOURCE_DIR}
-    ${MONGO_CXX_INSTALL_DIR}/include
-    ${MONGO_CXX_INSTALL_DIR}/include/bsoncxx/v_noabi
-    ${MONGO_CXX_INSTALL_DIR}/include/mongocxx/v_noabi
-    ${OPENSSL_INCLUDE_DIR}
+  ${SNDS_BROKER_DIR}
+  ${MONGO_CXX_INSTALL_DIR}/include
+  ${MONGO_CXX_INSTALL_DIR}/include/bsoncxx/v_noabi
+  ${MONGO_CXX_INSTALL_DIR}/include/mongocxx/v_noabi
+  ${cpp-httplib_SOURCE_DIR}
 )
 
 # Link required libraries
 target_link_libraries(snds_broker PUBLIC
-    ${MONGO_CXX_INSTALL_DIR}/lib/libbsoncxx.so
-    ${MONGO_CXX_INSTALL_DIR}/lib/libmongocxx.so
-    temporal_query
-    spdlog::spdlog
-    OpenSSL::Crypto
-    nlohmann_json::nlohmann_json
-    snds_utils
+  ${MONGO_CXX_INSTALL_DIR}/lib/libbsoncxx.so
+  ${MONGO_CXX_INSTALL_DIR}/lib/libmongocxx.so
+  nlohmann_json::nlohmann_json
+  temporal_query
+  OpenSSL::Crypto
+  snds_utils
 )
 
 # Create the broker executable
 add_executable(snds_broker_bin ${SNDS_BROKER_MAIN})
 
-# Include broker headers and httplib in the executable
-target_include_directories(snds_broker_bin PRIVATE
-    ${SNDS_BROKER_DIR}
-    ${cpp-httplib_SOURCE_DIR}
-)
-
 # Link broker static library to the executable
-target_link_libraries(snds_broker_bin PRIVATE
-    snds_broker
+target_link_libraries(snds_broker_bin PRIVATE 
+  snds_broker
+  spdlog::spdlog
 )
 
 # Add dependency on Mongo driver build
 add_dependencies(snds_broker_bin mongo-cxx-driver)
 
-set(BROKER_RUNNER_PATH "${CMAKE_BINARY_DIR}/run-broker.sh")
-
-file(WRITE "${BROKER_RUNNER_PATH}" "#!/bin/bash\n")
-file(APPEND "${BROKER_RUNNER_PATH}" "# Auto-generated by CMake - run broker with correct MongoDB lib path\n")
-file(APPEND "${BROKER_RUNNER_PATH}" "export LD_LIBRARY_PATH=\$LD_LIBRARY_PATH:${MONGO_CXX_LIBRARY_DIR}\n")
-file(APPEND "${BROKER_RUNNER_PATH}" "exec ${CMAKE_BINARY_DIR}/snds_broker_bin \"\$@\"\n")
-
-file(CHMOD "${BROKER_RUNNER_PATH}" PERMISSIONS
-  OWNER_READ OWNER_WRITE OWNER_EXECUTE
-  GROUP_READ GROUP_EXECUTE
-  WORLD_READ WORLD_EXECUTE
-)
-
-message(STATUS "🛠  Created helper script to run broker: ${BROKER_RUNNER_PATH}")
-message(STATUS "👉  You can run it like this: ./run-broker.sh")
-
 #####################################################################
 # Build the message_queue static library
 #####################################################################
-set(MESSAGE_QUEUE_SOURCES
-    ${SNDS_QUEUE_DIR}/message_queue.cpp
-)
+set(MESSAGE_QUEUE_SOURCES ${SNDS_QUEUE_DIR}/message_queue.cpp)
 
 add_library(message_queue STATIC ${MESSAGE_QUEUE_SOURCES})
 
 # Public include directories for message_queue
 target_include_directories(message_queue PUBLIC
-    ${SNDS_MESSAGE_DIR}
-    ${SNDS_QUEUE_DIR}
+  ${SNDS_MESSAGE_DIR}
+  ${SNDS_QUEUE_DIR}
 )
 
 # Link ndn-cxx and spdlog to the message_queue library
 target_link_libraries(message_queue
-    PRIVATE
-    ${NDN_CXX_LIBRARY_DIR}/libndn-cxx.so
-    spdlog::spdlog
+PRIVATE
+  ${NDN_CXX_LIBRARY_DIR}/libndn-cxx.so
+  spdlog::spdlog
+PUBLIC
+  snds_message
 )
+
 
 
 #####################################################################
 # Build the snds_service static library (excluding main.cpp)
 #####################################################################
 set(SNDS_SERVICE_SOURCES
-    ${SNDS_SERVICE_DIR}/snds_service_base.cpp
-    ${SNDS_SERVICE_DIR}/snds_http_server.cpp
-    ${SNDS_SERVICE_DIR}/snds_worker.cpp
-    ${SNDS_SERVICE_DIR}/snds_producer.cpp
-    ${SNDS_SERVICE_DIR}/snds_consumer.cpp
-    ${SNDS_SERVICE_DIR}/snds_digital_twin.cpp
+  ${SNDS_SERVICE_DIR}/snds_service_base.cpp
+  ${SNDS_SERVICE_DIR}/snds_http_server.cpp
+  ${SNDS_SERVICE_DIR}/snds_worker.cpp
+  ${SNDS_SERVICE_DIR}/snds_producer.cpp
+  ${SNDS_SERVICE_DIR}/snds_consumer.cpp
+  ${SNDS_SERVICE_DIR}/snds_digital_twin.cpp
 )
 
 add_library(snds_service STATIC 
-    ${SNDS_SERVICE_SOURCES}
+  ${SNDS_SERVICE_SOURCES}
 )
 
 target_include_directories(snds_service PUBLIC
-    ${SNDS_SERVICE_DIR}
-    ${NDN_CXX_INCLUDE_DIR}        # for ndn-cxx headers
-    ${cpp-httplib_SOURCE_DIR}       # for cpp-httplib header
-    ${SNDS_UTILS_DIR}
-    ${SNDS_BROKER_DIR}
-    ${SNDS_INTEREST_DIR}
+  ${SNDS_SERVICE_DIR}
+  ${NDN_CXX_INCLUDE_DIR}        # for ndn-cxx headers
+  ${cpp-httplib_SOURCE_DIR}       # for cpp-httplib header
 )
 
-target_link_libraries(snds_service PRIVATE
-    snds_utils
-    snds_interest
-    message_queue
-    ${NDN_CXX_LIBRARY_DIR}/libndn-cxx.so
-    spdlog::spdlog
-    nlohmann_json::nlohmann_json
-    snds_broker
+target_link_libraries(snds_service PUBLIC
+  snds_utils
+  snds_interest
+  snds_broker
+  temporal_query
+  message_queue
+  snds_query_params
+  ${NDN_CXX_LIBRARY_DIR}/libndn-cxx.so
+  spdlog::spdlog
+  nlohmann_json::nlohmann_json
 )
 
 add_dependencies(snds_service ndn-cxx-build snds_broker)
@@ -485,20 +481,22 @@ add_dependencies(snds_service ndn-cxx-build snds_broker)
 add_executable(snds_daemon_bin ${SNDS_SERVICE_DIR}/main.cpp)
 
 target_include_directories(snds_daemon_bin PRIVATE
-    ${SNDS_SERVICE_DIR}
-    ${NDN_CXX_INCLUDE_DIR}
-    ${SNDS_UTILS_DIR}
-    ${SNDS_BROKER_DIR} 
+  ${SNDS_SERVICE_DIR}
+  ${NDN_CXX_INCLUDE_DIR}
+  ${SNDS_UTILS_DIR}
+  ${SNDS_BROKER_DIR} 
 )
 
 target_link_libraries(snds_daemon_bin PRIVATE
-    snds_service
-    message_queue
-    ${NDN_CXX_LIBRARY_DIR}/libndn-cxx.so
-    spdlog::spdlog
-    snds_broker
-    nlohmann_json::nlohmann_json
+  snds_service
+  message_queue
+  snds_query_params
+  ${NDN_CXX_LIBRARY_DIR}/libndn-cxx.so
+  spdlog::spdlog
+  snds_broker
+  nlohmann_json::nlohmann_json
 )
+
 add_dependencies(snds_daemon_bin ndn-cxx-build)
 
 #####################################################################

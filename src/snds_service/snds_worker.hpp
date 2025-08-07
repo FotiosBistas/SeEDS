@@ -8,9 +8,10 @@
 #include <span>
 
 #include <nlohmann/json.hpp>  
-#include "snds_service_base.h"
-#include "parsed_interest_name.h"
-#include "temporal_query.h"
+
+#include "snds_service_base.hpp"
+#include "parsed_interest_name.hpp"
+#include "temporal_query.hpp"
 #include "snds_utils.h"
 
 class Worker: public ServiceBase {
@@ -44,33 +45,32 @@ public:
 
 private:
   	// Map for storing subscriptions: id -> list of subscriber URLs
-  	std::unordered_map<std::string, std::unordered_set<std::string>> subscribed_by_id_users;
-  	// <type, vector<urls>> maps subscribed types to User URLs
-  	// TODO this is not used anywhere
-	std::unordered_map<std::string, std::unordered_set<std::string>> subscribedBYTYPE_users;
-
   	// Used for serving subscription requests
-  	std::unordered_map<std::string, std::unordered_set<std::string>> pendingTypesForIDMap;
-  	std::unordered_map<std::string, std::unordered_set<std::string>> pendingIDsForTypeMap;
+  	std::unordered_map<std::string, std::unordered_set<std::string>> subscribed_by_id_users;
+
+  	std::unordered_map<std::string, std::unordered_set<std::string>> pending_types_to_id_map;
+  	std::unordered_map<std::string, std::unordered_set<std::string>> pending_ids_to_type_map;
 
   	// Unordered sets for deduplicating pending requests.
   	std::unordered_set<std::string> pending_get_by_id_requests;
-  	std::unordered_set<std::string> pendingGetByTYPEreqs;
+  	std::unordered_set<std::string> pending_get_by_type_requests;
   	// keep track of the temporal queries that are not answered yet
   	// the key is the hash of the query
   	// also used to return specific fields from the JSON return for an ID
   	// an ID and its specified fields we want to keep
   	std::unordered_map<std::string, TemporalQuery> pending_temporal_queries;
 
-  	void processNewGetID(const std::string& id);
-  	void processProcessedGetID(const std::string& id, const std::string& payload);
-
-  	void processSubscriptionRequest(const std::string& id, const std::string& url);
-  	void processByTYPERequest(const std::string& type, const bool subscription = false);
-  	void processByTYPEResponse(const std::string& name);
-  	void processRegistryFile(const std::string& payload, const std::string& name);
+  	void process_new_get_by_id(const std::string& id);
+  	void process_processed_get_by_id(const std::string& id, const std::string& payload);
+  	void process_subscription_request(const std::string& id, const std::string& url);
+  	void process_new_get_by_type(const std::string& type);
+  	void process_processed_get_by_type(const std::string& name);
+  	void process_registry_file(const std::string& payload, const std::string& name);
   	void processTemporalQueryRequest(const TemporalQuery& temporal_query);
   	void processTemporalQueryResponse(const std::string& parent_query_hash, const std::string& content, bool last_interest);
+
+	void _handle_consumer_intra_message(const snds_intra_message::SNDS_INTRA_MESSAGE& message);
+	void _handle_http_server_intra_message(const snds_intra_message::SNDS_INTRA_MESSAGE& message);
 
   	static constexpr const char* GET_PARAMETER_ID_TAG      = "id";
   	static constexpr const char* GET_PARAMETER_TYPE_TAG    = "type";

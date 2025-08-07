@@ -163,7 +163,7 @@ like (@yannisT):
 
 - Second ID: length 3, content "bus"
 */ 
-std::vector<std::string> parseIDsFromRegistryFilePayload(std::span<const uint8_t> payload, std::shared_ptr<spdlog::logger> logger = nullptr);
+std::vector<std::string> parse_ids_from_registry_file_payload(std::span<const uint8_t> payload, std::shared_ptr<spdlog::logger> logger = nullptr);
 
 /**
  * @brief Serializes a set of IDs into a binary payload.
@@ -182,7 +182,7 @@ std::vector<std::string> parseIDsFromRegistryFilePayload(std::span<const uint8_t
  *
  * @throws std::length_error if the number of IDs exceeds 65 535 or any ID's length exceeds 65 535.
  */
-std::vector<std::byte> serializeRegistryFilePayload(const std::unordered_set<std::string>& ids);
+std::vector<std::byte> serialize_registry_file_payload(const std::unordered_set<std::string>& ids);
 
 /**
  * @brief Checks whether a binary payload is marked as a registry response.

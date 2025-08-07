@@ -1,4 +1,4 @@
-#include "message_queue.h"
+#include "message_queue.hpp"
 
 std::unique_ptr<snds_intra_message::SNDS_INTRA_MESSAGE> MessageQueue::readMessage() {
     std::unique_lock<std::mutex> lock(mtx);

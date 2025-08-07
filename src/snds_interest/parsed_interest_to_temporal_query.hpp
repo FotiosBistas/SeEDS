@@ -1,8 +1,8 @@
 #pragma once
 
 #include "snds_utils.h"
-#include "temporal_query.h" 
-#include "parsed_interest_name.h"
+#include "temporal_query.hpp" 
+#include "parsed_interest_name.hpp"
 
 inline TemporalQuery temporal_query_from_interest(const parsed_interest_name::ParsedInterestName& pi)
 {

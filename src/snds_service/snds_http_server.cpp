@@ -1,5 +1,5 @@
-#include "snds_http_server.h"
-#include "httplib.h" // Use the header-only library
+#include "snds_http_server.hpp"
+
 
 void SNDSHTTPService::init() 
 {
@@ -15,18 +15,21 @@ void SNDSHTTPService::init()
             m_logger->info("Received GET request for {} with target {}", req.path, req.target);
             m_logger->info("Received GET request from {}", req.remote_addr);
 
-            // Create a new internal message based on the request target.
-            auto outbound_message = std::make_unique<snds_intra_message::SNDS_INTRA_MESSAGE>
-            (
-                std::move(std::string(req.target)),
-                snds_intra_message::SNDS_INTRA_MESSAGE_TYPE::GENERIC,
-                snds_intra_message::SNDS_CLIENT_TYPES::HTTP_SRV,
-                ""
-            );
+            DECLARE_QUERY_PARAMS();
+            EXTRACT_QUERY_PARAMS(req);
 
-            m_logger->debug("Writing message from GET request to service queue...\n{}", outbound_message->printDetails());
+            auto outbound_message = std::make_unique<snds_intra_message::SNDS_INTRA_MESSAGE>();
+            
+            APPLY_QUERY_PARAMS_TO(outbound_message);
+            outbound_message->set_http_type(snds_intra_message::HTTP_MESSAGE_TYPE::HTTP_GET);
+            outbound_message->infer_type_from_params();
+            outbound_message->set_sender(snds_intra_message::SNDS_CLIENT_TYPES::HTTP_SRV);
+            outbound_message->pack_query_params_into_message();
+
+            m_logger->debug("Writing message from GET request to service queue...\n{}", outbound_message->print_details());
             v_to_worker.get()->writeMessage(std::move(outbound_message));
 
+            //TODO thread pool
             auto inbound_message = v_to_service->readMessage();
             if (!inbound_message) 
             {
@@ -36,7 +39,7 @@ void SNDSHTTPService::init()
                 return;
             }
 
-            auto payload = inbound_message->getMessage();
+            auto payload = inbound_message->get_message();
             auto pos = payload.find_first_of("{[");
             if (pos != std::string::npos) 
             {
@@ -52,16 +55,19 @@ void SNDSHTTPService::init()
         {
             m_logger->info("Received POST request for {} with body {}", req.path, req.body);
             m_logger->info("Received POST request from {}", req.remote_addr);
-            // Create a new internal message based on the request body.
-            std::unique_ptr<snds_intra_message::SNDS_INTRA_MESSAGE> message = std::make_unique<snds_intra_message::SNDS_INTRA_MESSAGE>
-            (
-                std::move(std::string(req.body)),
-                snds_intra_message::SNDS_INTRA_MESSAGE_TYPE::GENERIC,
-                snds_intra_message::SNDS_CLIENT_TYPES::HTTP_SRV,
-                ""
-            );
-            m_logger->debug("Writing message from POST request to service queue...\n{}", message->printDetails());
-            v_to_dt.get()->writeMessage(std::move(message));
+            DECLARE_QUERY_PARAMS();
+            EXTRACT_QUERY_PARAMS(req.body);
+
+            auto outbound_message = std::make_unique<snds_intra_message::SNDS_INTRA_MESSAGE>();
+            
+            APPLY_QUERY_PARAMS_TO(outbound_message);
+            outbound_message->set_http_type(snds_intra_message::HTTP_MESSAGE_TYPE::HTTP_POST);
+            outbound_message->infer_type_from_params();
+            outbound_message->set_sender(snds_intra_message::SNDS_CLIENT_TYPES::HTTP_SRV);
+            outbound_message->pack_query_params_into_message();
+
+            m_logger->debug("Writing message from POST request to service queue...\n{}", outbound_message->print_details());
+            v_to_dt.get()->writeMessage(std::move(outbound_message));
             res.set_content(m_ackTag, "text/plain");
         });
 

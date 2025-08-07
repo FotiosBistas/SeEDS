@@ -1,4 +1,4 @@
-#include "snds_digital_twin.h"
+#include "snds_digital_twin.hpp"
 
 
 void DigitalTwin::init(){
@@ -20,136 +20,193 @@ void DigitalTwin::init(){
             break;
         }
 
-        auto content = message.get()->getMessage();
-        auto length = message.get()->getMessageLength();
+        auto content = message->get_message();
+        auto length = message->get_message_length();
+        auto type = message->get_message_type();
+        auto params = message->unpack_query_params_from_message();
         m_logger->debug("Extracted content from message {}", content);
         m_logger->debug("Extracted content length from message {}", length);
+        m_logger->debug("Extracted type from message: {}", snds_intra_message::to_string(type));
 
-
-        std::string id      = std::string(get_from_get_request(content, "id"));
-        std::string type    = std::string(get_from_get_request(content, "type"));
-        std::string id_scope = getSNDSNodeScopeNameForSubscription(id, id_scope_prefix, number_of_snds_services);
-
-
-        m_logger->debug("Extracted id from message {}", id);
-        m_logger->debug("Extracted id Scope from message {}", id_scope);
-
-        if(content.find(ERASE_PREFIX) != std::string::npos)
+        switch (type)
         {
-            m_logger->info("Received erase ID command for ID {}...", id);
-            if(announcedIDs.erase(id) > 0)
+        case snds_intra_message::SNDS_INTRA_MESSAGE_TYPE::BY_ID_ADVERTISEMENT:
+        {
+            const auto it = params.find(message->get_param_name_id_().data());
+            if(it == params.end())
             {
-                m_logger->debug("Successfully removed ID {}", id);
-            };
-            continue;
+                m_logger->error("Received ID advertisement with no ID.");
+            }
+            process_by_id_advertisement(it->second);
+            break;
         }
+        case snds_intra_message::SNDS_INTRA_MESSAGE_TYPE::BY_ID_AND_TYPE_ADVERTISEMENT:
+        {
+            //process_by_id_and_type_advertisement();
+            const auto id_iterator  = params.find(message->get_param_name_id_().data());
+            if(id_iterator == params.end())
+            {
+                m_logger->error("Received TYPE advertisement with no ID.");
+            }
+            const auto type_iterator = params.find(message->get_param_name_type_().data());
+            if(type_iterator == params.end())
+            {
+                m_logger->error("Received TYPE advertisement with no TYPE.");
+            }
+            process_by_id_and_type_advertisement(id_iterator->second, type_iterator->second);
+            break;
+        }
+        case snds_intra_message::SNDS_INTRA_MESSAGE_TYPE::ERASE_PENDING_ID:
+        {
+            //erase_pending_id();
+            const auto id_iterator  = params.find(message->get_param_name_id_().data());
+            if(id_iterator == params.end())
+            {
+                m_logger->error("Received TYPE advertisement with no ID.");
+            }
+            erase_pending_id(id_iterator->second);
+            break;
+        }
+        case snds_intra_message::SNDS_INTRA_MESSAGE_TYPE::TEMPORAL_QUERY_ADVERTISEMENT:
+        {
+            auto params = parse_query_params(content);
+            auto it_date = params.find("date");
+            const auto id_iterator  = params.find(message->get_param_name_id_().data());
+            if(id_iterator == params.end())
+            {
+                m_logger->error("Received TYPE advertisement with no ID.");
+            }
+            const auto type_iterator = params.find(message->get_param_name_type_().data());
+            if(type_iterator == params.end())
+            {
+                m_logger->error("Received TYPE advertisement with no TYPE.");
+            }
 
-
-        //TODO we can differentiate messages based on type
-        //I don't know why are we doing this
-        auto params = parse_query_params(content);
-        auto it_date = params.find("date");
-
-
-        if(it_date != params.end()){
-            m_logger->info("Received temporal query request...");
-            m_logger->debug("Extracted Date from message {}", it_date->second);
-            TemporalQuery query{
+            TemporalQuery query = 
+            {
                 Timeframe::NONE,
                 it_date->second,
-                id,
-                type,
+                id_iterator->second,
+                type_iterator->second,
                 "",
-                {}  // extras below
+                {}
             };
 
-            for (auto const& k : {"id","date","type","count"}) {
+            for (auto const& k : {"id","date","type","count"}) 
+            {
                 params.erase(k);
             }
-
             query.extras = std::move(params);
-
-
-            auto message = std::make_unique<snds_intra_message::SNDS_INTRA_MESSAGE>
-            (
-                serialize_temporal_query(query),    
-                snds_intra_message::SNDS_INTRA_MESSAGE_TYPE::TEMPORAL_QUERY_REQUEST,
-                snds_intra_message::SNDS_CLIENT_TYPES::DIGITAL_TWIN,
-                ""
-            );
-            m_logger->info("Pushing Temporal Query to Producer: {}", serialize_temporal_query(query));
-            v_to_producer.get()->writeMessage(std::move(message));
-            continue;
+            process_temporal_query_advertisement(query);
+            break;
         }
-
-        if(!id.empty())
-        {
-            m_logger->info("Received by ID get request...");
-            //ensureLeadingSlash(id);
-            auto [_, new_request] = announcedIDs.insert(id);
-            if(!new_request)
-            {
-                m_logger->debug("ID {} is already in the announcedIDsVec. Skipping...", id);
-                continue;
-            }
-
-            m_logger->debug("Pushed ID {} to the announced IDs vector...", id);
-
-            auto interest_name = parsed_interest_name::makeParsedInterestName
-            (
-                snds_prefix, 
-                id,
-                interest_message_type::INTEREST_MESSAGE_TYPE::POST_ID,
-                {id}
-            );
-
-            auto message1 = std::make_unique<snds_intra_message::SNDS_INTRA_MESSAGE>
-            (
-                parsed_interest_name::toCustomNDNName(interest_name),
-                snds_intra_message::SNDS_INTRA_MESSAGE_TYPE::BY_ID_ADVERTISEMENT,
-                snds_intra_message::SNDS_CLIENT_TYPES::DIGITAL_TWIN,
-                ""
-            );
-
-            m_logger->info("Pushing byID advertisement to the Producer...\n{}", message1.get()->printDetails());
-            v_to_producer->writeMessage(std::move(message1));
-
-            interest_name = parsed_interest_name::makeParsedInterestName
-            (
-                snds_prefix, 
-                id_scope,
-                interest_message_type::INTEREST_MESSAGE_TYPE::SCOPE,
-                {id}
-            );
-
-            auto message2 = std::make_unique<snds_intra_message::SNDS_INTRA_MESSAGE>
-            (
-                parsed_interest_name::toCustomNDNName(interest_name),
-                snds_intra_message::SNDS_INTRA_MESSAGE_TYPE::BY_ID_WITH_SCOPE_ADVERTISEMENT,
-                snds_intra_message::SNDS_CLIENT_TYPES::DIGITAL_TWIN,
-                ""
-            );
-
-            m_logger->info("Pushing byID with Scope advertisement to the Consumer...\n{}", message2.get()->printDetails());
-            v_to_consumer->writeMessage(std::move(message2));
-        }
-
-
-        if(!type.empty()){
-            m_logger->info("Received by Type get request...");
-            ensureLeadingSlash(type);
-            m_logger->debug("The Type is the following: {}", type);
-            ensureLeadingSlash(id);
-            m_logger->debug("The ID is the following: {}", id);
-            auto message = std::make_unique<snds_intra_message::SNDS_INTRA_MESSAGE>
-            (
-                type+id,
-                snds_intra_message::SNDS_INTRA_MESSAGE_TYPE::BY_TYPE_RESPONSE,
-                snds_intra_message::SNDS_CLIENT_TYPES::DIGITAL_TWIN,
-                ""
-            );
-            m_logger->info("Pushing byType advertisement to the Consumer...\n{}", message.get()->printDetails());
-            v_to_consumer->writeMessage(std::move(message));
         }
     }
+}
+
+
+void DigitalTwin::process_by_id_advertisement(const std::string& id)
+{
+    m_logger->info("Received by ID get request...");
+    //ensureLeadingSlash(id);
+    auto [_, new_request] = announced_ids.insert(id);
+    if(!new_request)
+    {
+        m_logger->debug("ID {} is already in the announced_ids. Skipping...", id);
+        return;
+    }
+
+    m_logger->debug("Pushed ID {} to the announced IDs vector...", id);
+
+    std::string id_scope = getSNDSNodeScopeNameForSubscription(id, id_scope_prefix, number_of_snds_services);
+    m_logger->debug("Extracted id Scope from message {}", id_scope);
+
+    auto interest_name = parsed_interest_name::make_parsed_interest_name
+    (
+        snds_prefix, 
+        id,
+        parsed_interest_name::interest_message_type::INTEREST_MESSAGE_TYPE::POST_ID,
+        {id}
+    );
+
+    auto message1 = std::make_unique<snds_intra_message::SNDS_INTRA_MESSAGE>
+    (
+        parsed_interest_name::to_custom_ndn_name(interest_name),
+        snds_intra_message::SNDS_INTRA_MESSAGE_TYPE::BY_ID_ADVERTISEMENT,
+        snds_intra_message::SNDS_CLIENT_TYPES::DIGITAL_TWIN,
+        "",
+        snds_intra_message::HTTP_MESSAGE_TYPE::HTTP_EMPTY
+    );
+
+    m_logger->info("Pushing byID advertisement to the Producer...\n{}", message1.get()->print_details());
+    v_to_producer->writeMessage(std::move(message1));
+
+    interest_name = parsed_interest_name::make_parsed_interest_name
+    (
+        snds_prefix, 
+        id_scope,
+        parsed_interest_name::interest_message_type::INTEREST_MESSAGE_TYPE::SCOPE,
+        {id}
+    );
+
+    auto message2 = std::make_unique<snds_intra_message::SNDS_INTRA_MESSAGE>
+    (
+        parsed_interest_name::to_custom_ndn_name(interest_name),
+        snds_intra_message::SNDS_INTRA_MESSAGE_TYPE::BY_ID_WITH_SCOPE_ADVERTISEMENT,
+        snds_intra_message::SNDS_CLIENT_TYPES::DIGITAL_TWIN,
+        "",
+        snds_intra_message::HTTP_MESSAGE_TYPE::HTTP_EMPTY
+    );
+
+    m_logger->info("Pushing byID with Scope advertisement to the Consumer...\n{}", message2.get()->print_details());
+    v_to_consumer->writeMessage(std::move(message2));
+
+}
+
+void DigitalTwin::process_by_id_and_type_advertisement(const std::string& id, const std::string& type)
+{
+    m_logger->info("Received by Type get request...");
+    m_logger->debug("The Type is the following: {}", type);
+    m_logger->debug("The ID is the following: {}", id);
+    auto interest_name = parsed_interest_name::make_parsed_interest_name
+    (
+        type, 
+        id,
+        parsed_interest_name::interest_message_type::INTEREST_MESSAGE_TYPE::BY_ID_AND_TYPE_ADVERTISEMENT,
+        {id, type}
+    );
+    auto message = std::make_unique<snds_intra_message::SNDS_INTRA_MESSAGE>
+    (
+        parsed_interest_name::to_custom_ndn_name(interest_name),
+        snds_intra_message::SNDS_INTRA_MESSAGE_TYPE::BY_ID_AND_TYPE_ADVERTISEMENT,
+        snds_intra_message::SNDS_CLIENT_TYPES::DIGITAL_TWIN,
+        "",
+        snds_intra_message::HTTP_MESSAGE_TYPE::HTTP_EMPTY
+    );
+    m_logger->info("Pushing byType advertisement to the Consumer...\n{}", message.get()->print_details());
+    v_to_consumer->writeMessage(std::move(message));
+
+}
+
+void DigitalTwin::process_temporal_query_advertisement(const TemporalQuery& query)
+{
+    auto message = std::make_unique<snds_intra_message::SNDS_INTRA_MESSAGE>
+    (
+        serialize_temporal_query(query),    
+        snds_intra_message::SNDS_INTRA_MESSAGE_TYPE::TEMPORAL_QUERY_ADVERTISEMENT,
+        snds_intra_message::SNDS_CLIENT_TYPES::DIGITAL_TWIN,
+        "",
+        snds_intra_message::HTTP_MESSAGE_TYPE::HTTP_EMPTY
+    );
+    m_logger->info("Pushing Temporal Query to Producer: {}", serialize_temporal_query(query));
+    v_to_producer.get()->writeMessage(std::move(message));
+}
+
+void DigitalTwin::erase_pending_id(const std::string& id)
+{
+    m_logger->info("Received erase ID command for ID {}...", id);
+    if(announced_ids.erase(id) > 0)
+    {
+        m_logger->debug("Successfully removed ID {}", id);
+    };
 }

@@ -1,4 +1,4 @@
-#include "temporal_query.h"
+#include "temporal_query.hpp"
 
 // Parse a "+"-delimited string (e.g., "before+after")
 //    into a single Timeframe flag bitmask.
@@ -99,12 +99,14 @@ std::string filters_to_csv(const std::vector<Filter>& filters)
     return out;
 }
 
-std::string to_path(
+std::string to_path
+(
     const TemporalQuery &q,
     const bool include_timeframe,
     const bool include_count,
     const bool include_extras,
-    const bool include_filters)
+    const bool include_filters
+)
 {
     std::ostringstream oss;
 

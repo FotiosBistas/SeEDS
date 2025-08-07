@@ -1,4 +1,4 @@
-#include "snds_service_base.h"
+#include "snds_service_base.hpp"
 
 // Define and initialize static message queues.
 // These will be created once and shared across all instances of ServiceBase.

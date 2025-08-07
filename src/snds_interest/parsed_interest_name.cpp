@@ -1,6 +1,6 @@
-#include "parsed_interest_name.h"
+#include "parsed_interest_name.hpp"
 
-parsed_interest_name::ParsedInterestName parsed_interest_name::parseInterestName(const ndn::Name& name) 
+parsed_interest_name::ParsedInterestName parsed_interest_name::parse_interest_name(const ndn::Name& name) 
 {
     ParsedInterestName pi;
     size_t n = name.size();
@@ -30,7 +30,7 @@ parsed_interest_name::ParsedInterestName parsed_interest_name::parseInterestName
 }
 
 
-std::string parsed_interest_name::toCustomNDNName(const parsed_interest_name::ParsedInterestName& pi, const bool url_encode_flag) 
+std::string parsed_interest_name::to_custom_ndn_name(const parsed_interest_name::ParsedInterestName& pi, const bool url_encode_flag) 
 {
 
     std::string name; 
@@ -62,7 +62,7 @@ std::string parsed_interest_name::toCustomNDNName(const parsed_interest_name::Pa
     return name;
 }
 
-std::string parsed_interest_name::toQueryString(const parsed_interest_name::ParsedInterestName& pi) {
+std::string parsed_interest_name::to_query_string(const parsed_interest_name::ParsedInterestName& pi) {
     std::ostringstream oss;
     oss << "/?";
 
@@ -119,7 +119,7 @@ std::vector<std::string> parsed_interest_name::split
 }
 
 
-parsed_interest_name::ParsedInterestName parsed_interest_name::parseFromString(const std::string& name)
+parsed_interest_name::ParsedInterestName parsed_interest_name::parse_from_string(const std::string& name)
 {
     //split on '/' and ignore empty pieces
     auto parts = split(name, '/');

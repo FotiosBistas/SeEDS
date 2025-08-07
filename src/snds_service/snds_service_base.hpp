@@ -1,11 +1,5 @@
-#ifndef SERVICE_BASE_H
-#define SERVICE_BASE_H
+#pragma once
 
-#include <ndn-cxx/face.hpp>
-#include <ndn-cxx/security/validator-config.hpp>
-#include <spdlog/spdlog.h>
-#include <spdlog/sinks/stdout_color_sinks.h>
-#include <spdlog/sinks/basic_file_sink.h>
 #include <atomic>
 #include <thread>
 #include <memory>
@@ -13,9 +7,18 @@
 #include <exception>
 #include <vector>
 #include <string>
-#include "snds_message.h"
-#include "message_queue.h"
+
+#include <ndn-cxx/face.hpp>
+#include <ndn-cxx/security/validator-config.hpp>
+
+#include <spdlog/spdlog.h>
+#include <spdlog/sinks/stdout_color_sinks.h>
+#include <spdlog/sinks/basic_file_sink.h>
+
 #include "snds_utils.h"
+
+#include "snds_message.hpp"
+#include "message_queue.hpp"
 
 class ServiceBase {
 public:
@@ -41,7 +44,7 @@ public:
         std::string snds_prefix = "SNDS",
         std::string snds_id = "0",
         std::string id_scope_prefix = "SNDS_ID_scope_",
-        std::string registryFilePostfix = "_registry",
+        std::string registry_file_postfix = "_registry",
         std::string ackTag = "THIS_IS_AN_SNDS_ACK",
         std::string serviceName = "ServiceBase",
         std::string broker_ip   = "0.0.0.0",
@@ -56,7 +59,7 @@ public:
     snds_prefix(std::move(snds_prefix)),
     snds_id(std::move(snds_id)),
     id_scope_prefix(std::move(id_scope_prefix)),
-    m_registryFilePostfix(std::move(registryFilePostfix)),
+    registry_file_postfix(std::move(registry_file_postfix)),
     m_ackTag(std::move(ackTag)),
     serviceName(std::move(serviceName)),
     snds_id_name(this->snds_prefix + "_" + this->snds_id),
@@ -94,7 +97,7 @@ public:
         m_logger->info("SNDS Prefix: {}", snds_prefix);
         m_logger->info("My SNDS ID: {}", snds_id);
         m_logger->info("ID Scope Prefix: {}", id_scope_prefix);
-        m_logger->info("Registry File Postfix: {}", m_registryFilePostfix);
+        m_logger->info("Registry File Postfix: {}", registry_file_postfix);
         m_logger->info("ACK Tag: {}", m_ackTag);
         m_logger->info("Service Name: {}", this->serviceName);
         m_logger->info("Computed SNDS ID name: {}", snds_id_name);
@@ -210,7 +213,7 @@ protected:
   	std::string snds_id_name;             // Computed as snds_prefix + "_" + snds_id.
   	std::string id_scope_prefix;          // e.g., "SNDS_ID_scope_"
   	std::string snds_id_scope_name;       // Computed as snds_prefix + id_scope_prefix + snds_id.
-  	std::string m_registryFilePostfix;    // e.g., "_registry"
+  	std::string registry_file_postfix;    // e.g., "_registry"
 	std::string temporalQueryPrefix;      //e.g. "date%3D"
     std::string metafilePrefix;           //e.g. "metafile%3D"
   	std::string serviceName;
@@ -222,5 +225,3 @@ protected:
   	static constexpr const char* ERASE_PREFIX="erase=";
 
 };
-
-#endif // SERVICE_BASE_H

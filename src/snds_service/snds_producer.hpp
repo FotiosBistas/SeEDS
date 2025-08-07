@@ -1,11 +1,13 @@
 #include <ndn-cxx/face.hpp>
 #include <spdlog/spdlog.h>
 #include <nlohmann/json.hpp>  
+
 #include "httplib.h"
-#include "snds_service_base.h"
+#include "snds_service_base.hpp"
+#include "parsed_interest_name.hpp"
+#include "temporal_query.hpp"
+
 #include "snds_utils.h"
-#include "parsed_interest_name.h"
-#include "temporal_query.h"
 
 class SNDSProducer : public ServiceBase {
 public:
@@ -61,8 +63,7 @@ public:
 	 * Otherwise, the new ID is added to the registry, and an acknowledgment (ACK) is sent back.
 	 *
 	 * @param interest The Parsed Interest packet that triggered this callback.
-	 /
-	void processTypeAdvertisement(ParsedInterestName& interest);
+	 */
 
 	/**
 	 * @brief Processes subscription-type Interests.
@@ -79,10 +80,11 @@ public:
 	 *
 	 * @param interest The Parsed Interest packet.
 	 */
-	void processSubscription(const parsed_interest_name::ParsedInterestName& interest);
-	void processNotification(const parsed_interest_name::ParsedInterestName& interest);
-	void processByIDInterest(const parsed_interest_name::ParsedInterestName& interest);
-	void processTypeAdvertisement(const parsed_interest_name::ParsedInterestName& interest);
+	void process_new_subscription_interest(const parsed_interest_name::ParsedInterestName& interest);
+	void process_scope_notification_interest(const parsed_interest_name::ParsedInterestName& interest);
+	void process_get_by_id_interest(const parsed_interest_name::ParsedInterestName& interest);
+	void process_by_type_advertisement_interest(const parsed_interest_name::ParsedInterestName& interest);
+	void process_get_by_type_interest(const parsed_interest_name::ParsedInterestName& interest);
 	void handleTemporalQuery(parsed_interest_name::ParsedInterestName& interest);
 	void parseTemporalQuery(const std::string& body);
 

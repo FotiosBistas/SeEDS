@@ -1,14 +1,15 @@
-#include "snds_consumer.h"
-#include "snds_http_server.h"
-#include "snds_producer.h"
-#include "snds_digital_twin.h"
-#include "snds_worker.h"
-#include "snds_daemon.h"
 #include <csignal>
 #include <atomic>
 #include <chrono>
 #include <thread>
 #include <iostream>
+
+#include "snds_consumer.hpp"
+#include "snds_http_server.hpp"
+#include "snds_producer.hpp"
+#include "snds_digital_twin.hpp"
+#include "snds_worker.hpp"
+#include "snds_daemon.hpp"
 
 // Global atomic flag to signal shutdown.
 std::atomic<bool> g_stop{false};

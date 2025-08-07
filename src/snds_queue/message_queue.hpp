@@ -5,7 +5,8 @@
 #include <mutex>
 #include <condition_variable>
 #include <atomic>
-#include "snds_message.h"
+
+#include "snds_message.hpp"
 
 /**
  * @brief A thread-safe producer-consumer message queue.

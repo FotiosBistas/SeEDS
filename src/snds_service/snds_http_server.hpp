@@ -1,12 +1,13 @@
-#ifndef SNDS_HTTP_SERVICE_H
-#define SNDS_HTTP_SERVICE_H
+#pragma once
 
-#include "snds_service_base.h"
 #include <thread>
 #include <memory>
 #include <string>
-// Include cpp-httplib header (make sure the include directory is set in CMake)
+
 #include "httplib.h"
+#include "snds_utils.h"
+#include "snds_service_base.hpp"
+#include "query_params.hpp"
 
 /**
  * @brief HTTP Service implemented with cpp-httplib.
@@ -49,6 +50,5 @@ public:
      * Overrides the init() method from ServiceBase.
      */
     void init() override;
-};
 
-#endif // SNDS_HTTP_SERVICE_H
+};

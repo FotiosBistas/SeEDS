@@ -1,8 +1,8 @@
 #pragma once
 
-#include "parsed_interest_name.h"
-#include "snds_service_base.h"
-#include "temporal_query.h"
+#include "parsed_interest_name.hpp"
+#include "snds_service_base.hpp"
+#include "temporal_query.hpp"
 
 class DigitalTwin: public ServiceBase{
 
@@ -34,6 +34,11 @@ public:
 
 
     void init();
+    void process_by_id_advertisement(const std::string& id);
+    void process_by_id_and_type_advertisement(const std::string& id, const std::string& type);
+    void process_temporal_query_advertisement(const TemporalQuery& query);
+    void erase_pending_id(const std::string& id);
+
 private:
-	std::unordered_set<std::string> announcedIDs; //stores local annnounced ids
+	std::unordered_set<std::string> announced_ids; //stores local annnounced ids
 };
