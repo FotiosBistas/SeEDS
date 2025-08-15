@@ -45,7 +45,7 @@ void Worker::init() {
 }
 
 
-void Worker::_handle_http_server_intra_message(const snds_intra_message::SNDS_INTRA_MESSAGE& message)
+void Worker::_handle_http_server_intra_message(snds_intra_message::SNDS_INTRA_MESSAGE& message)
 {
 
 
@@ -95,8 +95,14 @@ void Worker::_handle_http_server_intra_message(const snds_intra_message::SNDS_IN
 
 }
 
-void Worker::_handle_consumer_intra_message(const snds_intra_message::SNDS_INTRA_MESSAGE& message)
+void Worker::_handle_consumer_intra_message(snds_intra_message::SNDS_INTRA_MESSAGE& message)
 {
+
+    if(snds_intra_message::is_ack_message(message.get_payload()))
+    {
+        process_ack_message(std::move(message.move_message()), std::move(message.move_payload()));
+        return;
+    }
 
     switch(message.get_message_type())
     {
@@ -107,10 +113,33 @@ void Worker::_handle_consumer_intra_message(const snds_intra_message::SNDS_INTRA
             process_processed_get_by_id(id, payload);
             break;
         }
-        case snds_intra_message::SNDS_INTRA_MESSAGE_TYPE::GET_BY_TYPE_RESPONSE:
+        case snds_intra_message::SNDS_INTRA_MESSAGE_TYPE::GET_BY_ID_FOR_TYPE_RESPONSE:
         {
-            auto type = message.get_message();
-            process_processed_get_by_type(type);
+            auto name = parsed_interest_name::parse_from_string(message.get_message());
+
+            m_logger->debug("Name: {}", name.to_string());
+
+            auto maybe_id = name.get_interest_parameter(0);
+            auto maybe_type = name.get_interest_parameter(1);
+
+            if(!maybe_id.has_value())
+            {
+                m_logger->warn("Received ID with no value in {}", __func__);
+                break;
+            }
+
+            if(!maybe_type.has_value())
+            {
+                m_logger->warn("Received TYPE with no value in {}", __func__);
+                break;
+            }
+
+            auto id = maybe_id.value();
+            auto type = maybe_type.value();
+            auto payload = message.get_payload();
+
+            //TODO ask john about this
+            process_processed_get_by_type(id, type, payload);
             break;
         }
         case snds_intra_message::SNDS_INTRA_MESSAGE_TYPE::REGISTRY_PAYLOAD:
@@ -121,6 +150,22 @@ void Worker::_handle_consumer_intra_message(const snds_intra_message::SNDS_INTRA
             break;
         }
     }
+}
+
+void Worker::process_ack_message(std::string&& name, std::string&& payload)
+{
+    m_logger->info("Received ACK Message with name: {} payload: {}...", name, payload);
+
+    auto message = std::make_unique<snds_intra_message::SNDS_INTRA_MESSAGE>
+    (
+        std::move(name),
+        snds_intra_message::SNDS_INTRA_MESSAGE_TYPE::CONTROL_MESSAGE,
+        snds_intra_message::SNDS_CLIENT_TYPES::WORKER,
+        std::move(payload + "\n"),
+        snds_intra_message::HTTP_MESSAGE_TYPE::HTTP_EMPTY
+    );
+
+    v_to_service->writeMessage(std::move(message));
 }
 
 void Worker::processTemporalQueryRequest(const TemporalQuery& temporal_query)
@@ -220,10 +265,10 @@ void Worker::processTemporalQueryResponse
 
     auto message = std::make_unique<snds_intra_message::SNDS_INTRA_MESSAGE>
     (
-        std::move(payload + "\n"),
+        "",
         snds_intra_message::SNDS_INTRA_MESSAGE_TYPE::TEMPORAL_QUERY_RESPONSE,
         snds_intra_message::SNDS_CLIENT_TYPES::WORKER,
-        "",
+        std::move(payload + "\n"),
         snds_intra_message::HTTP_MESSAGE_TYPE::HTTP_EMPTY
     );
 
@@ -346,10 +391,10 @@ void Worker::process_processed_get_by_id(const std::string& id, const std::strin
 
         auto message2 = std::make_unique<snds_intra_message::SNDS_INTRA_MESSAGE>
         (
-            std::move(payload + "\n"),
+            std::string(id),
             snds_intra_message::SNDS_INTRA_MESSAGE_TYPE::TEMPORAL_QUERY_RESPONSE,
             snds_intra_message::SNDS_CLIENT_TYPES::WORKER,
-            "",
+            std::move(payload + "\n"),
             snds_intra_message::HTTP_MESSAGE_TYPE::HTTP_EMPTY
         );
 
@@ -395,66 +440,80 @@ void Worker::process_new_get_by_type(const std::string& type)
     v_to_consumer.get()->writeMessage(std::move(message));
 }
 
-void Worker::process_processed_get_by_type(const std::string& name)
+void Worker::process_processed_get_by_type(const std::string& id, const std::string& type, std::string& payload)
 {
-    if(!pending_ids_to_type_map.contains(name))
+    //TODO need to ask JOHN about this
+    if(!pending_ids_to_type_map.contains(type))
     {
-        m_logger->info("Name {} is not in pending_ids_for_type_map", name);
+        m_logger->warn("Type {} is not in pending_ids_for_type_map", type);
         return; 
     }
-    m_logger->info("Name {} is in pending ids for type map", name);
-    // This gets us the types for an ID
-    auto& ids = pending_ids_to_type_map.at(name);
-    std::vector<std::string> ids_to_erase;
 
-
-    for(const auto& id: ids)
+    //sanity check
+    if(!pending_get_by_type_requests.contains(type))
     {
-
-        auto& types = pending_types_to_id_map.at(id);
-        if(types.erase(name) < 0)
-        {
-            m_logger->info("Could not find name {0} for id {1}", name, id);
-            //TODO I guess this was originally used for debugging purposes
-            m_logger->error("State inconsistency...");
-            return;
-        }
-
-        if(types.empty())
-        {
-            m_logger->info("Successfully removed name {0} from the pending_types_to_id_map for ID {1}", name, id);
-            // There are no more pending types for the id
-            // Can safely erase without check since we got the ids
-            pending_types_to_id_map.erase(id);
-            // Mark this type to remove from ID
-            ids_to_erase.push_back(id);      
-        }
+        m_logger->warn("Type {} is not in pending_get_by_type_requests", type);
+        return;
     }
 
-    // Now remove the empty types from the set for this ID
-    for (const auto& id: ids_to_erase) 
-    {
-        m_logger->debug("Removing ID {0} from pending_ids_to_type_map for name {1}", id, name);
-        ids.erase(id);
+    m_logger->info("Type {} is in pending ids for type map", type);
+    // This gets us the types for an ID
+    auto& ids = pending_ids_to_type_map.at(type);
 
-        auto message = std::make_unique<snds_intra_message::SNDS_INTRA_MESSAGE>
+
+    if(ids.erase(id) == 0)
+    {
+        m_logger->warn("ID {} was not in pending IDS for TYPE: {}", id, type);
+        return;
+    }
+
+    m_logger->info("Sucessfully removed ID: {} from pending_ids_to_type for TYPE: {}", id, type);
+
+    // we know that for a specific type the request is one at a time
+    auto& items = payloads_for_get_by_type[type]; // creates if missing
+
+    items.push_back(TypePayload{id, std::move(payload)});
+
+    if(ids.size() == 0)
+    {
+        m_logger->info("Last ID received for TYPE. Erasing state...");
+        // Build final JSON payload: { "type": "...", "payloads": [ ... ] }
+        nlohmann::json j;
+        j["type"] = type;
+        j["items"] = nlohmann::json::array();
+        for (const auto& it : items) \
+        {
+            j["items"].push_back({ {"id", it.id}, {"payload", it.payload} });
+        }
+        std::string serialized_payload = j.dump(2);
+        pending_ids_to_type_map.erase(type);
+        pending_get_by_type_requests.erase(type);
+        payloads_for_get_by_type.erase(type);
+
+        //TODO I have no clue what is this
+        //auto message = std::make_unique<snds_intra_message::SNDS_INTRA_MESSAGE>
+        //(
+        //    std::string(id),
+        //    snds_intra_message::SNDS_INTRA_MESSAGE_TYPE::ERASE_PENDING_ID,
+        //    snds_intra_message::SNDS_CLIENT_TYPES::WORKER,
+        //    "",
+        //    snds_intra_message::HTTP_MESSAGE_TYPE::HTTP_EMPTY
+        //);
+
+        //v_to_dt->writeMessage(std::move(message));
+
+        auto service_message = std::make_unique<snds_intra_message::SNDS_INTRA_MESSAGE>
         (
             std::string(id),
-            snds_intra_message::SNDS_INTRA_MESSAGE_TYPE::ERASE_PENDING_ID,
-            snds_intra_message::SNDS_CLIENT_TYPES::SERVICE,
-            "",
+            snds_intra_message::SNDS_INTRA_MESSAGE_TYPE::GENERIC,
+            snds_intra_message::SNDS_CLIENT_TYPES::WORKER,
+            std::move(serialized_payload + "\n"),
             snds_intra_message::HTTP_MESSAGE_TYPE::HTTP_EMPTY
         );
 
-        v_to_dt->writeMessage(std::move(message));
+        v_to_service->writeMessage(std::move(service_message));
     }
 
-    if (ids.empty())
-    {
-        m_logger->info("Removing name {} from pending_ids_to_type since IDs are empty", name);
-        // Can safely remove without check 
-        pending_ids_to_type_map.erase(name);
-    }
 }
 
 void Worker::process_registry_file(const std::string& payload, const std::string& type) 
@@ -470,6 +529,8 @@ void Worker::process_registry_file(const std::string& payload, const std::string
         ),
         m_logger
     );
+
+
     
     m_logger->info("Size of ids in registry file: {}", registry_ids.size());
     
@@ -486,7 +547,8 @@ void Worker::process_registry_file(const std::string& payload, const std::string
         id_set.insert(id);
         
         // Update pendingTypesForIDMap: for this id, add the type name.
-        pending_types_to_id_map[id].insert(type);
+        // TODO ask john about this
+        // pending_types_to_id_map[id].insert(type);
 
 
         auto name = parsed_interest_name::to_custom_ndn_name
@@ -495,7 +557,7 @@ void Worker::process_registry_file(const std::string& payload, const std::string
             (
                 snds_prefix, 
                 type, 
-                parsed_interest_name::interest_message_type::INTEREST_MESSAGE_TYPE::GET_BY_ID,
+                parsed_interest_name::interest_message_type::INTEREST_MESSAGE_TYPE::GET_BY_ID_FOR_TYPE,
                 {id, type}
             )
         );
@@ -504,7 +566,7 @@ void Worker::process_registry_file(const std::string& payload, const std::string
         auto message = std::make_unique<snds_intra_message::SNDS_INTRA_MESSAGE>
         (
             std::move(name),
-            snds_intra_message::SNDS_INTRA_MESSAGE_TYPE::GET_BY_ID_REQUEST,
+            snds_intra_message::SNDS_INTRA_MESSAGE_TYPE::GET_BY_ID_FOR_TYPE_REQUEST,
             snds_intra_message::SNDS_CLIENT_TYPES::WORKER,
             "",   // Empty message name.
             snds_intra_message::HTTP_MESSAGE_TYPE::HTTP_EMPTY

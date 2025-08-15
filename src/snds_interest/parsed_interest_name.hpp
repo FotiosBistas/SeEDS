@@ -21,8 +21,9 @@
     X(SCOPE_NOTIFICATION,             "scopeNotification") \
     X(NEW_SUBSCRIPTION,               "newSubscription") \
     X(SUBSCRIPTION_NOTIFICATION,      "subscriptionNotification") \
-    X(GET_BY_TYPE,                    "getbyType") \
-    X(GET_BY_ID,                      "getbyID") 
+    X(GET_BY_TYPE,                    "getByType") \
+    X(GET_BY_ID,                      "getByID") \
+    X(GET_BY_ID_FOR_TYPE,             "getByIDForType")
 
 namespace parsed_interest_name {
 

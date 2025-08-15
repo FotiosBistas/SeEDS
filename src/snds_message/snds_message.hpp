@@ -19,6 +19,8 @@
     X(GET_BY_ID_RESPONSE,            "GET_BY_ID_RESPONSE") \
     X(GET_BY_TYPE_RESPONSE,          "GET_BY_TYPE_RESPONSE") \
     X(GET_BY_ID_REQUEST,             "GET_BY_ID_REQUEST") \
+    X(GET_BY_ID_FOR_TYPE_REQUEST,    "GET_BY_ID_FOR_TYPE_REQUEST") \
+    X(GET_BY_ID_FOR_TYPE_RESPONSE,   "GET_BY_ID_FOR_TYPE_RESPONSE") \
     X(GET_BY_TYPE_REQUEST,           "GET_BY_TYPE_REQUEST") \
     X(GET_BY_ID_AND_TYPE_REQUEST,    "GET_BY_ID_AND_TYPE_REQUEST") \
     X(REGISTRY_PAYLOAD,              "REGISTRY_PAYLOAD") \
@@ -27,7 +29,8 @@
     X(SUBSCRIPTION_NOTIFICATION_DATA,"SUBSCRIPTION_NOTIFICATION_DATA") \
     X(TEMPORAL_QUERY_REQUEST,        "TEMPORAL_QUERY_REQUEST") \
     X(TEMPORAL_QUERY_RESPONSE,       "TEMPORAL_QUERY_RESPONSE") \
-    X(TEMPORAL_QUERY_ADVERTISEMENT,  "TEMPORAL_QUERY_ADVERTISEMENT")
+    X(TEMPORAL_QUERY_ADVERTISEMENT,  "TEMPORAL_QUERY_ADVERTISEMENT") \
+    X(CONTROL_MESSAGE,               "CONTROL_MESSAGE")
 
 #define HTTP_MESSAGE_TYPE_LIST \
     X(HTTP_GET,  "HTTP_GET") \
@@ -36,6 +39,7 @@
 
 #define SNDS_CONTROL_MESSAGE_TYPE_LIST \
     X(ACK_SUBSCRIPTION_NEW,            "ACK_SUBSCRIPTION_NEW") \
+    X(ACK_SUBSCRIPTION_EXISTS,         "ACK_SUBSCRIPTION_EXISTS") \
     X(ACK_SUBSCRIPTION_NOTIFICATION,   "ACK_SUBSCRIPTION_NOTIFICATION") \
     X(ACK_SUBSCRIPTION_NO_SUBSCRIBERS, "ACK_SUBSCRIPTION_NO_SUBSCRIBERS") \
     X(ACK_SCOPE_NOTIFICATION,          "ACK_SCOPE_NOTIFICATION") \
@@ -241,11 +245,15 @@ namespace snds_intra_message
         SNDS_INTRA_MESSAGE_TYPE infer_from_get() const
         {
 
-            if (id_.has_value() && is_subscription_)
+
+            if (id_.has_value() && is_subscription_.has_value() && is_subscription_.value())
             {
                 //TODO we don't take account URLs
                 return SNDS_INTRA_MESSAGE_TYPE::BY_ID_SUBSCRIPTION;
             }
+
+            if (date_.has_value() && timeframe_.has_value())
+                return SNDS_INTRA_MESSAGE_TYPE::TEMPORAL_QUERY_REQUEST;
 
             if (id_.has_value() && type_.has_value())
                 return SNDS_INTRA_MESSAGE_TYPE::GET_BY_ID_AND_TYPE_REQUEST;
@@ -256,14 +264,15 @@ namespace snds_intra_message
             if (type_.has_value())
                 return SNDS_INTRA_MESSAGE_TYPE::GET_BY_TYPE_REQUEST;
 
-            if (date_.has_value() && timeframe_.has_value())
-                return SNDS_INTRA_MESSAGE_TYPE::TEMPORAL_QUERY_REQUEST;
 
             return SNDS_INTRA_MESSAGE_TYPE::GENERIC;
         }
 
         SNDS_INTRA_MESSAGE_TYPE infer_from_post() const
         {
+            if (date_.has_value() && timeframe_.has_value())
+                return SNDS_INTRA_MESSAGE_TYPE::TEMPORAL_QUERY_ADVERTISEMENT;
+
             if (id_.has_value() && type_.has_value())
                 return SNDS_INTRA_MESSAGE_TYPE::BY_ID_AND_TYPE_ADVERTISEMENT;
 
@@ -273,8 +282,6 @@ namespace snds_intra_message
             if (type_.has_value())
                 return SNDS_INTRA_MESSAGE_TYPE::BY_TYPE_ADVERTISEMENT;
 
-            if (date_.has_value() && timeframe_.has_value())
-                return SNDS_INTRA_MESSAGE_TYPE::TEMPORAL_QUERY_ADVERTISEMENT;
 
             return SNDS_INTRA_MESSAGE_TYPE::GENERIC;
         }
@@ -369,6 +376,24 @@ namespace snds_intra_message
         const std::string& get_message() const 
         {
             return message;
+        }
+
+        /**
+         * @brief Moves out the message content of the class.
+         * @return The string that was stored in the message (message is left empty).
+         */
+        std::string&& move_message()
+        {
+            return std::move(message);
+        }
+
+        /**
+         * @brief Moves out the payload content of the class.
+         * @return The string that was stored in the payload (payload is left empty).
+         */
+        std::string&& move_payload()
+        {
+            return std::move(payload);
         }
 
         /**

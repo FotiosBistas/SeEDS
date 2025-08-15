@@ -217,8 +217,63 @@ void SNDSProducer::onInterest(const ndn::Interest& interest)
     case parsed_interest_name::interest_message_type::INTEREST_MESSAGE_TYPE::GET_BY_TYPE:
         process_get_by_type_interest(pi); 
         break;
+    case parsed_interest_name::interest_message_type::INTEREST_MESSAGE_TYPE::GET_BY_ID_FOR_TYPE:
+        process_get_by_id_for_type_interest(pi);
+        break;
+    case parsed_interest_name::interest_message_type::INTEREST_MESSAGE_TYPE::SUBSCRIPTION_NOTIFICATION:
+        //TODO subscription nofication process
+        break;
     default:
         break;
+    }
+
+}
+
+void SNDSProducer::process_get_by_id_for_type_interest(const parsed_interest_name::ParsedInterestName& interest)
+{
+    auto interest_response = parsed_interest_name::to_custom_ndn_name(interest, true);
+    auto maybe_id = interest.get_interest_parameter(0);
+    auto maybe_type = interest.get_interest_parameter(1);
+
+    if(!maybe_id.has_value())
+    {
+        m_logger->warn("Received ID with no value in {}", __func__);
+        return;
+    }
+
+    if(!maybe_type.has_value())
+    {
+        m_logger->warn("Received TYPE with not value in {}", __func__);
+        return;
+    }
+
+    auto id = maybe_id.value();
+    auto type = maybe_type.value();
+
+    m_logger->info("ID for TYPE request received: id = {}, type = {}", id, type);
+    // In local ID requests, we assume the name field itself is the requested ID.
+    httplib::Client cli(broker_ip.c_str(), broker_port);
+    std::string endpoint = fmt::format
+    (
+      	"/get?id={}",
+        url_encode(id)
+    );
+
+    auto res = cli.Get(endpoint.c_str());
+
+    if (res && res->status == 200) 
+    {
+        //get the most recent one theoritically
+        m_logger->info("Successfully queried /get");
+        //TODO SIGNING 
+        sendData(interest_response, res->body);
+    } 
+    else 
+    {
+        m_logger->error("Failed to query /get: {}", res ? res->body : "No response");
+        auto nack_message = snds_intra_message::to_string(snds_intra_message::SNDS_CONTROL_MESSAGE_TYPE::NACK_ERROR);
+        //sendData(interest_response, nack_message);
+        sendData(interest_response, "dummy_payload");
     }
 
 }
@@ -349,7 +404,12 @@ void SNDSProducer::process_new_subscription_interest(const parsed_interest_name:
         //TODO proper ack messages
         auto ack_message = snds_intra_message::to_string(snds_intra_message::SNDS_CONTROL_MESSAGE_TYPE::ACK_SUBSCRIPTION_NEW);
         sendData(interest_response, ack_message);
+        return;
     }
+    m_logger->info("Subscription: {} already exists for {}", snds_node_id, name);
+    m_logger->info("Responding to interest: {}", interest_response);
+    auto ack_message = snds_intra_message::to_string(snds_intra_message::SNDS_CONTROL_MESSAGE_TYPE::ACK_SUBSCRIPTION_EXISTS);
+    sendData(interest_response, ack_message);
 }
 
 void SNDSProducer::process_get_by_type_interest(const parsed_interest_name::ParsedInterestName& interest) 
@@ -425,9 +485,9 @@ void SNDSProducer::process_scope_notification_interest(const parsed_interest_nam
             parsed_interest_name::make_parsed_interest_name
             (
                 snds_prefix, 
-                snds_node + "/" + name,
+                snds_node,
                 parsed_interest_name::interest_message_type::INTEREST_MESSAGE_TYPE::SUBSCRIPTION_NOTIFICATION,
-                {}
+                {name, snds_node}
             )
         );
 

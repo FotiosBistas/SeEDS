@@ -146,7 +146,7 @@ void DigitalTwin::process_by_id_advertisement(const std::string& id)
         snds_prefix, 
         id_scope,
         parsed_interest_name::interest_message_type::INTEREST_MESSAGE_TYPE::SCOPE,
-        {id}
+        {id, id_scope}
     );
 
     auto message2 = std::make_unique<snds_intra_message::SNDS_INTRA_MESSAGE>

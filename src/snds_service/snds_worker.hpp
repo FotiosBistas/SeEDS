@@ -48,8 +48,18 @@ private:
   	// Used for serving subscription requests
   	std::unordered_map<std::string, std::unordered_set<std::string>> subscribed_by_id_users;
 
-  	std::unordered_map<std::string, std::unordered_set<std::string>> pending_types_to_id_map;
+	// TODO ask john about this 
+	// simplify the request for the pending type
+  	// std::unordered_map<std::string, std::unordered_set<std::string>> pending_types_to_id_map;
   	std::unordered_map<std::string, std::unordered_set<std::string>> pending_ids_to_type_map;
+
+	struct TypePayload 
+	{
+    	std::string id;
+    	std::string payload;
+	};
+
+	std::unordered_map<std::string, std::vector<TypePayload>> payloads_for_get_by_type;
 
   	// Unordered sets for deduplicating pending requests.
   	std::unordered_set<std::string> pending_get_by_id_requests;
@@ -64,13 +74,15 @@ private:
   	void process_processed_get_by_id(const std::string& id, const std::string& payload);
   	void process_subscription_request(const std::string& id, const std::string& url);
   	void process_new_get_by_type(const std::string& type);
-  	void process_processed_get_by_type(const std::string& name);
+	//TODO need to ask JOHN about this
+  	void process_processed_get_by_type(const std::string& id, const std::string& type, std::string& payload);
   	void process_registry_file(const std::string& payload, const std::string& name);
+	void process_ack_message(std::string&& name, std::string&& payload);
   	void processTemporalQueryRequest(const TemporalQuery& temporal_query);
   	void processTemporalQueryResponse(const std::string& parent_query_hash, const std::string& content, bool last_interest);
 
-	void _handle_consumer_intra_message(const snds_intra_message::SNDS_INTRA_MESSAGE& message);
-	void _handle_http_server_intra_message(const snds_intra_message::SNDS_INTRA_MESSAGE& message);
+	void _handle_consumer_intra_message(snds_intra_message::SNDS_INTRA_MESSAGE& message);
+	void _handle_http_server_intra_message(snds_intra_message::SNDS_INTRA_MESSAGE& message);
 
   	static constexpr const char* GET_PARAMETER_ID_TAG      = "id";
   	static constexpr const char* GET_PARAMETER_TYPE_TAG    = "type";

@@ -39,7 +39,9 @@ void SNDSHTTPService::init()
                 return;
             }
 
-            auto payload = inbound_message->get_message();
+            m_logger->info("Read Message from queue:\n{}", inbound_message->print_details());
+
+            auto payload = inbound_message->get_payload();
             auto pos = payload.find_first_of("{[");
             if (pos != std::string::npos) 
             {

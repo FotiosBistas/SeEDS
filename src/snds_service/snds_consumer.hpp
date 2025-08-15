@@ -38,6 +38,7 @@ public:
 
     void process_temporal_query_intra_message();
     void express_get_by_id_interest(const std::string& content);
+    void express_get_by_id_for_type_interest(const std::string& content);
     void express_get_by_type_interest(const std::string& content);
     void express_id_with_scope_interest(const std::string& content);
     void express_id_subscription_interest(const std::string& content);
