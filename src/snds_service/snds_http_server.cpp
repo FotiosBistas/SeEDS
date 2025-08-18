@@ -70,7 +70,24 @@ void SNDSHTTPService::init()
 
             m_logger->debug("Writing message from POST request to service queue...\n{}", outbound_message->print_details());
             v_to_dt.get()->writeMessage(std::move(outbound_message));
-            res.set_content(m_ackTag, "text/plain");
+            //TODO thread pool
+            auto inbound_message = v_to_service->readMessage();
+            if (!inbound_message) 
+            {
+                m_logger->debug("Queue shutdown detected, returning HTTP 500");
+                res.status = 500;
+                res.set_content("Internal Server Error", "text/plain");
+                return;
+            }
+            auto payload = inbound_message->get_payload();
+            auto pos = payload.find_first_of("{[");
+            if (pos != std::string::npos) 
+            {
+                payload = payload.substr(pos);
+            }
+
+            res.status = 200;
+            res.set_content(payload, "text/plain");
         });
 
         // Run the server in a separate thread so that we can check for shutdown.

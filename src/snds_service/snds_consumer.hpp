@@ -45,6 +45,7 @@ public:
     void express_id_subscription_notification(const std::string& content);
     void express_temporal_query_interest(const std::string& content);
     void express_by_id_and_type_advertisement_interest(const std::string& content);
+    void express_get_by_id_from_node_interest(const std::string& content);
 
     /**
     * @brief Callback invoked when a Data packet is received from the ndn network.

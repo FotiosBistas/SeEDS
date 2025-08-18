@@ -78,6 +78,7 @@ private:
   	void process_processed_get_by_type(const std::string& id, const std::string& type, std::string& payload);
   	void process_registry_file(const std::string& payload, const std::string& name);
 	void process_ack_message(std::string&& name, std::string&& payload);
+    void process_processed_get_by_id_from_node(std::string&& id, std::string&& payload);
   	void processTemporalQueryRequest(const TemporalQuery& temporal_query);
   	void processTemporalQueryResponse(const std::string& parent_query_hash, const std::string& content, bool last_interest);
 

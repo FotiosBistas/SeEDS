@@ -208,6 +208,7 @@ void SNDSProducer::onInterest(const ndn::Interest& interest)
     case parsed_interest_name::interest_message_type::INTEREST_MESSAGE_TYPE::NEW_SUBSCRIPTION:
         process_new_subscription_interest(pi);
         break;
+    case parsed_interest_name::interest_message_type::INTEREST_MESSAGE_TYPE::GET_BY_ID_FROM_NODE:
     case parsed_interest_name::interest_message_type::INTEREST_MESSAGE_TYPE::GET_BY_ID:
         process_get_by_id_interest(pi);
         break;
@@ -221,12 +222,67 @@ void SNDSProducer::onInterest(const ndn::Interest& interest)
         process_get_by_id_for_type_interest(pi);
         break;
     case parsed_interest_name::interest_message_type::INTEREST_MESSAGE_TYPE::SUBSCRIPTION_NOTIFICATION:
-        //TODO subscription nofication process
+        process_subscription_notification_interest(pi);
         break;
     default:
         break;
     }
 
+}
+
+void SNDSProducer::process_subscription_notification_interest(const parsed_interest_name::ParsedInterestName& interest)
+{
+    auto interest_response = parsed_interest_name::to_custom_ndn_name(interest, true);
+    auto maybe_id = interest.get_interest_parameter(0);
+    auto maybe_snds_node = interest.get_interest_parameter(1);
+
+
+    if(!maybe_id.has_value())
+    {
+        m_logger->warn("Received ID with no value: {}", __func__);
+        return;
+    }
+
+    if(!maybe_snds_node.has_value())
+    {
+        m_logger->warn("Received SNDS NODE with no value: {}", __func__);
+        return;
+    }
+
+    auto id = maybe_id.value();
+    auto snds_node = maybe_snds_node.value();
+
+    m_logger->info("Subscription Notification request received: id = {}, snds_node = {} in func: {}", id, snds_node, __func__);
+
+
+    auto tmp_interest = parsed_interest_name::to_custom_ndn_name
+    (
+        parsed_interest_name::make_parsed_interest_name
+        (
+            snds_prefix,
+            snds_node,
+            parsed_interest_name::interest_message_type::INTEREST_MESSAGE_TYPE::GET_BY_ID_FROM_NODE,
+            {id, snds_node}
+        )
+    );
+
+    auto message = std::make_unique<snds_intra_message::SNDS_INTRA_MESSAGE>
+    (
+        std::move(tmp_interest),
+        snds_intra_message::SNDS_INTRA_MESSAGE_TYPE::GET_BY_ID_FROM_NODE_REQUEST,
+        snds_intra_message::SNDS_CLIENT_TYPES::PRODUCER,
+        "",
+        snds_intra_message::HTTP_MESSAGE_TYPE::HTTP_EMPTY
+    );
+
+    m_logger->debug("Sending message:{} in func: {}", message->print_details(), __func__);
+
+    //by convention the consumer should only express interests in the network
+    v_to_consumer->writeMessage(std::move(message));
+
+    //send ack so the consumer is happy 
+    auto ack_message = snds_intra_message::to_string(snds_intra_message::SNDS_CONTROL_MESSAGE_TYPE::ACK_NODE_NOTIFIED);
+    sendData(interest_response, ack_message);
 }
 
 void SNDSProducer::process_get_by_id_for_type_interest(const parsed_interest_name::ParsedInterestName& interest)
@@ -543,7 +599,8 @@ void SNDSProducer::process_get_by_id_interest(const parsed_interest_name::Parsed
     {
         m_logger->error("Failed to query /get: {}", res ? res->body : "No response");
         auto nack_message = snds_intra_message::to_string(snds_intra_message::SNDS_CONTROL_MESSAGE_TYPE::NACK_ERROR);
-        sendData(interest_response, nack_message);
+        //sendData(interest_response, nack_message);
+        sendData(interest_response, "dummy_payload");
     }
 
 }

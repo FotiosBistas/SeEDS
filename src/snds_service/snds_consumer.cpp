@@ -65,6 +65,11 @@ void SNDSConsumer::init(){
                 express_id_subscription_notification(content);
                 break;
             }
+            case snds_intra_message::SNDS_INTRA_MESSAGE_TYPE::GET_BY_ID_FROM_NODE_REQUEST:
+            {
+                express_get_by_id_from_node_interest(content);
+                break;
+            }
             case snds_intra_message::SNDS_INTRA_MESSAGE_TYPE::TEMPORAL_QUERY_REQUEST:
             {
                 express_temporal_query_interest(content);
@@ -73,6 +78,59 @@ void SNDSConsumer::init(){
 
         }
     }
+}
+
+void SNDSConsumer::express_get_by_id_from_node_interest(const std::string& content)
+{
+    auto tmp_interest = parsed_interest_name::parse_from_string(content);
+
+
+    auto maybe_id = tmp_interest.get_interest_parameter(0);
+    auto maybe_snds_node = tmp_interest.get_interest_parameter(1);
+
+    if(!maybe_id.has_value())
+    {
+        m_logger->warn("Received ID with no value in: {}", __func__);
+        return;
+    }
+
+    if(!maybe_snds_node.has_value())
+    {
+        m_logger->warn("Received SNDS Node with no value in: {}", __func__);
+        return;
+    }
+
+    auto id = maybe_id.value();
+    auto snds_node = maybe_snds_node.value();
+
+    auto name = parsed_interest_name::to_custom_ndn_name
+    (
+        parsed_interest_name::make_parsed_interest_name
+        (
+            snds_prefix,
+            tmp_interest.name,
+            parsed_interest_name::interest_message_type::INTEREST_MESSAGE_TYPE::GET_BY_ID_FROM_NODE,
+            {id, snds_node}
+        )
+    );
+
+    m_logger->debug("Created name: {} in func: {}", name, __func__);
+    ndn::Name interestName(name);
+    ndn::Interest interest(interestName);
+    //TODO we don't want all the cases to be fresh
+    //for example the latest case
+    //interest.setMustBeFresh(true);
+    interest.setCanBePrefix(true);
+    interest.setInterestLifetime(ndn::time::milliseconds(6000)); 
+    m_logger->info("Sending actual Interest {}", interest.toUri().c_str());
+    m_face.expressInterest
+    (
+        interest,
+        std::bind(&SNDSConsumer::onData, this,  _1, _2),
+        std::bind(&SNDSConsumer::onNack, this, _1, _2),
+        std::bind(&SNDSConsumer::onTimeout, this, _1)
+    );
+	m_face.processEvents();
 }
 
 void SNDSConsumer::express_get_by_id_for_type_interest(const std::string& content)
@@ -514,7 +572,6 @@ void SNDSConsumer::onData(const ndn::Interest& interest, const ndn::Data& data)
 
     switch(pi.command)
     {
-
         case parsed_interest_name::interest_message_type::INTEREST_MESSAGE_TYPE::GET_BY_TYPE:
         {
             m_logger->info("Received Registry File");
@@ -588,6 +645,33 @@ void SNDSConsumer::onData(const ndn::Interest& interest, const ndn::Data& data)
             v_to_worker->writeMessage(std::move(message));
             break;
         }
+        case parsed_interest_name::interest_message_type::INTEREST_MESSAGE_TYPE::GET_BY_ID_FROM_NODE:
+        {
+            auto maybe_id = pi.get_interest_parameter(0);
+
+            if(!maybe_id.has_value())
+            {
+                m_logger->warn("Received ID with no value in {}", __func__);
+                return;
+            }
+
+            auto id = maybe_id.value();
+
+            m_logger->info("In Function: {0} sending name {1} to worker {2}", __FUNCTION__, id, payload);
+            // Create a new intra-service message with the payload.
+            auto message = std::make_unique<snds_intra_message::SNDS_INTRA_MESSAGE>
+            (
+                std::move(id),
+                snds_intra_message::SNDS_INTRA_MESSAGE_TYPE::GET_BY_ID_FROM_NODE_RESPONSE,
+                snds_intra_message::SNDS_CLIENT_TYPES::CONSUMER,
+                std::move(payload),
+                snds_intra_message::HTTP_MESSAGE_TYPE::HTTP_EMPTY
+            );
+
+            // Dispatch the intra-service message to the service queue for further processing.
+            v_to_worker->writeMessage(std::move(message));
+            break;
+        }
         case parsed_interest_name::interest_message_type::INTEREST_MESSAGE_TYPE::GET_BY_ID:
         {
             auto maybe_id = pi.get_interest_parameter(0);
@@ -613,10 +697,6 @@ void SNDSConsumer::onData(const ndn::Interest& interest, const ndn::Data& data)
 
             // Dispatch the intra-service message to the service queue for further processing.
             v_to_worker->writeMessage(std::move(message));
-            break;
-        }
-        case parsed_interest_name::interest_message_type::INTEREST_MESSAGE_TYPE::SUBSCRIPTION_NOTIFICATION:
-        {
             break;
         }
         case parsed_interest_name::interest_message_type::INTEREST_MESSAGE_TYPE::METAFILE:

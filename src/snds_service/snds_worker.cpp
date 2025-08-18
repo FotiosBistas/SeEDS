@@ -19,10 +19,12 @@ void Worker::init() {
         }
 
         // Retrieve the message content and extract parameters using snds_utils.
-        std::string content            = message->get_message();
+        std::string content = message->get_message();
         std::string payload = message->get_payload();
+        std::string type    = snds_intra_message::to_string(message->get_message_type());
         m_logger->info("Received content: {}", content);
         m_logger->info("Received payload: {}", payload);
+        m_logger->info("Received type: {}", type);
 
         //TODO we can differentiate messages based on type
         //I don't know why are we doing this
@@ -106,6 +108,13 @@ void Worker::_handle_consumer_intra_message(snds_intra_message::SNDS_INTRA_MESSA
 
     switch(message.get_message_type())
     {
+        case snds_intra_message::SNDS_INTRA_MESSAGE_TYPE::GET_BY_ID_FROM_NODE_RESPONSE:
+        {
+            auto id = message.move_message();
+            auto payload = message.move_payload();
+            process_processed_get_by_id_from_node(std::move(id), std::move(payload));
+            break;
+        }
         case snds_intra_message::SNDS_INTRA_MESSAGE_TYPE::GET_BY_ID_RESPONSE:
         {
             auto id = message.get_message();
@@ -150,6 +159,23 @@ void Worker::_handle_consumer_intra_message(snds_intra_message::SNDS_INTRA_MESSA
             break;
         }
     }
+}
+
+
+void Worker::process_processed_get_by_id_from_node(std::string&& id, std::string&& payload)
+{
+    auto message = std::make_unique<snds_intra_message::SNDS_INTRA_MESSAGE>
+    (
+        std::move(id),
+        snds_intra_message::SNDS_INTRA_MESSAGE_TYPE::GET_BY_ID_FROM_NODE_RESPONSE,
+        snds_intra_message::SNDS_CLIENT_TYPES::WORKER,
+        std::move(payload + "\n"),
+        snds_intra_message::HTTP_MESSAGE_TYPE::HTTP_EMPTY
+    );
+
+    m_logger->debug("Sending the data to the HTTP Server: {}", message->print_details());
+
+    v_to_service->writeMessage(std::move(message));
 }
 
 void Worker::process_ack_message(std::string&& name, std::string&& payload)
