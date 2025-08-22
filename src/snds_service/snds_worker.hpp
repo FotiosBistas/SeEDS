@@ -84,6 +84,7 @@ private:
 
 	void _handle_consumer_intra_message(snds_intra_message::SNDS_INTRA_MESSAGE& message);
 	void _handle_http_server_intra_message(snds_intra_message::SNDS_INTRA_MESSAGE& message);
+	void _handle_producer_intra_message(snds_intra_message::SNDS_INTRA_MESSAGE& message);
 
   	static constexpr const char* GET_PARAMETER_ID_TAG      = "id";
   	static constexpr const char* GET_PARAMETER_TYPE_TAG    = "type";

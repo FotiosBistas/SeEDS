@@ -48,6 +48,8 @@
     X(ACK_ID_INTEREST,                 "ACK_ID_INTEREST") \
     X(ACK_ID_REGISTERED,               "ACK_ID_REGISTERED") \
     X(ACK_NODE_NOTIFIED,               "ACK_NODE_NOTIFIED") \
+    X(ACK_ID_ADVERTISED,               "ACK_ID_ADVERTISED") \
+    X(ACK_TEMPORAL_QUERY_ADVERTISED,   "ACK_TEMPORAL_QUERY_ADVERTISED") \
     X(NACK_ERROR,                      "NACK_ERROR") \
     X(WARNING_ALREADY_REGISTERED,      "WARNING_ALREADY_REGISTERED")
 
@@ -273,7 +275,7 @@ namespace snds_intra_message
 
         SNDS_INTRA_MESSAGE_TYPE infer_from_post() const
         {
-            if (date_.has_value() && timeframe_.has_value())
+            if (date_.has_value())
                 return SNDS_INTRA_MESSAGE_TYPE::TEMPORAL_QUERY_ADVERTISEMENT;
 
             if (id_.has_value() && type_.has_value())

@@ -46,8 +46,9 @@ public:
 
 	void init();
 
-	void onInterest(const ndn::Interest& interest);
-	void processRegistryRequest(const parsed_interest_name::ParsedInterestName& interest);
+
+    void onInterest(const ndn::Interest &interest);
+    void processRegistryRequest(const parsed_interest_name::ParsedInterestName& interest);
 	/**
 	 * @brief Processes an Interest that advertises a new content type.
 	 *
@@ -87,6 +88,12 @@ public:
 	void process_get_by_type_interest(const parsed_interest_name::ParsedInterestName& interest);
 	void process_get_by_id_for_type_interest(const parsed_interest_name::ParsedInterestName& interest);
 	void process_subscription_notification_interest(const parsed_interest_name::ParsedInterestName& interest);
+	void process_temporal_query_advertisement(const std::string& content);
+	void process_by_id_advertisement(const std::string& content);
+	void process_temporal_query_request(const std::string& content);
+
+	uint8_t _publish_to_broker(const nlohmann::json& doc);
+
 	void handleTemporalQuery(parsed_interest_name::ParsedInterestName& interest);
 	void parseTemporalQuery(const std::string& body);
 

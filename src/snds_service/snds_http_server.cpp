@@ -79,6 +79,7 @@ void SNDSHTTPService::init()
                 res.set_content("Internal Server Error", "text/plain");
                 return;
             }
+            m_logger->info("Read Message from queue:\n{}", inbound_message->print_details());
             auto payload = inbound_message->get_payload();
             auto pos = payload.find_first_of("{[");
             if (pos != std::string::npos) 

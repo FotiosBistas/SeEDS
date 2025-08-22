@@ -1,4 +1,6 @@
 #include "snds_digital_twin.hpp"
+#include <array>
+
 
 
 void DigitalTwin::init(){
@@ -69,34 +71,66 @@ void DigitalTwin::init(){
         }
         case snds_intra_message::SNDS_INTRA_MESSAGE_TYPE::TEMPORAL_QUERY_ADVERTISEMENT:
         {
-            auto params = parse_query_params(content);
-            auto it_date = params.find("date");
+            const auto date_iterator = params.find(message->get_param_name_date_().data());
+            if(date_iterator == params.end())
+            {
+                m_logger->error("Received TEMPORAL QUERY advertisement with no DATE.");
+                return;
+            }
+
             const auto id_iterator  = params.find(message->get_param_name_id_().data());
             if(id_iterator == params.end())
             {
-                m_logger->error("Received TYPE advertisement with no ID.");
+                m_logger->error("Received TEMPORAL QUERY advertisement with no ID.");
+                return;
             }
+
             const auto type_iterator = params.find(message->get_param_name_type_().data());
             if(type_iterator == params.end())
             {
-                m_logger->error("Received TYPE advertisement with no TYPE.");
+                m_logger->warn("Received TEMPORAL QUERY advertisement with no TYPE.");
             }
+
+            const auto get_or_empty = [&](auto it) -> std::string 
+            {
+                return (it == params.end()) ? std::string{} : it->second;
+            };
 
             TemporalQuery query = 
             {
                 Timeframe::NONE,
-                it_date->second,
+                date_iterator->second,
                 id_iterator->second,
-                type_iterator->second,
+                get_or_empty(type_iterator),
                 "",
                 {}
             };
 
-            for (auto const& k : {"id","date","type","count"}) 
+            std::array<std::string_view, 4> keys = 
             {
-                params.erase(k);
+                message->get_param_name_date_(),
+                message->get_param_name_id_(),
+                message->get_param_name_type_(),
+                message->get_param_name_count_(),
+            };
+
+
+            query.extras.reserve(params.size());
+            for (auto const& [key, val] : params) 
+            {
+                const bool is_reserved = std::any_of
+                (
+                    keys.begin(), 
+                    keys.end(),
+                    [&](std::string_view r) { return key == r; }
+                );
+
+                if (!is_reserved) 
+                {
+                    query.extras.emplace(key, val);
+                }
             }
-            query.extras = std::move(params);
+
             process_temporal_query_advertisement(query);
             break;
         }
@@ -199,7 +233,8 @@ void DigitalTwin::process_temporal_query_advertisement(const TemporalQuery& quer
         snds_intra_message::HTTP_MESSAGE_TYPE::HTTP_EMPTY
     );
     m_logger->info("Pushing Temporal Query to Producer: {}", serialize_temporal_query(query));
-    v_to_producer.get()->writeMessage(std::move(message));
+    m_logger->info("Pushing message to producer: {}", message->print_details());
+    v_to_producer->writeMessage(std::move(message));
 }
 
 void DigitalTwin::erase_pending_id(const std::string& id)

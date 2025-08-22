@@ -106,55 +106,61 @@ std::string to_path
     const bool include_count,
     const bool include_extras,
     const bool include_filters
-)
-{
+) {
     std::ostringstream oss;
+    bool first = true;
 
-    // optional /type
-    if (!q.type.empty())
+    auto append = [&](std::string const& piece) 
     {
-        oss << '/' << q.type;
-    }
-
-    // always /id
-    oss << '/' << q.id;
-
-    // date or version
-    // TODO note the date will be an md5 digest
-    oss << '/' << url_encode("date=") << url_encode(q.date);
-
-    if (include_timeframe && q.frame != Timeframe::NONE)
-    {
-        // timeframe (convert bitmask to e.g. "before+after")
-        oss << '/' << url_encode("timeframe=")
-            << url_encode(timeframe_to_string(q.frame));
-    }
-
-    if (include_count && !q.count.empty())
-    {
-        // count
-        oss << '/' << url_encode("count=") << url_encode(q.count);
-    }
-
-    if (!q.extras.empty() && include_extras)
-    {
-        // nest all unknown params under "extras"
-        nlohmann::json extra_obj = nlohmann::json::object();
-        for (auto const &[key, val] : q.extras)
+        if (!first) 
         {
-            oss << '/' << url_encode(key + "=") << val;
+            oss << '/';
+        }
+        oss << piece;
+        first = false;
+    };
+
+    if (!q.type.empty()) 
+    {
+        append(q.type);
+    }
+
+    if (!q.id.empty()) 
+    {
+        append(q.id);
+    }
+
+    if (!q.date.empty()) 
+    {
+        append(url_encode("date=") + url_encode(q.date));
+    }
+
+    if (include_timeframe && q.frame != Timeframe::NONE) 
+    {
+        append(url_encode("timeframe=") + url_encode(timeframe_to_string(q.frame)));
+    }
+
+    if (include_count && !q.count.empty()) 
+    {
+        append(url_encode("count=") + url_encode(q.count));
+    }
+
+    if (include_extras) 
+    {
+        for (auto const& [key, val] : q.extras) 
+        {
+            append(url_encode(key + "=") + url_encode(val));
         }
     }
 
-    if (include_extras && !q.filters.empty())
+    if (include_filters && !q.filters.empty()) 
     {
-        oss << '/'
-            << url_encode("filters=")
-            << url_encode(filters_to_csv(q.filters));
+        append(url_encode("filters=") + url_encode(filters_to_csv(q.filters)));
     }
 
     return oss.str();
 }
+
 
 std::string serialize_temporal_query(const TemporalQuery &q)
 {

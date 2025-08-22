@@ -39,11 +39,23 @@ void Worker::init() {
             case snds_intra_message::SNDS_CLIENT_TYPES::CONSUMER:
                 _handle_consumer_intra_message(*message);
                 break;
+            case snds_intra_message::SNDS_CLIENT_TYPES::PRODUCER:
+                _handle_producer_intra_message(*message);
+                break;  
         }
 
     }
 
     m_logger->info("Worker thread stopping.");
+}
+
+void Worker::_handle_producer_intra_message(snds_intra_message::SNDS_INTRA_MESSAGE& message)
+{
+    if(snds_intra_message::is_ack_message(message.get_payload()))
+    {
+        process_ack_message(std::move(message.move_message()), std::move(message.move_payload()));
+        return;
+    }
 }
 
 
@@ -190,6 +202,8 @@ void Worker::process_ack_message(std::string&& name, std::string&& payload)
         std::move(payload + "\n"),
         snds_intra_message::HTTP_MESSAGE_TYPE::HTTP_EMPTY
     );
+
+    m_logger->debug("Writing message to service queue:\n{}", message->print_details());
 
     v_to_service->writeMessage(std::move(message));
 }

@@ -129,67 +129,171 @@ void SNDSProducer::init(){
         auto content = message.get()->get_message();
         auto length = message.get()->get_message_length();
         auto type = message.get()->get_message_type();
-        if(type == snds_intra_message::SNDS_INTRA_MESSAGE_TYPE::TEMPORAL_QUERY_REQUEST)
+        switch(type)
         {
-            m_logger->info("Got new Temporal Query request...\n{}", message.get()->print_details());
-            auto query = deserialize_temporal_query(content);
-            //query.date = md5_hex(&query.date, query.date.size());
-            auto name = to_path(query, false, false, false);
-            name = "/SNDS" + name;
-            m_logger->info("Annoucing name {}", name);
-
-            m_face.setInterestFilter
-            (
-                name,
-                std::bind(&SNDSProducer::onInterest, this, std::placeholders::_2),
-                std::bind(&SNDSProducer::onRegisterSuccess, this, std::placeholders::_1),
-                std::bind(&SNDSProducer::onRegisterFailed, this, std::placeholders::_1, std::placeholders::_2)
-            );
-
-            //TODO possible spot for signing
-            //TODO insert more payload here
-            std::string payload = serialize_temporal_query(query);
-            //TODO receive data from the broker here?
-            httplib::Client cli(broker_ip.c_str(), broker_port);
-            auto res = cli.Post("/add", payload, "application/json");
-            if (res && res->status == 200) {
-                m_logger->info("Successfully POSTed to /add: {}", res->body);
-            } else {
-                m_logger->error("Failed to POST to /add: {}", res ? res->body : "No response");
+            case snds_intra_message::SNDS_INTRA_MESSAGE_TYPE::TEMPORAL_QUERY_ADVERTISEMENT:
+            {
+                m_logger->info("Received Temporal Query advertisement...\n{}", message->print_details());
+                process_temporal_query_advertisement(content);
+                break;
             }
-        }
-        else if(type == snds_intra_message::SNDS_INTRA_MESSAGE_TYPE::BY_ID_ADVERTISEMENT)
-        {
-            m_logger->info("Got new ID advertisement request...\n{}", message.get()->print_details());
-            auto parsed_interest = parsed_interest_name::parse_from_string(content);
-            m_logger->debug("Parsed interest {} from string", parsed_interest.to_string());
-
-            // we know that the structure of the interest should be /prefix/id
-            auto to_be_announced_name = parsed_interest_name::to_custom_ndn_name
-            (
-                parsed_interest_name::make_parsed_interest_name
-                (
-                    parsed_interest.prefix, 
-                    parsed_interest.name, 
-                    parsed_interest_name::interest_message_type::INTEREST_MESSAGE_TYPE::EMPTY, 
-                    {}
-                )
-            );
-
-            m_logger->info("Announcing name: {}", to_be_announced_name);
-
-            m_face.setInterestFilter
-            (
-                to_be_announced_name,
-                std::bind(&SNDSProducer::onInterest, this, std::placeholders::_2),
-                std::bind(&SNDSProducer::onRegisterSuccess, this, std::placeholders::_1),
-                std::bind(&SNDSProducer::onRegisterFailed, this, std::placeholders::_1, std::placeholders::_2)
-            );
+            case snds_intra_message::SNDS_INTRA_MESSAGE_TYPE::TEMPORAL_QUERY_REQUEST:
+            {
+                m_logger->info("Got new Temporal Query request...\n{}", message.get()->print_details());
+                process_temporal_query_request(content);
+                break;
+            }
+            case snds_intra_message::SNDS_INTRA_MESSAGE_TYPE::BY_ID_ADVERTISEMENT:
+            {
+                m_logger->info("Got new ID advertisement request...\n{}", message.get()->print_details());
+                process_by_id_advertisement(content);
+                break;
+            }
 
         }
     }
 
     m_logger->info("Producer thread exiting...");
+}
+
+void SNDSProducer::process_temporal_query_advertisement(const std::string& content)
+{
+    auto query = deserialize_temporal_query(content);
+    m_logger->debug("Deserialized temporal query to: {} in {}", serialize_temporal_query(query), __func__);
+    //query.date = md5_hex(&query.date, query.date.size());
+    auto name = to_path(query, false, false, false);
+    m_logger->debug("Created name from query: {} in {}", name, __func__);
+    auto to_be_announced_name = parsed_interest_name::to_custom_ndn_name
+    (
+
+        parsed_interest_name::make_parsed_interest_name
+        (
+            snds_prefix,
+            name,
+            parsed_interest_name::interest_message_type::INTEREST_MESSAGE_TYPE::EMPTY,
+            {}
+        )
+    );
+    m_logger->info("Announcing name: {}", to_be_announced_name);
+
+    m_face.setInterestFilter
+    (
+        to_be_announced_name,
+        std::bind(&SNDSProducer::onInterest, this, std::placeholders::_2),
+        std::bind(&SNDSProducer::onRegisterSuccess, this, std::placeholders::_1),
+        std::bind(&SNDSProducer::onRegisterFailed, this, std::placeholders::_1, std::placeholders::_2)
+    );
+
+
+    nlohmann::json doc = 
+    {
+        {"id",        query.id},
+        {"type",      query.type},
+        {"timeframe", query.frame},
+        {"date",      query.date},
+        {"count",     query.count}
+    };
+
+    _publish_to_broker(doc);
+
+    auto ack_message = snds_intra_message::to_string(snds_intra_message::SNDS_CONTROL_MESSAGE_TYPE::ACK_TEMPORAL_QUERY_ADVERTISED);
+
+    auto message = std::make_unique<snds_intra_message::SNDS_INTRA_MESSAGE>
+    (
+        "", 
+        snds_intra_message::SNDS_INTRA_MESSAGE_TYPE::TEMPORAL_QUERY_ADVERTISEMENT,
+        snds_intra_message::SNDS_CLIENT_TYPES::PRODUCER,
+        std::move(ack_message),
+        snds_intra_message::HTTP_MESSAGE_TYPE::HTTP_EMPTY
+    );
+
+    v_to_worker->writeMessage(std::move(message));
+}
+
+void SNDSProducer::process_by_id_advertisement(const std::string& content)
+{
+    auto parsed_interest = parsed_interest_name::parse_from_string(content);
+    m_logger->debug("Parsed interest {} from string", parsed_interest.to_string());
+
+    // we know that the structure of the interest should be /prefix/id
+    auto to_be_announced_name = parsed_interest_name::to_custom_ndn_name
+    (
+        parsed_interest_name::make_parsed_interest_name
+        (
+            parsed_interest.prefix, 
+            parsed_interest.name, 
+            parsed_interest_name::interest_message_type::INTEREST_MESSAGE_TYPE::EMPTY, 
+            {}
+        )
+    );
+
+    m_logger->info("Announcing name: {}", to_be_announced_name);
+
+    m_face.setInterestFilter
+    (
+        to_be_announced_name,
+        std::bind(&SNDSProducer::onInterest, this, std::placeholders::_2),
+        std::bind(&SNDSProducer::onRegisterSuccess, this, std::placeholders::_1),
+        std::bind(&SNDSProducer::onRegisterFailed, this, std::placeholders::_1, std::placeholders::_2)
+    );
+
+
+    auto ack_message = snds_intra_message::to_string(snds_intra_message::SNDS_CONTROL_MESSAGE_TYPE::ACK_ID_ADVERTISED);
+
+    auto message = std::make_unique<snds_intra_message::SNDS_INTRA_MESSAGE>
+    (
+        "", 
+        snds_intra_message::SNDS_INTRA_MESSAGE_TYPE::BY_ID_ADVERTISEMENT,
+        snds_intra_message::SNDS_CLIENT_TYPES::PRODUCER,
+        std::move(ack_message),
+        snds_intra_message::HTTP_MESSAGE_TYPE::HTTP_EMPTY
+    );
+
+    v_to_worker->writeMessage(std::move(message));
+}
+
+void SNDSProducer::process_temporal_query_request(const std::string& content)
+{
+    auto query = deserialize_temporal_query(content);
+    m_logger->debug("Deserialized temporal query to: {} in {}", serialize_temporal_query(query), __func__);
+    //query.date = md5_hex(&query.date, query.date.size());
+    auto name = to_path(query, false, false, false);
+    m_logger->debug("Created name from query: {} in {}", name, __func__);
+
+    auto to_be_announced_name = parsed_interest_name::to_custom_ndn_name
+    (
+
+        parsed_interest_name::make_parsed_interest_name
+        (
+            snds_prefix,
+            name,
+            parsed_interest_name::interest_message_type::INTEREST_MESSAGE_TYPE::EMPTY,
+            {}
+        )
+    );
+
+    m_logger->info("Annoucing name {} in {}", to_be_announced_name, __func__);
+
+    m_face.setInterestFilter
+    (
+        to_be_announced_name,
+        std::bind(&SNDSProducer::onInterest, this, std::placeholders::_2),
+        std::bind(&SNDSProducer::onRegisterSuccess, this, std::placeholders::_1),
+        std::bind(&SNDSProducer::onRegisterFailed, this, std::placeholders::_1, std::placeholders::_2)
+    );
+
+    //TODO possible spot for signing
+    //TODO insert more payload here
+    std::string payload = serialize_temporal_query(query);
+    //TODO receive data from the broker here?
+    httplib::Client cli(broker_ip.c_str(), broker_port);
+    auto res = cli.Post("/add", payload, "application/json");
+    if (res && res->status == 200) {
+        m_logger->info("Successfully POSTed to /add: {}", res->body);
+    } else {
+        m_logger->error("Failed to POST to /add: {}", res ? res->body : "No response");
+    }
+
 }
 
 void SNDSProducer::onInterest(const ndn::Interest& interest) 
@@ -606,3 +710,35 @@ void SNDSProducer::process_get_by_id_interest(const parsed_interest_name::Parsed
 }
 
 
+
+uint8_t SNDSProducer::_publish_to_broker(const nlohmann::json& doc)
+{
+    if (!doc.contains("id") || !doc["id"].is_string()) 
+    {
+        m_logger->error("{}: 'id' (string) is required", __func__);
+        return -1;
+    }
+
+    if(!doc.contains("type") || !doc["type"].is_string())
+    {
+        m_logger->warn("{}: 'type' (string) not provided...", __func__);
+    }
+
+    httplib::Client cli(broker_ip.c_str(), broker_port);
+    cli.set_read_timeout(5, 0);
+    cli.set_connection_timeout(5, 0);
+
+    const auto body = doc.dump();
+
+    m_logger->info("POST /add -> {}", body);
+
+    auto res = cli.Post("/add", body, "application/json");
+
+    if (res && res->status == 200) {
+        m_logger->info("Published to broker OK: {}", res->body);
+        return 0;
+    } else {
+        m_logger->error("Failed to publish to broker: {}", res ? res->body : "No response");
+        return -1;
+    }
+}
