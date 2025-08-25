@@ -319,6 +319,26 @@ std::vector<std::string> parse_ids_from_registry_file_payload
 }
 
 
+
+std::string json_to_string(const nlohmann::json& j) {
+    if (j.is_string())  return j.get<std::string>();
+    if (j.is_boolean()) return j.get<bool>() ? "true" : "false";
+    if (j.is_number_integer())  return std::to_string(j.get<long long>());
+    if (j.is_number_unsigned()) return std::to_string(j.get<unsigned long long>());
+    if (j.is_number_float()) { std::ostringstream os; os << std::setprecision(15) << j.get<double>(); return os.str(); }
+    return j.dump();
+}
+
+long long json_to_epoch_ms(const nlohmann::json& j) {
+    if (j.is_number_integer()) return j.get<long long>();
+    if (j.is_string()) {
+        std::tm tm{}; std::istringstream is(j.get<std::string>()); is >> std::get_time(&tm, "%Y-%m-%dT%H:%M:%SZ");
+        if (is.fail()) throw std::runtime_error("Unsupported $date string");
+        time_t t = timegm(&tm); return static_cast<long long>(t) * 1000LL;
+    }
+    throw std::runtime_error("Unsupported $date type");
+}
+
 std::vector<std::byte> serialize_registry_file_payload(const std::unordered_set<std::string>& ids)
 {
 

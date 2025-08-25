@@ -19,9 +19,11 @@
 #include <span>
 #include <cstdint>  
 #include <openssl/evp.h>
+#include <ctime>
 
 #include <spdlog/logger.h>
 #include <spdlog/spdlog.h>
+#include <nlohmann/json.hpp>
 
 void removeIdPrefix(std::string& input);
 void removeTypePrefix(std::string& input);
@@ -31,6 +33,10 @@ bool isMetaFileTrue(const std::string& command);
 std::string format_timestamp_ms(long long ms_since_epoch);
 
 std::unordered_map<std::string,std::string> parse_query_params(std::string_view qs);
+
+std::string build_query_uri(std::string_view base_path, const std::vector<std::string>& kv_tokens, bool encode_values = false);
+std::string json_to_string(const nlohmann::json& j);
+long long json_to_epoch_ms(const nlohmann::json& j);
 
 /**
  * @brief Decodes a URL-encoded string.

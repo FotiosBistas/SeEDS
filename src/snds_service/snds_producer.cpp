@@ -314,7 +314,6 @@ void SNDSProducer::onInterest(const ndn::Interest& interest)
         break;
     case parsed_interest_name::interest_message_type::INTEREST_MESSAGE_TYPE::GET_BY_ID_FROM_NODE:
     case parsed_interest_name::interest_message_type::INTEREST_MESSAGE_TYPE::GET_BY_ID:
-    case parsed_interest_name::interest_message_type::INTEREST_MESSAGE_TYPE::VERSION:
         process_get_by_id_interest(pi);
         break;
     case parsed_interest_name::interest_message_type::INTEREST_MESSAGE_TYPE::BY_ID_AND_TYPE_ADVERTISEMENT:
@@ -332,8 +331,58 @@ void SNDSProducer::onInterest(const ndn::Interest& interest)
     case parsed_interest_name::interest_message_type::INTEREST_MESSAGE_TYPE::TEMPORAL_QUERY:
         process_temporal_query_interest(pi);
         break;
+    case parsed_interest_name::interest_message_type::INTEREST_MESSAGE_TYPE::VERSION:
+        process_version_metafile_interest(pi);
+        break;
     default:
         break;
+    }
+
+}
+
+
+void SNDSProducer::process_version_metafile_interest(const parsed_interest_name::ParsedInterestName& interest)
+{
+    auto interest_response = parsed_interest_name::to_custom_ndn_name(interest, true);
+    m_logger->debug("Created interest response: {} in {}", interest_response, __func__);
+
+    auto maybe_id = interest.get_interest_parameter(0);
+
+    if(!maybe_id.has_value())
+    {
+        m_logger->error("Receveid ID with no value...");
+        return;
+    }
+
+    auto pair = parsed_interest_name::parse_param(maybe_id.value());
+
+    auto id_key = pair.first;
+    auto id= pair.second;
+
+    m_logger->info("ID request received: {} = {}", id_key, id);
+    // In local ID requests, we assume the name field itself is the requested ID.
+    httplib::Client cli(broker_ip.c_str(), broker_port);
+    std::string endpoint = fmt::format
+    (
+      	"/get?id={}",
+        url_encode(id)
+    );
+
+    auto res = cli.Get(endpoint.c_str());
+
+    if (res && res->status == 200) 
+    {
+        //get the most recent one theoritically
+        m_logger->info("Successfully queried /get");
+        //TODO SIGNING 
+        sendData(interest_response, res->body);
+    } 
+    else 
+    {
+        m_logger->error("Failed to query /get: {}", res ? res->body : "No response");
+        auto nack_message = snds_intra_message::to_string(snds_intra_message::SNDS_CONTROL_MESSAGE_TYPE::NACK_ERROR);
+        //sendData(interest_response, nack_message);
+        sendData(interest_response, "dummy_payload");
     }
 
 }
@@ -445,6 +494,7 @@ void SNDSProducer::process_get_by_id_for_type_interest(const parsed_interest_nam
 void SNDSProducer::process_temporal_query_interest(const parsed_interest_name::ParsedInterestName& interest)
 {
     auto interest_response = parsed_interest_name::to_custom_ndn_name(interest, true);
+    m_logger->debug("Created interest response: {} in: {}", interest_response, __func__);
     // Overlay with key=value params (split BEFORE decoding to keep "%3D" inside values)
     // Build a map<string,string> out of interest.params.
     // Parameters are URL-encoded by convention.

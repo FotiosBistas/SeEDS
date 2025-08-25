@@ -251,6 +251,41 @@ namespace parsed_interest_name {
     }
 
     /**
+     * @brief Splits a "key=value" parameter string into key and value.
+     *
+     * If the '=' is missing, the whole string is returned as the key and
+     * the value will be empty.
+     *
+     * @param param A string like "date=2025-06-29T08:15:22.123+00:00"
+     * @return std::pair<key, value>
+    */
+    std::pair<std::string, std::string> parse_param(const std::string& param);
+
+    /**
+     * @brief Convenience method to parse all params into a map.
+     *
+     * @param pi ParsedInterestName with .params already filled
+     * @return std::map<key, value>
+    */
+    std::map<std::string, std::string> parse_params_map(const ParsedInterestName& pi);
+
+    void add_param(ParsedInterestName& pi, std::string key, std::string value);
+    std::string build_query_uri(std::string_view base_path, const std::vector<std::string>& kv_tokens, bool encode_values = false);
+
+    static inline std::pair<std::string, std::string>
+    parse_param_kv(std::string_view p)
+    {
+        const auto pos = p.find('=');
+        if (pos == std::string_view::npos) return { std::string(p), std::string() };     // no '=' → value empty
+
+        return 
+        {
+            std::string(p.substr(0, pos)),                 // key
+            std::string(p.substr(pos + 1))                 // value (may contain '=')
+        };
+    }
+
+    /**
      * 
      * @brief Parses an ndn::Name into a ParsedInterest structure.
      *

@@ -457,80 +457,101 @@ void SNDSConsumer::express_get_by_id_interest(const std::string& content)
 
 }
 
-//TODO possible disclose spot only for ID and timestamp
-//TODO possible verify spot
 void SNDSConsumer::send_metafile_interests(const std::string& body, const temporal_query::TemporalQuery& parent_query)
 {
     nlohmann::json root = nlohmann::json::parse(body);
+    const auto parent_query_hash = temporal_query::temporal_query_hash_string(parent_query);
 
-	std::unordered_set<std::string> seen_interests;
+    std::unordered_set<std::string> seen_canonical;
+    std::optional<parsed_interest_name::ParsedInterestName> pending;
 
-    // included in the interest to know which parent 
-    // query the child query references
-    auto parent_query_hash = temporal_query::temporal_query_hash_string(parent_query);
+    auto send_with_flag = [&](parsed_interest_name::ParsedInterestName& pin, bool is_last) 
+    {
+        parsed_interest_name::add_param(pin, "lastInterest", is_last ? "true" : "false");
+        const auto name_to_string = parsed_interest_name::to_custom_ndn_name(pin, true);
+
+        m_logger->info("Sending Interest (lastInterest={}): {}", is_last ? "true" : "false", name_to_string);
+        ndn::Name interestName(name_to_string);
+        ndn::Interest interest(interestName);
+        interest.setCanBePrefix(true);
+        interest.setInterestLifetime(ndn::time::milliseconds(6000));
+        m_face.expressInterest
+        (
+            interest,
+            std::bind(&SNDSConsumer::onData, this,  _1, _2),
+            std::bind(&SNDSConsumer::onNack, this, _1, _2),
+            std::bind(&SNDSConsumer::onTimeout, this, _1)
+        );
+    };
 
     for (const auto& entry : root) 
     {
-        // entry is an object with a single key: "before" or "after" or "now"
         for (auto& [key, arr] : entry.items()) 
         {
-			m_logger->debug("Parsing key: {}", key);
+            m_logger->debug("Parsing key: {}", key);
+            if (!arr.is_array()) { m_logger->warn("Expected array at key {}", key); continue; }
+
             for (const auto& doc : arr) 
             {
-				// this contains both timestamp and id
-                const auto&  id_object  = doc["_id"];
-                std::string   id        = id_object["_id"].get<std::string>();
-                long long raw_timestamp = id_object["timestamp"]["$date"].get<long long>();
-				std::string timestamp = "date=" + ::format_timestamp_ms(raw_timestamp);
-                m_logger->debug("Before encoding timestamp: {}", timestamp);
-				timestamp = url_encode(timestamp);
+                // ---- SAFE READS ----
+                const auto& id_object = doc["_id"];
+                if (!id_object.is_object()) { m_logger->warn("Missing _id object"); continue; }
 
-                //TODO what in the name of god
-                // use my own structures maybe? 
-                auto name = parsed_interest_name::make_interest_name_from_metafile
+                const auto& id_field = id_object["_id"];
+                if (id_field.is_null()) { m_logger->warn("Missing _id._id"); continue; }
+                const std::string id = ::json_to_string(id_field);
+
+                const auto& date_field = id_object["timestamp"]["$date"];
+                if (date_field.is_null()) { m_logger->warn("Missing _id.timestamp.$date"); continue; }
+                const long long raw_timestamp = ::json_to_epoch_ms(date_field);
+
+                const std::string type = ::json_to_string(doc["type"]);
+                m_logger->debug("Doc fields -> id={}, ts(ms)={}, type={}", id, raw_timestamp, type);
+
+                // ---- Build base interest (no last-flag yet) ----
+                auto pin = parsed_interest_name::make_interest_name_from_metafile
                 (
-                    snds_prefix, 
+                    snds_prefix,
                     id,
                     parsed_interest_name::interest_message_type::INTEREST_MESSAGE_TYPE::VERSION,
-                    {id, timestamp}
+                    std::vector<std::string>{}
                 );
+                parsed_interest_name::add_param(pin, "id",   id);
+                parsed_interest_name::add_param(pin, "type", type);
+                parsed_interest_name::add_param(pin, "date", format_timestamp_ms(raw_timestamp));
+                parsed_interest_name::add_param(pin, "metafile", "true");
+                parsed_interest_name::add_param(pin, "parentQueryHash", parent_query_hash);
 
-                name.params.push_back(url_encode("metafile=true"));
-                name.params.push_back(url_encode("parentQueryHash=" + parent_query_hash));
-                auto name_to_string = parsed_interest_name::to_custom_ndn_name(name);
+                const auto canonical = parsed_interest_name::to_custom_ndn_name(pin, true);
 
-                // try to insert; if it's new, send it
-                // for example you might have two dates that are the same
-                if (!seen_interests.emplace(name_to_string).second) 
+                if (!seen_canonical.emplace(canonical).second) 
                 {
-                    m_logger->debug("Skipping duplicate interest: {}", name_to_string);
-                    continue;
+                    m_logger->debug("Skipping duplicate (canonical): {}", canonical);
+                    continue; 
                 }
 
-                m_logger->info("Built interest: {} sending actual interest: {}", name.to_string(), name_to_string);
-                ndn::Name interestName(name_to_string);
-                //interestName.appendVersion();
-                m_logger->info("Created interest name {}", interestName.toUri().c_str());
-                ndn::Interest interest(interestName);
-                //TODO we don't want all the cases to be fresh
-                //for example the latest case
-                //interest.setMustBeFresh(true);
-                interest.setCanBePrefix(true);
-                interest.setInterestLifetime(ndn::time::milliseconds(6000)); 
-                m_logger->info("Sending actual Interest {}", interest.toUri().c_str());
-
-                m_face.expressInterest
-                (
-                    interest,
-                    std::bind(&SNDSConsumer::onData, this,  _1, _2),
-                    std::bind(&SNDSConsumer::onNack, this, _1, _2),
-                    std::bind(&SNDSConsumer::onTimeout, this, _1)
-                );
+                // We found a new unique interest:
+                // flush the previous pending one as not-last, then keep this as pending
+                if (pending) 
+                {
+                    send_with_flag(*pending, false);
+                    pending.reset();
+                }
+                pending = std::move(pin);
             }
         }
     }
-}
 
+    // After the loop, whatever is left is the last
+    if (pending) 
+    {
+        send_with_flag(*pending, /*is_last*/ true);
+    } 
+    else 
+    {
+        m_logger->info("No metafile interests to send for this parent query.");
+    }
+}
 
 void SNDSConsumer::onData(const ndn::Interest& interest, const ndn::Data& data) 
 {
@@ -705,7 +726,7 @@ void SNDSConsumer::onData(const ndn::Interest& interest, const ndn::Data& data)
             v_to_worker->writeMessage(std::move(message));
             break;
         }
-        case parsed_interest_name::interest_message_type::INTEREST_MESSAGE_TYPE::METAFILE:
+        case parsed_interest_name::interest_message_type::INTEREST_MESSAGE_TYPE::VERSION:
         {
             //this is a response from a metafile 
             //send the data for the temporal query back to the worker
@@ -715,20 +736,74 @@ void SNDSConsumer::onData(const ndn::Interest& interest, const ndn::Data& data)
             m_logger->info("Temporal Query Data Response from Metafile...");
             // I'm too tired to use my own data classes here
             //TODO check this out later
-            std::string message_name = data.getName().at(1).toUri();
-            std::string date  = url_decode(data.getName().at(2).toUri());
-            std::string metafile  = url_decode(data.getName().at(3).toUri());
-            std::string parent_query_hash  = url_decode(data.getName().at(4).toUri());
-            message_name = "id=" + message_name;
-            auto name = "/?" + message_name + "&" + date + "&" + metafile + "&" + parent_query_hash;
-            m_logger->info("Sending Temporal Query Data with name: {0} and date: {1} ", message_name, date);
-            //TODO possible spot for disclose
+            auto maybe_id = pi.get_interest_parameter(0);
+
+            if(!maybe_id.has_value())
+            {
+                m_logger->error("Received metafile response in {} without ID value", __func__);
+                break;
+            }
+
+            auto maybe_type = pi.get_interest_parameter(1);
+
+            if(!maybe_type.has_value())
+            {
+                m_logger->warn("Received metafile response in {} without type value", __func__);
+                break;
+            }
+
+            auto maybe_timestamp = pi.get_interest_parameter(2);
+
+            if(!maybe_timestamp.has_value())
+            {
+                m_logger->error("Received metafile response in {} without timestamp", __func__);
+                break;
+            }
+
+            auto maybe_metafile = pi.get_interest_parameter(3);
+
+            if(!maybe_metafile.has_value())
+            {
+                m_logger->warn("Received metafile response in {} without metafile=true", __func__);
+                break;
+            }
+
+            auto maybe_parent_query_hash = pi.get_interest_parameter(4);
+
+            if(!maybe_parent_query_hash.has_value())
+            {
+                m_logger->error("Received metafile response in {} without parent_query_hash", __func__);
+                break;
+            }
+
+            auto maybe_last_interest = pi.get_interest_parameter(5);
+
+            if(!maybe_last_interest.has_value())
+            {
+                m_logger->error("Received metafile response in {} without is last interest", __func__);
+                break;
+            }
+
+            std::vector<std::string> kvs;
+            kvs.push_back(*maybe_id);                // e.g. "id=car2"
+            kvs.push_back(*maybe_type);              // e.g. "type="
+            kvs.push_back(*maybe_timestamp);         // e.g. "date=2025-06-28T15:41:50Z" (raw or already encoded)
+            kvs.push_back(*maybe_metafile);          // e.g. "metafile=true"
+            kvs.push_back(*maybe_parent_query_hash); // e.g. "parentQueryHash=..."
+            kvs.push_back(*maybe_last_interest);     // e.g. "lastInterest="
+
+            const bool values_are_already_encoded = true;
+
+            //message_name = "id=" + message_name;
+            m_logger->info("Building query URI...");
+            auto name = parsed_interest_name::build_query_uri("/", kvs, !values_are_already_encoded);
+            ////TODO possible spot for disclose
             auto message = std::make_unique<snds_intra_message::SNDS_INTRA_MESSAGE>
             (
-                std::move(payload),
-                snds_intra_message::SNDS_INTRA_MESSAGE_TYPE::GET_BY_ID_RESPONSE, //TODO not sure this is correct
-                snds_intra_message::SNDS_CLIENT_TYPES::CONSUMER,
                 std::move(name),
+                snds_intra_message::SNDS_INTRA_MESSAGE_TYPE::VERSION_RESPONSE,
+                snds_intra_message::SNDS_CLIENT_TYPES::CONSUMER,
+                std::move(payload),
                 snds_intra_message::HTTP_MESSAGE_TYPE::HTTP_EMPTY
             );
             v_to_worker->writeMessage(std::move(message));
@@ -760,7 +835,7 @@ void SNDSConsumer::onData(const ndn::Interest& interest, const ndn::Data& data)
 
             // data.getName() equivalent with interest.toUri()
             auto parent_temporal_query = temporal_query_from_interest(pi);
-            m_logger->debug("Created Parent Temporal Query: {}", temporal_query::serialize_temporal_query(parent_temporal_query));
+            m_logger->debug("Created Parent Temporal Query: {}", temporal_query::serialize_kv(parent_temporal_query));
             send_metafile_interests(payload, parent_temporal_query);
             break;
         }

@@ -1,5 +1,60 @@
 #include "parsed_interest_name.hpp"
 
+std::pair<std::string, std::string> parsed_interest_name::parse_param(const std::string& param)
+{
+    auto pos = param.find('=');
+    if (pos == std::string::npos) 
+    {
+        return {param, ""}; // no '=' → treat entire thing as key
+    }
+    return {param.substr(0, pos), param.substr(pos + 1)};
+}
+
+std::map<std::string, std::string> parsed_interest_name::parse_params_map(const parsed_interest_name::ParsedInterestName& pi)
+{
+    std::map<std::string, std::string> result;
+    for (const auto& p : pi.params) 
+    {
+        auto kv = parse_param(p);
+        result[kv.first] = kv.second;
+    }
+    return result;
+}
+
+void parsed_interest_name::add_param(parsed_interest_name::ParsedInterestName& pi, std::string key, std::string value) {
+    // store as "key=value" (raw). 
+    pi.params.emplace_back(std::move(key) + "=" + std::move(value));
+}
+
+std::string parsed_interest_name::build_query_uri(std::string_view base_path, const std::vector<std::string>& kv_tokens, bool encode_values)
+{
+    std::string out;
+    out.reserve(base_path.size() + 2 + kv_tokens.size() * 24);
+    out.append(base_path);
+
+    if (out.empty() || out.back() != '/') out.push_back('/');
+    out.push_back('?');
+
+    bool first = true;
+    for (const auto& tok : kv_tokens) 
+    {
+        if (tok.empty()) continue;
+
+        auto [k, v] = parsed_interest_name::parse_param_kv(tok);
+        if (k.empty()) continue;
+
+        if (!first) out.push_back('&');
+        first = false;
+
+        out.append(k);
+        out.push_back('=');
+        out.append(v);
+    }
+
+    // If everything was empty/missing, you'll get just "/?" — caller can decide if that’s OK.
+    return out;
+}
+
 parsed_interest_name::ParsedInterestName parsed_interest_name::parse_interest_name(const ndn::Name& name) 
 {
     ParsedInterestName pi;

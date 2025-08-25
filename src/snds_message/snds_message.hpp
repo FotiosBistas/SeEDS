@@ -25,6 +25,7 @@
     X(GET_BY_ID_AND_TYPE_REQUEST,    "GET_BY_ID_AND_TYPE_REQUEST") \
     X(GET_BY_ID_FROM_NODE_REQUEST,   "GET_BY_ID_FROM_NODE_REQUEST") \
     X(GET_BY_ID_FROM_NODE_RESPONSE,  "GET_BY_ID_FROM_NODE_RESPONSE") \
+    X(VERSION_RESPONSE,              "VERSION_RESPONSE") \
     X(REGISTRY_PAYLOAD,              "REGISTRY_PAYLOAD") \
     X(ERASE_PENDING_ID,              "ERASE_PENDING_ID") \
     X(SUBSCRIPTION_NOTIFICATION,     "SUBSCRIPTION_NOTIFICATION") \
@@ -247,6 +248,7 @@ namespace snds_intra_message
             QUERY_PARAM_LIST(DECLARE_FIELD)
         #undef DECLARE_FIELD
 
+
         SNDS_INTRA_MESSAGE_TYPE infer_from_get() const
         {
 
@@ -435,20 +437,25 @@ namespace snds_intra_message
         std::string print_details() const
         {
             std::ostringstream oss;
-            oss << "Message: " << message
-                << "\nType: " << to_string(type)
-                << "\nSender: " << to_string(sender_component)
-                << "\nPayload: " << payload
+            oss << "Message: "     << message
+                << "\nType: "      << to_string(type)
+                << "\nSender: "    << to_string(sender_component)
+                << "\nPayload: "   << payload
                 << "\nHTTP Type: " << to_string(http_type)
-                << std::endl;
+                << "\nParams:\n";
 
-            // Convert the stream to a string.
+            // For every field in QUERY_PARAM_LIST, print "  <tag> = <value>" if it has a value.
+            #define PRINT_FIELD(var, tag, dec, type) \
+                if (var##_.has_value()) {            \
+                    oss << tag << " = ";             \
+                    oss << var##_.value();           \
+                    oss << "\n";                     \
+                }
+            QUERY_PARAM_LIST(PRINT_FIELD)
+            #undef PRINT_FIELD
+
             std::string details = oss.str();
-
-            // Print to console.
             std::cout << details;
-
-            // Return the string.
             return details;
         }
 
@@ -588,6 +595,72 @@ namespace snds_intra_message
             type = (this->*DISPATCH[index])();
         }
 
+
+        void parse_query_uri_and_set_fields(std::string_view uri, bool decode_values = true)
+        {
+            // Isolate the query string after '?'
+            auto qpos = uri.find('?');
+            std::string_view qs = (qpos == std::string_view::npos) ? uri : uri.substr(qpos + 1);
+        
+            // Optional: strip a leading '/' if input was "/?..."
+            while (!qs.empty() && (qs.front() == '/' || qs.front() == '?')) qs.remove_prefix(1);
+        
+            // Iterate "k=v" tokens separated by '&'
+            auto next_token = [](std::string_view& sv) -> std::string_view 
+            {
+                if (sv.empty()) return {};
+                size_t pos = sv.find('&');
+
+                if (pos == std::string_view::npos) 
+                {
+                    std::string_view out = sv;
+                    sv = {};
+                    return out;
+                }
+
+                std::string_view out = sv.substr(0, pos);
+                sv.remove_prefix(pos + 1);
+                return out;
+            };
+        
+            auto set_field = [&](std::string_view key, std::string_view raw_val)
+            {
+                // Keep raw; we’ll decode per-field using its 'dec' flag
+                std::string raw{raw_val};
+                
+                #define HANDLE_FIELD(var, tag, dec, type)                               \
+                    if constexpr (std::is_same_v<type, bool>) {                     \
+                        /* decode only if the field wants it */                     \
+                        std::string v = (dec && decode_values) ? url_decode(raw)    \
+                                                                : raw;               \
+                        bool b = (!v.empty() && (v == "1" || v == "true" || v == "True")); \
+                        set_##var##_(b);                                            \
+                    } else {                                                        \
+                        std::string v = (dec && decode_values) ? url_decode(raw)    \
+                                                                : raw;               \
+                        set_##var##_(std::move(v));                                 \
+                    }                                                               \
+                    return;                                                         \
+                QUERY_PARAM_LIST(HANDLE_FIELD)
+                #undef HANDLE_FIELD
+                
+                // Unknown keys ignored (or log them here)
+            };        
+
+            while (!qs.empty()) 
+            {
+                std::string_view pair = next_token(qs);
+                if (pair.empty()) continue;
+            
+                size_t eq = pair.find('=');
+                std::string_view key = (eq == std::string_view::npos) ? pair : pair.substr(0, eq);
+                std::string_view val = (eq == std::string_view::npos) ? std::string_view{} : pair.substr(eq + 1);
+                // Skip empty keys (e.g., stray '&')
+                if (key.empty()) continue;
+            
+                set_field(key, val);
+            }
+        }
 
 
     };

@@ -94,6 +94,7 @@ namespace temporal_query{
         bool url_encode        = true
     );
 
+    std::string serialize_kv(const TemporalQuery& q);
 
 
     TemporalQuery from_params(const std::unordered_map<std::string, std::string>& params);

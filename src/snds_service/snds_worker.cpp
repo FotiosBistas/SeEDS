@@ -62,6 +62,7 @@ void Worker::_handle_producer_intra_message(snds_intra_message::SNDS_INTRA_MESSA
 void Worker::_handle_http_server_intra_message(snds_intra_message::SNDS_INTRA_MESSAGE& message)
 {
 
+    m_logger->debug("Server intra message...");
 
     switch(message.get_message_type())
     {
@@ -119,6 +120,8 @@ void Worker::_handle_http_server_intra_message(snds_intra_message::SNDS_INTRA_ME
 void Worker::_handle_consumer_intra_message(snds_intra_message::SNDS_INTRA_MESSAGE& message)
 {
 
+    m_logger->debug("Consumer intra message...");
+
     if(snds_intra_message::is_ack_message(message.get_payload()))
     {
         process_ack_message(std::move(message.move_message()), std::move(message.move_payload()));
@@ -175,6 +178,14 @@ void Worker::_handle_consumer_intra_message(snds_intra_message::SNDS_INTRA_MESSA
             auto type = message.get_message();
             auto registry_payload = message.get_payload();
             process_registry_file(registry_payload, type);
+            break;
+        }
+        case snds_intra_message::SNDS_INTRA_MESSAGE_TYPE::VERSION_RESPONSE:
+        {
+            auto payload = message.get_payload();
+            message.parse_query_uri_and_set_fields(message.get_message());
+            m_logger->debug("{}", message.print_details());
+            //process_temporal_query_response();
             break;
         }
     }
@@ -243,7 +254,7 @@ void Worker::process_temporal_query_request(const temporal_query::TemporalQuery&
     v_to_consumer.get()->writeMessage(std::move(message));
 }
 
-void Worker::processTemporalQueryResponse
+void Worker::process_temporal_query_response
 (
     const std::string& parent_query_hash, 
     const std::string& content,

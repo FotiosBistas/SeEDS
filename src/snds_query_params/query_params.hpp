@@ -17,6 +17,7 @@ static constexpr const char* GET_PARAMETER_TIMEFRAME_TAG="timeframe";
 static constexpr const char* GET_PARAMETER_COUNT_TAG="count";
 static constexpr const char* GET_PARAMETER_PARENT_QUERY_HASH_TAG="parentQueryHash";
 static constexpr const char* GET_PARAMETER_LAST_METAFILE_INTEREST_TAG="lastInterest";
+static constexpr const char* GET_PARAMETER_IS_METAFILE_TAG="metafile";
 
 template<typename T>
 struct QueryParam;

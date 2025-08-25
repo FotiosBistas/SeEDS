@@ -80,7 +80,7 @@ private:
 	void process_ack_message(std::string&& name, std::string&& payload);
     void process_processed_get_by_id_from_node(std::string&& id, std::string&& payload);
   	void process_temporal_query_request(const temporal_query::TemporalQuery& temporal_query);
-  	void processTemporalQueryResponse(const std::string& parent_query_hash, const std::string& content, bool last_interest);
+  	void process_temporal_query_response(const std::string& parent_query_hash, const std::string& content, bool last_interest);
 
 	void _handle_consumer_intra_message(snds_intra_message::SNDS_INTRA_MESSAGE& message);
 	void _handle_http_server_intra_message(snds_intra_message::SNDS_INTRA_MESSAGE& message);

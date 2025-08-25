@@ -258,6 +258,37 @@ std::string temporal_query::serialize_temporal_query(const temporal_query::Tempo
     return j.dump();
 }
 
+std::string temporal_query::serialize_kv(const temporal_query::TemporalQuery& q)
+{
+    std::string out;
+
+    auto append = [&](std::string_view k, std::string_view v)
+    {
+        if (out.size()) out.push_back('&');
+        out.append(k);
+        out.push_back('=');
+        out.append(std::string(v));
+    };
+
+    append("timeframe", timeframe_to_string(q.frame));
+    append("date",      q.date);
+    append("id",        q.id);
+    append("type",      q.type);
+    append("count",     q.count);
+
+    if (!q.extras.empty())
+    {
+        std::vector<std::pair<std::string, std::string>> extras(q.extras.begin(), q.extras.end());
+        std::sort(extras.begin(), extras.end(), [](auto& a, auto& b){ return a.first < b.first; });
+        for (auto& [k, v] : extras) append(k, v);
+    }
+
+    if (!q.filters.empty()) append("filters", filters_to_csv(q.filters));
+
+    return out;
+}
+
+
 // Parse a JSON string back into a TemporalQuery struct.
 temporal_query::TemporalQuery temporal_query::deserialize_temporal_query(std::string_view json_string)
 {
