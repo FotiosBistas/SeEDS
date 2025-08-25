@@ -72,6 +72,13 @@ void Worker::_handle_http_server_intra_message(snds_intra_message::SNDS_INTRA_ME
             process_new_get_by_id(id_iterator->second); 
             break;
         }
+        case snds_intra_message::SNDS_INTRA_MESSAGE_TYPE::TEMPORAL_QUERY_REQUEST:
+        {
+            auto params = message.unpack_query_params_from_message();
+            const temporal_query::TemporalQuery query = temporal_query::from_params(params);
+            process_temporal_query_request(query);
+            break;
+        }
         case snds_intra_message::SNDS_INTRA_MESSAGE_TYPE::GET_BY_TYPE_REQUEST:
         {
             auto params = message.unpack_query_params_from_message();
@@ -208,26 +215,25 @@ void Worker::process_ack_message(std::string&& name, std::string&& payload)
     v_to_service->writeMessage(std::move(message));
 }
 
-void Worker::processTemporalQueryRequest(const TemporalQuery& temporal_query)
+void Worker::process_temporal_query_request(const temporal_query::TemporalQuery& temporal_query)
 {
 
-    auto query_hash = temporal_query_hash_string(temporal_query);
+    auto query_hash = temporal_query::temporal_query_hash_string(temporal_query);
     auto [_, inserted] = pending_temporal_queries.emplace(query_hash, temporal_query);
     if (!inserted) 
     {
-        m_logger->info("Duplicate TemporalQuery {} for ID: {}", serialize_temporal_query(temporal_query), temporal_query.id);
+        m_logger->info("Duplicate TemporalQuery {} for ID: {}", temporal_query::serialize_temporal_query(temporal_query), temporal_query.id);
         return;
     }
 
-    m_logger->info("Got new temporal query with hash: {}", temporal_query_hash_string(temporal_query));
+    m_logger->info("Got new temporal query with hash: {}", temporal_query::temporal_query_hash_string(temporal_query));
     auto id = temporal_query.id;
 
-    ensureLeadingSlash(id);
-    m_logger->info("Pushing TemporalQuery {} for ID: {}", serialize_temporal_query(temporal_query), id);
+    m_logger->info("Pushing TemporalQuery {} for ID: {}", temporal_query::serialize_temporal_query(temporal_query), id);
 
     auto message = std::make_unique<snds_intra_message::SNDS_INTRA_MESSAGE>
     (
-        std::move(serialize_temporal_query(temporal_query)),
+        std::move(temporal_query::serialize_temporal_query(temporal_query)),
         snds_intra_message::SNDS_INTRA_MESSAGE_TYPE::TEMPORAL_QUERY_REQUEST,
         snds_intra_message::SNDS_CLIENT_TYPES::SERVICE,
         "",

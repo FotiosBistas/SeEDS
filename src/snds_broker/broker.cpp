@@ -334,8 +334,8 @@ nlohmann::json Broker::get(const std::string& request){
 
         for (auto& token : tokens) {
             logger->debug("Processing timeframe: {}", token);
-            Timeframe frame         = string_to_timeframe(token);
-            logger->debug("Parsed timeframe: {}", timeframe_to_string(frame));
+            temporal_query::Timeframe frame         = temporal_query::string_to_timeframe(token);
+            logger->debug("Parsed timeframe: {}", temporal_query::timeframe_to_string(frame));
             auto      result        = get_from_database(frame, view);
             auto      parsed_result = nlohmann::json::parse(result);
             nlohmann::json entry;

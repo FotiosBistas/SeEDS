@@ -68,7 +68,7 @@ private:
   	// the key is the hash of the query
   	// also used to return specific fields from the JSON return for an ID
   	// an ID and its specified fields we want to keep
-  	std::unordered_map<std::string, TemporalQuery> pending_temporal_queries;
+  	std::unordered_map<std::string, temporal_query::TemporalQuery> pending_temporal_queries;
 
   	void process_new_get_by_id(const std::string& id);
   	void process_processed_get_by_id(const std::string& id, const std::string& payload);
@@ -79,7 +79,7 @@ private:
   	void process_registry_file(const std::string& payload, const std::string& name);
 	void process_ack_message(std::string&& name, std::string&& payload);
     void process_processed_get_by_id_from_node(std::string&& id, std::string&& payload);
-  	void processTemporalQueryRequest(const TemporalQuery& temporal_query);
+  	void process_temporal_query_request(const temporal_query::TemporalQuery& temporal_query);
   	void processTemporalQueryResponse(const std::string& parent_query_hash, const std::string& content, bool last_interest);
 
 	void _handle_consumer_intra_message(snds_intra_message::SNDS_INTRA_MESSAGE& message);

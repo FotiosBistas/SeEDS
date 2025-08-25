@@ -36,7 +36,7 @@ public:
     void init();
     void process_by_id_advertisement(const std::string& id);
     void process_by_id_and_type_advertisement(const std::string& id, const std::string& type);
-    void process_temporal_query_advertisement(const TemporalQuery& query);
+    void process_temporal_query_advertisement(const temporal_query::TemporalQuery& query);
     void erase_pending_id(const std::string& id);
 
 private:

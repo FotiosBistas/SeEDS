@@ -109,7 +109,7 @@ std::string Broker::collection_fingerprint(mongocxx::collection& collection) {
 }
 
 mongocxx::pipeline Broker::create_date_pipeline(
-    const Timeframe& frame,
+    const temporal_query::Timeframe& frame,
     const size_t count,
     std::string_view id,
     const std::chrono::_V2::system_clock::time_point& base_date,
@@ -119,7 +119,7 @@ mongocxx::pipeline Broker::create_date_pipeline(
     mongocxx::pipeline pipeline;
 
     switch(frame){
-        case Timeframe::NOW: {
+        case temporal_query::Timeframe::NOW: {
             pipeline.match(
                 bsoncxx::builder::basic::make_document(
                     bsoncxx::builder::basic::kvp("_id._id", id)
@@ -151,7 +151,7 @@ mongocxx::pipeline Broker::create_date_pipeline(
             pipeline.limit(count);
             break;
         }
-        case Timeframe::BEFORE: {
+        case temporal_query::Timeframe::BEFORE: {
             pipeline.match(
                 bsoncxx::builder::basic::make_document(
                     bsoncxx::builder::basic::kvp("_id._id", id)
@@ -174,7 +174,7 @@ mongocxx::pipeline Broker::create_date_pipeline(
             pipeline.limit(count);
             break;
         }
-        case Timeframe::AFTER: {
+        case temporal_query::Timeframe::AFTER: {
             pipeline.match(
                 bsoncxx::builder::basic::make_document(
                     bsoncxx::builder::basic::kvp("_id._id", id)
@@ -230,7 +230,7 @@ void Broker::filter_to_only_id(mongocxx::v_noabi::pipeline& pipeline){
     );
 }
 
-std::string Broker::get_from_database(const Timeframe& frame, bsoncxx::v_noabi::document::view json_data){
+std::string Broker::get_from_database(const temporal_query::Timeframe& frame, bsoncxx::v_noabi::document::view json_data){
 
     //type and ID are always specified by the get handler
     std::string_view type = json_data["type"].get_value().get_string().value;

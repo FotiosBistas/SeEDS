@@ -204,9 +204,9 @@ void SNDSConsumer::express_by_id_and_type_advertisement_interest(const std::stri
 
 void SNDSConsumer::express_temporal_query_interest(const std::string& content)
 {
-    TemporalQuery query = deserialize_temporal_query(content);
+    temporal_query::TemporalQuery query = temporal_query::deserialize_temporal_query(content);
     //query.date = md5_hex(&query.date, query.date.size());
-    auto tmp_name = to_path(query);
+    auto tmp_name = temporal_query::to_path(query);
 
     auto name = parsed_interest_name::to_custom_ndn_name
     (
@@ -459,14 +459,14 @@ void SNDSConsumer::express_get_by_id_interest(const std::string& content)
 
 //TODO possible disclose spot only for ID and timestamp
 //TODO possible verify spot
-void SNDSConsumer::send_metafile_interests(const std::string& body, const TemporalQuery& parent_query){
+void SNDSConsumer::send_metafile_interests(const std::string& body, const temporal_query::TemporalQuery& parent_query){
     nlohmann::json root = nlohmann::json::parse(body);
 
 	std::unordered_set<std::string> seen_interests;
 
     // included in the interest to know which parent 
     // query the child query references
-    auto parent_query_hash = temporal_query_hash_string(parent_query);
+    auto parent_query_hash = temporal_query::temporal_query_hash_string(parent_query);
 
     for (const auto& entry : root) {
         // entry is an object with a single key: "before" or "after" or "now"

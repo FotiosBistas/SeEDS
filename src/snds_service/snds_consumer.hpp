@@ -65,8 +65,8 @@ public:
     */
     void onData(const ndn::Interest& interest, const ndn::Data& data);
 
-    std::string handleTemporalQuery(const TemporalQuery& query);
+    std::string handleTemporalQuery(const temporal_query::TemporalQuery& query);
 
-    void send_metafile_interests(const std::string& body, const TemporalQuery& parent_query);
+    void send_metafile_interests(const std::string& body, const temporal_query::TemporalQuery& parent_query);
 
 };

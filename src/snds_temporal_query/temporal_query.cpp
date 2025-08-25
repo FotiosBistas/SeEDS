@@ -2,7 +2,7 @@
 
 // Parse a "+"-delimited string (e.g., "before+after")
 //    into a single Timeframe flag bitmask.
-Timeframe string_to_timeframe(std::string_view view)
+temporal_query::Timeframe temporal_query::string_to_timeframe(std::string_view view)
 {
     constexpr const char *delimiter = "+";
     Timeframe result = Timeframe::NONE; // start with no flags
@@ -42,7 +42,7 @@ Timeframe string_to_timeframe(std::string_view view)
 }
 
 /// Convert a Timeframe bitmask back into a "+"-delimited string.
-std::string timeframe_to_string(Timeframe frame)
+std::string temporal_query::timeframe_to_string(temporal_query::Timeframe frame)
 {
     constexpr const char *delimiter = "+";
     std::string out;
@@ -69,7 +69,7 @@ std::string timeframe_to_string(Timeframe frame)
 }
 
 /// Turn a CSV of filter-keys into a vector<Filter> (value left empty)
-std::vector<Filter> parse_filters(std::string_view csv) 
+std::vector<temporal_query::Filter> temporal_query::parse_filters(std::string_view csv) 
 {
     std::vector<Filter> out;
     std::string temp{csv};
@@ -85,8 +85,31 @@ std::vector<Filter> parse_filters(std::string_view csv)
     return out;
 }
 
+temporal_query::TemporalQuery temporal_query::from_params(const std::unordered_map<std::string, std::string>& params) 
+{
+    TemporalQuery q{};
+
+    static const std::unordered_map<std::string, std::function<void(TemporalQuery&, const std::string&)>> map 
+    {
+        { "id",        [](auto& q, const std::string& v){ q.id = v; } },
+        { "date",      [](auto& q, const std::string& v){ q.date = v; } },
+        { "count",     [](auto& q, const std::string& v){ q.count = v; } },
+        { "type",      [](auto& q, const std::string& v){ q.type = v; } },
+        { "timeframe", [](auto& q, const std::string& v){ q.frame = string_to_timeframe(v); } },
+        { "filters",   [](auto& q, const std::string& v){ q.filters = parse_filters(v); } },
+        // When you add a new field, add a row here. Unknowns fall into extras automatically.
+    };
+
+    for (const auto& [k, v] : params) 
+    {
+        if (auto it = map.find(k); it != map.end()) it->second(q, v);
+        else q.extras[k] = v;
+    }
+    return q;
+}
+
 /// Join filters back into a CSV of keys
-std::string filters_to_csv(const std::vector<Filter>& filters) 
+std::string temporal_query::filters_to_csv(const std::vector<temporal_query::Filter>& filters) 
 {
     std::string out;
     bool first = true;
@@ -99,9 +122,9 @@ std::string filters_to_csv(const std::vector<Filter>& filters)
     return out;
 }
 
-std::string to_path
+std::string temporal_query::to_path
 (
-    const TemporalQuery &q,
+    const temporal_query::TemporalQuery &q,
     const bool include_timeframe,
     const bool include_count,
     const bool include_extras,
@@ -162,7 +185,7 @@ std::string to_path
 }
 
 
-std::string serialize_temporal_query(const TemporalQuery &q)
+std::string temporal_query::serialize_temporal_query(const temporal_query::TemporalQuery &q)
 {
     nlohmann::json j;
     j["timeframe"] = timeframe_to_string(q.frame);
@@ -189,7 +212,7 @@ std::string serialize_temporal_query(const TemporalQuery &q)
 }
 
 // Parse a JSON string back into a TemporalQuery struct.
-TemporalQuery deserialize_temporal_query(std::string_view json_string)
+temporal_query::TemporalQuery temporal_query::deserialize_temporal_query(std::string_view json_string)
 {
     // Parse input into JSON object
     auto j = nlohmann::json::parse(json_string);

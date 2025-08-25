@@ -96,9 +96,9 @@ void DigitalTwin::init(){
                 return (it == params.end()) ? std::string{} : it->second;
             };
 
-            TemporalQuery query = 
+            temporal_query::TemporalQuery query = 
             {
-                Timeframe::NONE,
+                temporal_query::Timeframe::NONE,
                 date_iterator->second,
                 id_iterator->second,
                 get_or_empty(type_iterator),
@@ -222,17 +222,17 @@ void DigitalTwin::process_by_id_and_type_advertisement(const std::string& id, co
 
 }
 
-void DigitalTwin::process_temporal_query_advertisement(const TemporalQuery& query)
+void DigitalTwin::process_temporal_query_advertisement(const temporal_query::TemporalQuery& query)
 {
     auto message = std::make_unique<snds_intra_message::SNDS_INTRA_MESSAGE>
     (
-        serialize_temporal_query(query),    
+        temporal_query::serialize_temporal_query(query),    
         snds_intra_message::SNDS_INTRA_MESSAGE_TYPE::TEMPORAL_QUERY_ADVERTISEMENT,
         snds_intra_message::SNDS_CLIENT_TYPES::DIGITAL_TWIN,
         "",
         snds_intra_message::HTTP_MESSAGE_TYPE::HTTP_EMPTY
     );
-    m_logger->info("Pushing Temporal Query to Producer: {}", serialize_temporal_query(query));
+    m_logger->info("Pushing Temporal Query to Producer: {}", temporal_query::serialize_temporal_query(query));
     m_logger->info("Pushing message to producer: {}", message->print_details());
     v_to_producer->writeMessage(std::move(message));
 }

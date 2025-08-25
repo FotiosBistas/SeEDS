@@ -158,10 +158,10 @@ void SNDSProducer::init(){
 
 void SNDSProducer::process_temporal_query_advertisement(const std::string& content)
 {
-    auto query = deserialize_temporal_query(content);
-    m_logger->debug("Deserialized temporal query to: {} in {}", serialize_temporal_query(query), __func__);
+    auto query = temporal_query::deserialize_temporal_query(content);
+    m_logger->debug("Deserialized temporal query to: {} in {}", temporal_query::serialize_temporal_query(query), __func__);
     //query.date = md5_hex(&query.date, query.date.size());
-    auto name = to_path(query, false, false, false);
+    auto name = temporal_query::to_path(query, false, false, false);
     m_logger->debug("Created name from query: {} in {}", name, __func__);
     auto to_be_announced_name = parsed_interest_name::to_custom_ndn_name
     (
@@ -254,10 +254,10 @@ void SNDSProducer::process_by_id_advertisement(const std::string& content)
 
 void SNDSProducer::process_temporal_query_request(const std::string& content)
 {
-    auto query = deserialize_temporal_query(content);
-    m_logger->debug("Deserialized temporal query to: {} in {}", serialize_temporal_query(query), __func__);
+    auto query = temporal_query::deserialize_temporal_query(content);
+    m_logger->debug("Deserialized temporal query to: {} in {}", temporal_query::serialize_temporal_query(query), __func__);
     //query.date = md5_hex(&query.date, query.date.size());
-    auto name = to_path(query, false, false, false);
+    auto name = temporal_query::to_path(query, false, false, false);
     m_logger->debug("Created name from query: {} in {}", name, __func__);
 
     auto to_be_announced_name = parsed_interest_name::to_custom_ndn_name
@@ -284,7 +284,7 @@ void SNDSProducer::process_temporal_query_request(const std::string& content)
 
     //TODO possible spot for signing
     //TODO insert more payload here
-    std::string payload = serialize_temporal_query(query);
+    std::string payload = temporal_query::serialize_temporal_query(query);
     //TODO receive data from the broker here?
     httplib::Client cli(broker_ip.c_str(), broker_port);
     auto res = cli.Post("/add", payload, "application/json");
