@@ -754,6 +754,7 @@ void SNDSConsumer::onData(const ndn::Interest& interest, const ndn::Data& data)
 
             // data.getName() equivalent with interest.toUri()
             auto parent_temporal_query = temporal_query_from_interest(pi);
+            m_logger->debug("Created Parent Temporal Query: {}", temporal_query::serialize_temporal_query(parent_temporal_query));
             //send_metafile_interests(payload, parent_temporal_query);
             break;
         }
