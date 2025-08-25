@@ -314,6 +314,7 @@ void SNDSProducer::onInterest(const ndn::Interest& interest)
         break;
     case parsed_interest_name::interest_message_type::INTEREST_MESSAGE_TYPE::GET_BY_ID_FROM_NODE:
     case parsed_interest_name::interest_message_type::INTEREST_MESSAGE_TYPE::GET_BY_ID:
+    case parsed_interest_name::interest_message_type::INTEREST_MESSAGE_TYPE::VERSION:
         process_get_by_id_interest(pi);
         break;
     case parsed_interest_name::interest_message_type::INTEREST_MESSAGE_TYPE::BY_ID_AND_TYPE_ADVERTISEMENT:
@@ -679,6 +680,7 @@ void SNDSProducer::process_scope_notification_interest(const parsed_interest_nam
 void SNDSProducer::process_get_by_id_interest(const parsed_interest_name::ParsedInterestName& interest) 
 {
     auto interest_response = parsed_interest_name::to_custom_ndn_name(interest, true);
+    m_logger->debug("Created interest response: {} in {}", interest_response, __func__);
     auto maybe_id = interest.get_interest_parameter(0);
 
     if(!maybe_id.has_value())

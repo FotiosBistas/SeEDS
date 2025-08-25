@@ -211,6 +211,45 @@ namespace parsed_interest_name {
         return pi;
     }
 
+    static ParsedInterestName make_interest_name_from_metafile
+    (
+        const std::string& prefix,
+        const std::string& id,
+        const interest_message_type::INTEREST_MESSAGE_TYPE command,
+        const std::string& timestamp
+    )
+    {
+        ParsedInterestName pi;
+        pi.prefix  = prefix;
+        pi.name    = id;
+        pi.command = command;
+        pi.params  = {};
+        pi.params.push_back(timestamp);
+
+        return pi;
+    }
+
+    static ParsedInterestName make_interest_name_from_metafile
+    (
+        const std::string& prefix,
+        const std::string& id,
+        const interest_message_type::INTEREST_MESSAGE_TYPE command,
+        const std::vector<std::string> params
+    )
+    {
+        ParsedInterestName pi;
+        pi.prefix  = prefix;
+        pi.name    = id;
+        pi.command = command;
+        pi.params  = {};
+        for(auto param: params)
+        {
+            pi.params.push_back(param);
+        }
+
+        return pi;
+    }
+
     /**
      * 
      * @brief Parses an ndn::Name into a ParsedInterest structure.

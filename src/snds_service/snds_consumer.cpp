@@ -459,7 +459,8 @@ void SNDSConsumer::express_get_by_id_interest(const std::string& content)
 
 //TODO possible disclose spot only for ID and timestamp
 //TODO possible verify spot
-void SNDSConsumer::send_metafile_interests(const std::string& body, const temporal_query::TemporalQuery& parent_query){
+void SNDSConsumer::send_metafile_interests(const std::string& body, const temporal_query::TemporalQuery& parent_query)
+{
     nlohmann::json root = nlohmann::json::parse(body);
 
 	std::unordered_set<std::string> seen_interests;
@@ -468,18 +469,19 @@ void SNDSConsumer::send_metafile_interests(const std::string& body, const tempor
     // query the child query references
     auto parent_query_hash = temporal_query::temporal_query_hash_string(parent_query);
 
-    for (const auto& entry : root) {
+    for (const auto& entry : root) 
+    {
         // entry is an object with a single key: "before" or "after" or "now"
-        for (auto& [key, arr] : entry.items()) {
+        for (auto& [key, arr] : entry.items()) 
+        {
 			m_logger->debug("Parsing key: {}", key);
-            for (const auto& doc : arr) {
+            for (const auto& doc : arr) 
+            {
 				// this contains both timestamp and id
                 const auto&  id_object  = doc["_id"];
                 std::string   id        = id_object["_id"].get<std::string>();
                 long long raw_timestamp = id_object["timestamp"]["$date"].get<long long>();
-				std::string timestamp = "date=" + format_timestamp_ms(raw_timestamp);
-				//std::string timestamp = format_timestamp_ms(raw_timestamp);
-                //std::string timestamp = "geia";
+				std::string timestamp = "date=" + ::format_timestamp_ms(raw_timestamp);
                 m_logger->debug("Before encoding timestamp: {}", timestamp);
 				timestamp = url_encode(timestamp);
 
@@ -487,10 +489,10 @@ void SNDSConsumer::send_metafile_interests(const std::string& body, const tempor
                 // use my own structures maybe? 
                 auto name = parsed_interest_name::make_interest_name_from_metafile
                 (
-                    "SNDS", 
+                    snds_prefix, 
                     id,
-                    "version:",
-                    timestamp
+                    parsed_interest_name::interest_message_type::INTEREST_MESSAGE_TYPE::VERSION,
+                    {id, timestamp}
                 );
 
                 name.params.push_back(url_encode("metafile=true"));
@@ -499,14 +501,15 @@ void SNDSConsumer::send_metafile_interests(const std::string& body, const tempor
 
                 // try to insert; if it's new, send it
                 // for example you might have two dates that are the same
-                if (!seen_interests.emplace(name_to_string).second) {
+                if (!seen_interests.emplace(name_to_string).second) 
+                {
                     m_logger->debug("Skipping duplicate interest: {}", name_to_string);
                     continue;
                 }
 
                 m_logger->info("Built interest: {} sending actual interest: {}", name.to_string(), name_to_string);
                 ndn::Name interestName(name_to_string);
-                interestName.appendVersion();
+                //interestName.appendVersion();
                 m_logger->info("Created interest name {}", interestName.toUri().c_str());
                 ndn::Interest interest(interestName);
                 //TODO we don't want all the cases to be fresh
@@ -516,10 +519,13 @@ void SNDSConsumer::send_metafile_interests(const std::string& body, const tempor
                 interest.setInterestLifetime(ndn::time::milliseconds(6000)); 
                 m_logger->info("Sending actual Interest {}", interest.toUri().c_str());
 
-                m_face.expressInterest(interest,
-                                              std::bind(&SNDSConsumer::onData, this,  _1, _2),
-                                              std::bind(&SNDSConsumer::onNack, this, _1, _2),
-                                              std::bind(&SNDSConsumer::onTimeout, this, _1));
+                m_face.expressInterest
+                (
+                    interest,
+                    std::bind(&SNDSConsumer::onData, this,  _1, _2),
+                    std::bind(&SNDSConsumer::onNack, this, _1, _2),
+                    std::bind(&SNDSConsumer::onTimeout, this, _1)
+                );
             }
         }
     }
@@ -755,7 +761,7 @@ void SNDSConsumer::onData(const ndn::Interest& interest, const ndn::Data& data)
             // data.getName() equivalent with interest.toUri()
             auto parent_temporal_query = temporal_query_from_interest(pi);
             m_logger->debug("Created Parent Temporal Query: {}", temporal_query::serialize_temporal_query(parent_temporal_query));
-            //send_metafile_interests(payload, parent_temporal_query);
+            send_metafile_interests(payload, parent_temporal_query);
             break;
         }
     }
