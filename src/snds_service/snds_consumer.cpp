@@ -213,9 +213,9 @@ void SNDSConsumer::express_temporal_query_interest(const std::string& content)
         parsed_interest_name::make_parsed_interest_name
         (
             snds_prefix, 
-            tmp_name,
+            query.id,
             parsed_interest_name::interest_message_type::INTEREST_MESSAGE_TYPE::TEMPORAL_QUERY,
-            {}
+            temporal_query::to_fields(query)
         )
     );
 

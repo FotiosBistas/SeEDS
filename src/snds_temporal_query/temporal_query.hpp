@@ -84,6 +84,16 @@ namespace temporal_query{
 
     };
 
+    std::vector<std::string> to_fields
+    (
+        const temporal_query::TemporalQuery& q,
+        bool include_timeframe = true,
+        bool include_count     = true,
+        bool include_extras    = true,
+        bool include_filters   = true,
+        bool url_encode        = true
+    );
+
 
 
     TemporalQuery from_params(const std::unordered_map<std::string, std::string>& params);

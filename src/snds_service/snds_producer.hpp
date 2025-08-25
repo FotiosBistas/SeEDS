@@ -88,6 +88,7 @@ public:
 	void process_get_by_type_interest(const parsed_interest_name::ParsedInterestName& interest);
 	void process_get_by_id_for_type_interest(const parsed_interest_name::ParsedInterestName& interest);
 	void process_subscription_notification_interest(const parsed_interest_name::ParsedInterestName& interest);
+	void process_temporal_query_interest(const parsed_interest_name::ParsedInterestName& interest);
 	void process_temporal_query_advertisement(const std::string& content);
 	void process_by_id_advertisement(const std::string& content);
 	void process_temporal_query_request(const std::string& content);

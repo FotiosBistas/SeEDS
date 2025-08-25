@@ -328,6 +328,9 @@ void SNDSProducer::onInterest(const ndn::Interest& interest)
     case parsed_interest_name::interest_message_type::INTEREST_MESSAGE_TYPE::SUBSCRIPTION_NOTIFICATION:
         process_subscription_notification_interest(pi);
         break;
+    case parsed_interest_name::interest_message_type::INTEREST_MESSAGE_TYPE::TEMPORAL_QUERY:
+        //process_temporal_query_interest(pi);
+        break;
     default:
         break;
     }
@@ -438,30 +441,41 @@ void SNDSProducer::process_get_by_id_for_type_interest(const parsed_interest_nam
 
 }
 
-//void SNDSProducer::handleTemporalQuery(parsed_interest_name::ParsedInterestName& interest)
+//void SNDSProducer::process_temporal_query_interest(const parsed_interest_name::ParsedInterestName& interest)
 //{
+//    auto maybe_id        = interest.get_interest_parameter(0);
+//    auto maybe_date      = interest.get_interest_parameter(1);
+//    auto maybe_count     = interest.get_interest_parameter(2);
+//    auto maybe_timeframe = interest.get_interest_parameter(3);
+//    auto maybe_filters   = interest.get_interest_parameter(4);
 //
-//    std::string date = url_decode(interest.params[0]);
-//    std::string id = interest.name;
+//    const auto take = [](const auto& m) -> std::string 
+//    {
+//        return m ? std::string(*m) : std::string{};
+//    };
+//
+//    auto id        = take(maybe_id);
+//    auto date      = take(maybe_date);
+//    auto count     = take(maybe_count);
+//    auto timeframe = take(maybe_timeframe);
+//    auto filters   = take(maybe_filters);
 //
 //    // build a map<string,string> out of interest.params,
 //    // expecting each param to be in the form "key=value"
 //    // currently params are count=,timeframe=,
 //	// parameters are url encoded by convention
 //    std::unordered_map<std::string, std::string> parameter_map;
-//    for (const auto& parameter : interest.params) 
-//    {
-//		auto decoded_parameter = url_decode(parameter);
-//        auto equal_sign_index = decoded_parameter.find('=');
-//        if (equal_sign_index == std::string::npos) continue;
-//        auto key = decoded_parameter.substr(0, equal_sign_index);
-//        auto val = decoded_parameter.substr(equal_sign_index + 1);
-//        parameter_map.emplace(key, val);
-//    }
 //
-//	std::string type      = parameter_map.count("type")      ? parameter_map["type"]      : "";
-//    std::string timeframe = parameter_map.count("timeframe") ? parameter_map["timeframe"] : "";
-//    int count             = parameter_map.count("count")     ? std::stoi(parameter_map["count"]) : 0;
+//    auto put_if = [&](const char* k, const std::string& v) 
+//    {
+//        if (!v.empty()) parameter_map.emplace(k, v);
+//    };
+//
+//    put_if("id",        id);
+//    put_if("date",      date);
+//    put_if("count",     count);
+//    put_if("timeframe", timeframe);
+//    put_if("filters",   filters);
 //
 //	m_logger->debug("TemporalQuery → id: {}, date: {}, type: {}, timeframe: {}, count: {}", id, date, type, timeframe, count);
 //    httplib::Client cli(broker_ip.c_str(), broker_port);
@@ -474,9 +488,7 @@ void SNDSProducer::process_get_by_id_for_type_interest(const parsed_interest_nam
 //        url_encode(date),
 //        url_encode(timeframe)
 //    );
-//
 //	m_logger->debug("Requesting to endpoint: {}", endpoint);
-//
 //    auto res = cli.Get(endpoint.c_str());
 //    if (res && res->status == 200) {
 //        m_logger->info("Successfully queried /temporal-query");
@@ -485,8 +497,6 @@ void SNDSProducer::process_get_by_id_for_type_interest(const parsed_interest_nam
 //        m_logger->error("Failed to query /temporal-query: {}", res ? res->body : "No response");
 //    }
 //}
-//
-//
 
 void SNDSProducer::process_by_type_advertisement_interest(const parsed_interest_name::ParsedInterestName& interest) {
   	m_logger->info("Processing Type Advertisement");

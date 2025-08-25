@@ -184,6 +184,53 @@ std::string temporal_query::to_path
     return oss.str();
 }
 
+std::vector<std::string> temporal_query::to_fields
+(
+    const temporal_query::TemporalQuery& q,
+    bool include_timeframe,
+    bool include_count,
+    bool include_extras,
+    bool include_filters,
+    bool url_encode
+)
+{
+    std::vector<std::string> fields;
+    fields.reserve(6 + q.extras.size() + (include_filters ? 1 : 0));
+
+    auto enc = [&](std::string_view s) -> std::string 
+    {
+        return url_encode ? ::url_encode(std::string{s}) : std::string{s};
+    };
+
+    auto kv = [&](std::string_view k, const std::string& v) -> std::string 
+    {
+        // will yield "key=" when v is empty
+        return enc(enc(k) + "=" + enc(v));
+    };
+
+    fields.emplace_back(kv("id",    q.id));
+    fields.emplace_back(kv("type",  q.type));
+    fields.emplace_back(kv("date",  q.date));
+
+    if (include_count) fields.emplace_back(kv("count", q.count));
+    if (include_timeframe) fields.emplace_back(kv("timeframe", timeframe_to_string(q.frame)));
+    if (include_filters) 
+    {
+        const auto csv = filters_to_csv(q.filters);
+        fields.emplace_back(kv("filters", csv));
+    }
+
+    if (include_extras) 
+    {
+        std::vector<std::pair<std::string,std::string>> items(q.extras.begin(), q.extras.end());
+        std::sort(items.begin(), items.end(), [](const auto& a, const auto& b){ return a.first < b.first; });
+        for (auto& [k, v] : items) fields.emplace_back(kv(k, v));
+    }
+
+    return fields;
+}
+
+
 
 std::string temporal_query::serialize_temporal_query(const temporal_query::TemporalQuery &q)
 {
