@@ -182,10 +182,9 @@ void Worker::_handle_consumer_intra_message(snds_intra_message::SNDS_INTRA_MESSA
         }
         case snds_intra_message::SNDS_INTRA_MESSAGE_TYPE::VERSION_RESPONSE:
         {
-            auto payload = message.get_payload();
-            message.parse_query_uri_and_set_fields(message.get_message());
-            m_logger->debug("{}", message.print_details());
-            //process_temporal_query_response();
+            auto payload = message.move_payload();
+            auto params = message.parse_uri_query_to_map_raw(message.get_message());
+            process_temporal_query_response(params[GET_PARAMETER_PARENT_QUERY_HASH_TAG], std::move(payload), params[GET_PARAMETER_LAST_METAFILE_INTEREST_TAG] == "true");
             break;
         }
     }
@@ -251,17 +250,16 @@ void Worker::process_temporal_query_request(const temporal_query::TemporalQuery&
         snds_intra_message::HTTP_MESSAGE_TYPE::HTTP_EMPTY
     );
 
-    v_to_consumer.get()->writeMessage(std::move(message));
+    v_to_consumer->writeMessage(std::move(message));
 }
 
 void Worker::process_temporal_query_response
 (
-    const std::string& parent_query_hash, 
+    const std::string& parent_query_hash,
     const std::string& content,
-    bool  last_interest
+    bool last_interest
 )
 {
-
     auto it = pending_temporal_queries.find(parent_query_hash);
     if (it == pending_temporal_queries.end()) 
     {
@@ -269,67 +267,89 @@ void Worker::process_temporal_query_response
         return;
     }
 
+    // Copy the query BEFORE any erase
     auto parent_query = it->second;
-    //weird thing where the data received have some weird characters in front
-    //    �q[
-    //{
-    //"before": [
-    //  {
-    //    "_id": {
-    //      "_id": "car2",
-    //      "timestamp": {
-    //        "$date": 1750835111321
-    //      }
-    //    }
-    //  }
-    //]
-    auto pos = content.find_first_of("[{");
-    std::string payload = content;
-    if (pos != std::string::npos) 
-    {
-        payload = content.substr(pos);
-        m_logger->debug("Removed extra characters from payload:\n{}", payload);
+
+    // Split the WHOLE buffer into all balanced JSON slices
+    auto slices = extract_all_json_slices(content);
+    if (slices.empty()) {
+        m_logger->error("No JSON found. Hex head: {}", hexdump(content, 0, 64));
+        if (last_interest) pending_temporal_queries.erase(it);
+        return;
     }
 
-    m_logger->info("Found stored temporal query: {}", serialize_temporal_query(parent_query));
-
-    if(!parent_query.filters.empty())
+    for (size_t idx = 0; idx < slices.size(); ++idx) 
     {
-        m_logger->info("Applying filters to the data received");
+        std::string sanitized = fix_mixed_utf8_cp1252(slices[idx]);
 
-        nlohmann::json document = nlohmann::json::parse(payload);
-
-        std::unordered_set<std::string> keep;
-        for (auto const& f : parent_query.filters) 
+        if (!nlohmann::json::accept(sanitized)) 
         {
-            m_logger->debug("Adding filter: {} with value: {} to keep set", f.key, f.value);
-            keep.insert(f.key);
+            m_logger->error("Slice #{} not valid JSON after sanitization; skipping.", idx);
+            continue;
         }
 
-        nlohmann::json filtered = nlohmann::json::object();
-        for (auto const& key : keep) 
+        nlohmann::json doc = nlohmann::json::parse(sanitized, /*cb=*/nullptr, /*allow_exceptions=*/false);
+        if (doc.is_discarded()) 
         {
-            if (document.contains(key)) 
+            m_logger->error("Slice #{} parse discarded; skipping.", idx);
+            continue;
+        }
+
+        // Apply filters (use the already-parsed doc)
+        std::string out;
+        if (!parent_query.filters.empty()) 
+        {
+            m_logger->info("Applying filters to the data received");
+            std::unordered_set<std::string> keep;
+            for (const auto& f : parent_query.filters) keep.insert(f.key);
+
+            nlohmann::json filtered;
+            if (doc.is_object()) 
             {
-                filtered[key] = document[key];
+                filtered = nlohmann::json::object();
+                for (const auto& k : keep) if (doc.contains(k)) filtered[k] = doc[k];
+            } 
+            else if (doc.is_array()) 
+            {
+                filtered = nlohmann::json::array();
+                for (const auto& el : doc) 
+                {
+                    if (!el.is_object()) continue;
+                    nlohmann::json obj = nlohmann::json::object();
+                    for (const auto& k : keep) if (el.contains(k)) obj[k] = el[k];
+                    filtered.push_back(std::move(obj));
+                }
+            } 
+            else 
+            {
+                filtered = doc; // fallback
             }
+            out = filtered.dump(2);
+        } 
+        else 
+        {
+            out = std::move(sanitized);
         }
 
-        payload = filtered.dump(2);
+        m_logger->debug("Sending data to HTTP server: {}", out);
+        out.push_back('\n');
+
+        auto message = std::make_unique<snds_intra_message::SNDS_INTRA_MESSAGE>(
+            "",
+            snds_intra_message::SNDS_INTRA_MESSAGE_TYPE::TEMPORAL_QUERY_RESPONSE,
+            snds_intra_message::SNDS_CLIENT_TYPES::WORKER,
+            std::move(out),
+            snds_intra_message::HTTP_MESSAGE_TYPE::HTTP_EMPTY
+        );
+
+        v_to_service->writeMessage(std::move(message));
     }
 
-    m_logger->debug("Sending data to HTTP server: {}", payload);
-
-    auto message = std::make_unique<snds_intra_message::SNDS_INTRA_MESSAGE>
-    (
-        "",
-        snds_intra_message::SNDS_INTRA_MESSAGE_TYPE::TEMPORAL_QUERY_RESPONSE,
-        snds_intra_message::SNDS_CLIENT_TYPES::WORKER,
-        std::move(payload + "\n"),
-        snds_intra_message::HTTP_MESSAGE_TYPE::HTTP_EMPTY
-    );
-
-    v_to_service->writeMessage(std::move(message));
+    // Erase AFTER processing all slices
+    if (last_interest) 
+    {
+        pending_temporal_queries.erase(it);
+    }
 }
 
 void Worker::process_subscription_request(const std::string& id, const std::string& subURL)

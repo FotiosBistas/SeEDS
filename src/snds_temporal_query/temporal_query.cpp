@@ -71,7 +71,7 @@ std::string temporal_query::timeframe_to_string(temporal_query::Timeframe frame)
 /// Turn a CSV of filter-keys into a vector<Filter> (value left empty)
 std::vector<temporal_query::Filter> temporal_query::parse_filters(std::string_view csv) 
 {
-    std::vector<Filter> out;
+    std::vector<Filter> out{};
     std::string temp{csv};
     std::stringstream ss(temp);
     std::string item;
@@ -97,7 +97,7 @@ temporal_query::TemporalQuery temporal_query::from_params(const std::unordered_m
         { "type",      [](auto& q, const std::string& v){ q.type = v; } },
         { "timeframe", [](auto& q, const std::string& v){ q.frame = string_to_timeframe(v); } },
         { "filters",   [](auto& q, const std::string& v){ q.filters = parse_filters(v); } },
-        // When you add a new field, add a row here. Unknowns fall into extras automatically.
+        // When adding a new field, add a row here. Unknowns fall into extras automatically.
     };
 
     for (const auto& [k, v] : params) 

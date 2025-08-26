@@ -12,6 +12,195 @@ size_t getSNDSNodeForSubscription
     return hash_value % number_of_snds_services;
 }
 
+std::string fix_mixed_utf8_cp1252(const std::string& s) 
+{
+    std::string out;
+    out.reserve(s.size());
+    const unsigned char* p = reinterpret_cast<const unsigned char*>(s.data());
+    const unsigned char* e = p + s.size();
+
+    auto append = [&](unsigned char c){ out.push_back(static_cast<char>(c)); };
+    auto append_str = [&](const char* t){ out.append(t); };
+
+    while (p < e) 
+    {
+        unsigned char c = *p;
+
+        if (c < 0x80) { append(c); ++p; continue; }                // ASCII
+
+        // Valid UTF-8?
+        if ((c >> 5) == 0x6 && p+1 < e && (p[1] & 0xC0) == 0x80) { out.append((const char*)p, 2); p += 2; continue; }
+        if ((c >> 4) == 0xE && p+2 < e && (p[1] & 0xC0) == 0x80 && (p[2] & 0xC0) == 0x80) { out.append((const char*)p, 3); p += 3; continue; }
+        if ((c >> 3) == 0x1E && p+3 < e && (p[1] & 0xC0) == 0x80 && (p[2] & 0xC0) == 0x80 && (p[3] & 0xC0) == 0x80) { out.append((const char*)p, 4); p += 4; continue; }
+
+        // CP1252 common offenders → ASCII
+        switch (c) {
+            case 0x91: case 0x92: append('\''); break;      // ‘ ’
+            case 0x93: case 0x94: append('\"'); break;      // “ ”
+            case 0x96: append('-'); break;                  // –
+            case 0x97: out += "--"; break;                  // —
+            case 0x85: out += "..."; break;                 // …
+            // Others in 0x80–0x9F: drop them
+            default: /* drop */ break;
+        }
+        ++p;
+    }
+    return out;
+}
+
+// remove invalid UTF-8 bytes; keep ASCII and valid UTF-8 sequences
+std::string sanitize_utf8(const std::string& s) 
+{
+    std::string out;
+    out.reserve(s.size());
+    const unsigned char* p = reinterpret_cast<const unsigned char*>(s.data());
+    const unsigned char* e = p + s.size();
+
+    auto append = [&](unsigned char c){ out.push_back(static_cast<char>(c)); };
+
+    while (p < e) {
+        unsigned char c = *p;
+        if (c < 0x80) 
+        { // ASCII
+            append(c);
+            ++p;
+        } 
+        else if ((c >> 5) == 0x6 && p+1 < e) 
+        {           // 2-byte
+            unsigned char c1 = *(p+1);
+            if ((c1 & 0xC0) == 0x80) { out.append(reinterpret_cast<const char*>(p), 2); p += 2; }
+            else { ++p; } // drop invalid lead
+        } 
+        else if ((c >> 4) == 0xE && p+2 < e) 
+        {           // 3-byte
+            unsigned char c1 = *(p+1), c2 = *(p+2);
+            if ((c1 & 0xC0) == 0x80 && (c2 & 0xC0) == 0x80) { out.append(reinterpret_cast<const char*>(p), 3); p += 3; }
+            else { ++p; }
+        } 
+        else if ((c >> 3) == 0x1E && p+3 < e) 
+        {          // 4-byte
+            unsigned char c1 = *(p+1), c2 = *(p+2), c3 = *(p+3);
+            if ((c1 & 0xC0) == 0x80 && (c2 & 0xC0) == 0x80 && (c3 & 0xC0) == 0x80) { out.append(reinterpret_cast<const char*>(p), 4); p += 4; }
+            else { ++p; }
+        } 
+        else 
+        {
+            ++p; // invalid lead, drop
+        }
+    }
+    return out;
+}
+
+std::vector<std::string> extract_all_json_slices(const std::string& s) 
+{
+    std::vector<std::string> res;
+    size_t i = 0;
+    while (true) 
+    {
+        size_t start = s.find_first_of("{[", i);
+        if (start == std::string::npos) break;
+        char open = s[start], close = (open == '{') ? '}' : ']';
+        int depth = 0; bool in_str = false, esc = false;
+
+        size_t j = start;
+        for (; j < s.size(); ++j) 
+        {
+            char ch = s[j];
+            if (in_str) { if (esc) esc = false; else if (ch == '\\') esc = true; else if (ch == '"') in_str = false; continue; }
+            if (ch == '"') { in_str = true; continue; }
+            if (ch == open) ++depth;
+            else if (ch == close) { if (--depth == 0) { res.emplace_back(s.substr(start, j - start + 1)); ++j; break; } }
+        }
+        i = j;
+        if (j >= s.size()) break; // last slice may be unterminated; we already pushed it
+    }
+    return res;
+}
+
+std::string hexdump(const std::string& s, size_t offset, size_t len) 
+{
+    std::ostringstream oss;
+    oss << std::hex << std::setfill('0');
+    size_t end = std::min(offset + len, s.size());
+    for (size_t i = offset; i < end; ++i) 
+    {
+        if ((i - offset) % 16 == 0) oss << "\n" << std::setw(6) << i << ": ";
+        oss << std::setw(2) << (static_cast<unsigned>(static_cast<unsigned char>(s[i])) & 0xFF) << ' ';
+    }
+    return oss.str();
+}
+
+bool is_all_ascii(const std::string& s) 
+{
+    for (unsigned char c : s) if (c & 0x80) return false;
+    return true;
+}
+
+void log_non_ascii(const std::string& s, std::shared_ptr<spdlog::logger> lg) 
+{
+    for (size_t i = 0; i < s.size(); ++i) 
+    {
+        unsigned char c = static_cast<unsigned char>(s[i]);
+        if (c >= 0x80) 
+        {
+            lg->error("Non-ASCII at pos {}: 0x{:02X}", i, static_cast<unsigned>(c));
+            break;
+        }
+
+        lg->debug("Normal character: {}", s[i]);
+    }
+}
+
+// extract a balanced JSON object/array starting at first '{' or '['
+// understands strings/escapes so it doesn't get fooled by braces inside quotes
+std::string extract_json_slice(const std::string& s) 
+{
+    size_t start = s.find_first_of("{[");
+    if (start == std::string::npos) return {};
+    char open = s[start];
+    char close = (open == '{') ? '}' : ']';
+
+    size_t i = start;
+    int depth = 0;
+    bool in_str = false;
+    bool esc = false;
+
+    for (; i < s.size(); ++i) 
+    {
+        char ch = s[i];
+        if (in_str) 
+        {
+            if (esc) { esc = false; continue; }
+            if (ch == '\\') { esc = true; continue; }
+            if (ch == '"') { in_str = false; }
+            continue;
+        }
+        if (ch == '"') { in_str = true; continue; }
+        if (ch == open) { ++depth; continue; }
+        if (ch == close) 
+        {
+            --depth;
+            if (depth == 0) 
+            {
+                return s.substr(start, i - start + 1);
+            }
+        }
+    }
+    // not balanced; return from start to end (caller will validate)
+    return s.substr(start);
+}
+
+std::string hexdump_prefix(const std::string& s, size_t n) 
+{
+    std::ostringstream oss;
+    oss << std::hex << std::setfill('0');
+    for (size_t i = 0; i < std::min(n, s.size()); ++i) 
+    {
+        oss << std::setw(2) << (static_cast<unsigned>(static_cast<unsigned char>(s[i])) & 0xFF) << ' ';
+    }
+    return oss.str();
+}
+
 std::string format_timestamp_ms(long long ms_since_epoch){
     using namespace std::chrono;
     // build a time_point

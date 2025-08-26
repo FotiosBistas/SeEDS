@@ -36,6 +36,15 @@ std::unordered_map<std::string,std::string> parse_query_params(std::string_view 
 
 std::string build_query_uri(std::string_view base_path, const std::vector<std::string>& kv_tokens, bool encode_values = false);
 std::string json_to_string(const nlohmann::json& j);
+std::string sanitize_utf8(const std::string& s);
+std::string fix_mixed_utf8_cp1252(const std::string& s);
+std::string extract_json_slice(const std::string& s);
+std::vector<std::string> extract_all_json_slices(const std::string& s);
+std::string hexdump(const std::string& s, size_t offset = 0, size_t len = 64);
+std::string hexdump_prefix(const std::string& s, size_t n = 32);
+bool is_all_ascii(const std::string& s);
+void log_non_ascii(const std::string& s, std::shared_ptr<spdlog::logger> lg);
+
 long long json_to_epoch_ms(const nlohmann::json& j);
 
 /**

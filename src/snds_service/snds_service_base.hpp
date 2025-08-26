@@ -126,6 +126,18 @@ virtual void onNack(const ndn::Interest& interest, const ndn::lp::Nack& nack) {
 
 virtual void onTimeout(const ndn::Interest& interest) {
     m_logger->info("Timeout for Interest: {}", interest.getName().toUri());
+    auto nack_message = snds_intra_message::to_string(snds_intra_message::SNDS_CONTROL_MESSAGE_TYPE::TIMEOUT);
+
+    auto message = std::make_unique<snds_intra_message::SNDS_INTRA_MESSAGE>
+    (
+        std::move(nack_message),
+        snds_intra_message::SNDS_INTRA_MESSAGE_TYPE::CONTROL_MESSAGE,
+        snds_intra_message::SNDS_CLIENT_TYPES::CONSUMER,
+        "",
+        snds_intra_message::HTTP_MESSAGE_TYPE::HTTP_EMPTY
+    );
+
+    v_to_worker->writeMessage(std::move(message));
 }
 
 virtual void onRegisterFailed(const ndn::Name& prefix, const std::string& reason){

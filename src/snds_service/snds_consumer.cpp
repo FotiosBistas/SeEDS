@@ -461,27 +461,38 @@ void SNDSConsumer::send_metafile_interests(const std::string& body, const tempor
 {
     nlohmann::json root = nlohmann::json::parse(body);
     const auto parent_query_hash = temporal_query::temporal_query_hash_string(parent_query);
+    m_logger->debug("Created parent_query_hash: {} in {}", parent_query_hash, __func__);
 
     std::unordered_set<std::string> seen_canonical;
     std::optional<parsed_interest_name::ParsedInterestName> pending;
 
-    auto send_with_flag = [&](parsed_interest_name::ParsedInterestName& pin, bool is_last) 
+    auto send_with_flag = [&](parsed_interest_name::ParsedInterestName& pin, bool is_last)
     {
-        parsed_interest_name::add_param(pin, "lastInterest", is_last ? "true" : "false");
-        const auto name_to_string = parsed_interest_name::to_custom_ndn_name(pin, true);
+        parsed_interest_name::add_param(pin, GET_PARAMETER_LAST_METAFILE_INTEREST_TAG, is_last ? "true" : "false");
 
-        m_logger->info("Sending Interest (lastInterest={}): {}", is_last ? "true" : "false", name_to_string);
-        ndn::Name interestName(name_to_string);
-        ndn::Interest interest(interestName);
-        interest.setCanBePrefix(true);
-        interest.setInterestLifetime(ndn::time::milliseconds(6000));
-        m_face.expressInterest
-        (
-            interest,
-            std::bind(&SNDSConsumer::onData, this,  _1, _2),
-            std::bind(&SNDSConsumer::onNack, this, _1, _2),
-            std::bind(&SNDSConsumer::onTimeout, this, _1)
-        );
+        const auto name_to_string = parsed_interest_name::to_custom_ndn_name(pin, true);
+        m_logger->info("Sending Interest ({}={}): {}", GET_PARAMETER_LAST_METAFILE_INTEREST_TAG, is_last ? "true" : "false", name_to_string);
+
+        try 
+        {
+            ndn::Name interestName(name_to_string);
+            m_logger->debug("Created interest_name: {}", interestName.toUri());
+            ndn::Interest interest(interestName);
+            interest.setCanBePrefix(true);
+            interest.setInterestLifetime(ndn::time::milliseconds(6000));
+
+            m_face.expressInterest
+            (
+                interest,
+                std::bind(&SNDSConsumer::onData,    this, _1, _2),
+                std::bind(&SNDSConsumer::onNack,    this, _1, _2),
+                std::bind(&SNDSConsumer::onTimeout, this, _1)
+            );
+        } 
+        catch (const std::exception& e) 
+        {
+            m_logger->error("Invalid NDN name {}; dropping. Error: {}", name_to_string, e.what());
+        }
     };
 
     for (const auto& entry : root) 
@@ -489,7 +500,11 @@ void SNDSConsumer::send_metafile_interests(const std::string& body, const tempor
         for (auto& [key, arr] : entry.items()) 
         {
             m_logger->debug("Parsing key: {}", key);
-            if (!arr.is_array()) { m_logger->warn("Expected array at key {}", key); continue; }
+            if (!arr.is_array()) 
+            { 
+                m_logger->warn("Expected array at key {}", key); 
+                continue; 
+            }
 
             for (const auto& doc : arr) 
             {
@@ -516,11 +531,14 @@ void SNDSConsumer::send_metafile_interests(const std::string& body, const tempor
                     parsed_interest_name::interest_message_type::INTEREST_MESSAGE_TYPE::VERSION,
                     std::vector<std::string>{}
                 );
-                parsed_interest_name::add_param(pin, "id",   id);
-                parsed_interest_name::add_param(pin, "type", type);
-                parsed_interest_name::add_param(pin, "date", format_timestamp_ms(raw_timestamp));
-                parsed_interest_name::add_param(pin, "metafile", "true");
-                parsed_interest_name::add_param(pin, "parentQueryHash", parent_query_hash);
+
+                m_logger->debug("Adding params...");
+                parsed_interest_name::add_param(pin, GET_PARAMETER_ID_TAG,   id);
+                parsed_interest_name::add_param(pin, GET_PARAMETER_TYPE_TAG, type);
+                parsed_interest_name::add_param(pin, GET_PARAMETER_DATE_TAG, format_timestamp_ms(raw_timestamp));
+                parsed_interest_name::add_param(pin, GET_PARAMETER_IS_METAFILE_TAG, "true");
+                parsed_interest_name::add_param(pin, GET_PARAMETER_PARENT_QUERY_HASH_TAG, parent_query_hash);
+                m_logger->debug("Added params...");
 
                 const auto canonical = parsed_interest_name::to_custom_ndn_name(pin, true);
 
@@ -532,9 +550,9 @@ void SNDSConsumer::send_metafile_interests(const std::string& body, const tempor
 
                 // We found a new unique interest:
                 // flush the previous pending one as not-last, then keep this as pending
-                if (pending) 
+                if (pending.has_value()) 
                 {
-                    send_with_flag(*pending, false);
+                    send_with_flag(pending.value(), false);
                     pending.reset();
                 }
                 pending = std::move(pin);
@@ -543,9 +561,9 @@ void SNDSConsumer::send_metafile_interests(const std::string& body, const tempor
     }
 
     // After the loop, whatever is left is the last
-    if (pending) 
+    if (pending.has_value()) 
     {
-        send_with_flag(*pending, /*is_last*/ true);
+        send_with_flag(pending.value(), /*is_last*/ true);
     } 
     else 
     {
@@ -574,7 +592,7 @@ void SNDSConsumer::onData(const ndn::Interest& interest, const ndn::Data& data)
         return;
     }
 
-    const parsed_interest_name::ParsedInterestName pi = parsed_interest_name::parse_from_string(url_decode(interest.toUri()));
+    const parsed_interest_name::ParsedInterestName pi = parsed_interest_name::parse_from_string(url_decode(data.getName().toUri()));
     m_logger->info("Parsed interest: {} in {}", pi.to_string(), __func__);
 
 
@@ -826,12 +844,33 @@ void SNDSConsumer::onData(const ndn::Interest& interest, const ndn::Data& data)
             //  }
             //]
             auto pos = payload.find_first_of("[{");
-
             if (pos != std::string::npos) 
             {
-                payload = payload.substr(pos);
-                m_logger->debug("Filtered payload to:\n{}", payload);
+                // get a balanced JSON slice, not just "from here to end"
+                payload = extract_json_slice(payload);
+                m_logger->debug("Removed extra characters from payload (first 32 bytes hex): {}", hexdump_prefix(payload));
+                m_logger->debug("Candidate JSON slice:\n{}", payload);
+            } 
+            else 
+            {
+                m_logger->error("No JSON start detected. First 32 bytes: {}", hexdump_prefix(payload));
+                return;
             }
+
+            log_non_ascii(payload, m_logger);
+            // sanitize UTF-8 before parsing
+            payload = fix_mixed_utf8_cp1252(payload);
+            log_non_ascii(payload, m_logger);
+
+
+            // fast validation to avoid throwing
+            if (!nlohmann::json::accept(payload)) 
+            {
+                m_logger->error("Payload is not valid JSON after UTF-8 sanitization. First 32 bytes: {}", hexdump_prefix(payload));
+                return;
+            }
+
+            m_logger->debug("Sanitized payload to:\n{}", payload);
 
             // data.getName() equivalent with interest.toUri()
             auto parent_temporal_query = temporal_query_from_interest(pi);

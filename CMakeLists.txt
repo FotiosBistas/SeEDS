@@ -345,6 +345,7 @@ target_include_directories(snds_utils PUBLIC
 target_link_libraries(snds_utils PUBLIC 
   spdlog::spdlog 
   OpenSSL::Crypto
+  nlohmann_json::nlohmann_json
 )
 
 target_link_libraries(snds_query_params INTERFACE snds_utils)

@@ -52,6 +52,7 @@
     X(ACK_ID_ADVERTISED,               "ACK_ID_ADVERTISED") \
     X(ACK_TEMPORAL_QUERY_ADVERTISED,   "ACK_TEMPORAL_QUERY_ADVERTISED") \
     X(NACK_ERROR,                      "NACK_ERROR") \
+    X(TIMEOUT,                         "TIMEOUT") \
     X(WARNING_ALREADY_REGISTERED,      "WARNING_ALREADY_REGISTERED")
 
 #define SNDS_CLIENT_TYPE_LIST \
@@ -596,70 +597,40 @@ namespace snds_intra_message
         }
 
 
-        void parse_query_uri_and_set_fields(std::string_view uri, bool decode_values = true)
+        std::unordered_map<std::string, std::string> parse_uri_query_to_map_raw(std::string_view uri)
         {
-            // Isolate the query string after '?'
+            std::unordered_map<std::string, std::string> out;
+        
             auto qpos = uri.find('?');
             std::string_view qs = (qpos == std::string_view::npos) ? uri : uri.substr(qpos + 1);
-        
-            // Optional: strip a leading '/' if input was "/?..."
             while (!qs.empty() && (qs.front() == '/' || qs.front() == '?')) qs.remove_prefix(1);
         
-            // Iterate "k=v" tokens separated by '&'
-            auto next_token = [](std::string_view& sv) -> std::string_view 
+            auto next = [](std::string_view& sv)->std::string_view 
             {
                 if (sv.empty()) return {};
                 size_t pos = sv.find('&');
-
                 if (pos == std::string_view::npos) 
-                {
-                    std::string_view out = sv;
-                    sv = {};
-                    return out;
+                { 
+                    auto r = sv; 
+                    sv = {}; 
+                    return r; 
                 }
-
-                std::string_view out = sv.substr(0, pos);
-                sv.remove_prefix(pos + 1);
-                return out;
+                auto r = sv.substr(0,pos);
+                sv.remove_prefix(pos+1);
+                return r;
             };
         
-            auto set_field = [&](std::string_view key, std::string_view raw_val)
-            {
-                // Keep raw; we’ll decode per-field using its 'dec' flag
-                std::string raw{raw_val};
-                
-                #define HANDLE_FIELD(var, tag, dec, type)                               \
-                    if constexpr (std::is_same_v<type, bool>) {                     \
-                        /* decode only if the field wants it */                     \
-                        std::string v = (dec && decode_values) ? url_decode(raw)    \
-                                                                : raw;               \
-                        bool b = (!v.empty() && (v == "1" || v == "true" || v == "True")); \
-                        set_##var##_(b);                                            \
-                    } else {                                                        \
-                        std::string v = (dec && decode_values) ? url_decode(raw)    \
-                                                                : raw;               \
-                        set_##var##_(std::move(v));                                 \
-                    }                                                               \
-                    return;                                                         \
-                QUERY_PARAM_LIST(HANDLE_FIELD)
-                #undef HANDLE_FIELD
-                
-                // Unknown keys ignored (or log them here)
-            };        
-
             while (!qs.empty()) 
             {
-                std::string_view pair = next_token(qs);
+                std::string_view pair = next(qs);
                 if (pair.empty()) continue;
             
                 size_t eq = pair.find('=');
-                std::string_view key = (eq == std::string_view::npos) ? pair : pair.substr(0, eq);
-                std::string_view val = (eq == std::string_view::npos) ? std::string_view{} : pair.substr(eq + 1);
-                // Skip empty keys (e.g., stray '&')
-                if (key.empty()) continue;
-            
-                set_field(key, val);
+                std::string key = std::string((eq == std::string_view::npos) ? pair : pair.substr(0,eq));
+                std::string val = std::string((eq == std::string_view::npos) ? std::string_view{} : pair.substr(eq+1));
+                if (!key.empty()) out.emplace(std::move(key), std::move(val));
             }
+            return out;
         }
 
 

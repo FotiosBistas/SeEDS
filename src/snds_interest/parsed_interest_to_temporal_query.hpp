@@ -40,10 +40,6 @@ inline temporal_query::TemporalQuery temporal_query_from_interest(const parsed_i
         else if (key == "filters") {
             q.filters = temporal_query::parse_filters(val);
         }
-        else {
-            // anything else: unknown extra
-            q.extras[key] = val;
-        }
     }
 
     return q;

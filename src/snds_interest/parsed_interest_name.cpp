@@ -21,7 +21,8 @@ std::map<std::string, std::string> parsed_interest_name::parse_params_map(const 
     return result;
 }
 
-void parsed_interest_name::add_param(parsed_interest_name::ParsedInterestName& pi, std::string key, std::string value) {
+void parsed_interest_name::add_param(parsed_interest_name::ParsedInterestName& pi, std::string key, std::string value) 
+{
     // store as "key=value" (raw). 
     pi.params.emplace_back(std::move(key) + "=" + std::move(value));
 }
@@ -112,6 +113,18 @@ std::string parsed_interest_name::to_custom_ndn_name(const parsed_interest_name:
     for (const auto& param : pi.params) 
     {
         url_encode_flag ? name.append(url_encode(param + "&")) : name.append(param + "&");
+    }
+
+    if (!pi.params.empty()) 
+    {
+        if (url_encode_flag) 
+        {
+            if (name.size() >= 3 && name.compare(name.size()-3, 3, "%26") == 0) name.erase(name.size()-3); // remove "%26"
+        } 
+        else if (!name.empty() && name.back() == '&') 
+        {
+            name.pop_back();
+        }
     }
 
     return name;
