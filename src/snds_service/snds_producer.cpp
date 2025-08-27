@@ -644,16 +644,16 @@ void SNDSProducer::process_get_by_type_interest(const parsed_interest_name::Pars
 
     auto type = maybe_type.value();
 
-  	// Look up the registry for the base type (the keys in myTypesRegistryMap are stored with a leading slash).
-  	auto iter = type_registry.find(type);
-  	if (iter == type_registry.end()) 
+  	// Look up the registry for the base type (the keys in type_registry are stored with a leading slash).
+  	auto type_registry_iterator = type_registry.find(type);
+  	if (type_registry_iterator == type_registry.end()) 
     {
   	  	m_logger->warn("Unknown registry for type {}.", type);
   	  	return;
   	}
 
   	std::vector<std::byte> byte_vector;
-    std::vector<std::byte> body = serialize_registry_file_payload(iter->second);
+    std::vector<std::byte> body = serialize_registry_file_payload(type_registry_iterator->second);
     byte_vector.reserve(2 + body.size());
   	byte_vector.push_back(std::byte{'R'});  // registry response marker
   	byte_vector.push_back(std::byte{0x00}); // reserved/future use
@@ -763,8 +763,8 @@ void SNDSProducer::process_get_by_id_interest(const parsed_interest_name::Parsed
     {
         m_logger->error("Failed to query /get: {}", res ? res->body : "No response");
         auto nack_message = snds_intra_message::to_string(snds_intra_message::SNDS_CONTROL_MESSAGE_TYPE::NACK_ERROR);
-        //sendData(interest_response, nack_message);
-        sendData(interest_response, "dummy_payload");
+        sendData(interest_response, nack_message);
+        //sendData(interest_response, "dummy_payload");
     }
 
 }

@@ -23,6 +23,19 @@ private:
     std::condition_variable cv;                            ///< Condition variable for synchronization.
     std::atomic<bool> shutdownFlag { false };            ///< Flag to signal shutdown for waiting threads.
 
+    inline nlohmann::json payload_to_json_or_string(const std::string& s) 
+    {
+        if (nlohmann::json::accept(s)) 
+        {
+            nlohmann::json j = nlohmann::json::parse(s, nullptr, /*allow_exceptions=*/false);
+            if (!j.is_discarded()) return j;
+        }
+        // Fallback when not valid JSON: carry raw text
+        return nlohmann::json
+        {
+            {"raw", s}
+        };
+    }
 public:
     /**
      * @brief Reads a message from the queue.
@@ -46,6 +59,9 @@ public:
      * @param msg A unique_ptr to the SNDS_INTRA_MESSAGE to add to the queue.
      */
     virtual void writeMessage(std::unique_ptr<snds_intra_message::SNDS_INTRA_MESSAGE> msg);
+
+    std::unique_ptr<snds_intra_message::SNDS_INTRA_MESSAGE> tryReadAll();
+    std::unique_ptr<snds_intra_message::SNDS_INTRA_MESSAGE> waitAndReadAll();
 
     /**
      * @brief Returns the current size of the queue.

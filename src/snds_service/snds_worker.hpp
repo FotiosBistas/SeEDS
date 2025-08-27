@@ -69,6 +69,7 @@ private:
   	// also used to return specific fields from the JSON return for an ID
   	// an ID and its specified fields we want to keep
   	std::unordered_map<std::string, temporal_query::TemporalQuery> pending_temporal_queries;
+	std::unordered_map<std::string, std::vector<nlohmann::json>> temporal_buffers;
 
   	void process_new_get_by_id(const std::string& id);
   	void process_processed_get_by_id(const std::string& id, const std::string& payload);
@@ -82,6 +83,7 @@ private:
   	void process_temporal_query_request(const temporal_query::TemporalQuery& temporal_query);
   	void process_temporal_query_response(const std::string& parent_query_hash, const std::string& content, bool last_interest);
 
+	nlohmann::json apply_filters_to_doc(const nlohmann::json& doc, const std::unordered_set<std::string>& keep);
 	void _handle_consumer_intra_message(snds_intra_message::SNDS_INTRA_MESSAGE& message);
 	void _handle_http_server_intra_message(snds_intra_message::SNDS_INTRA_MESSAGE& message);
 	void _handle_producer_intra_message(snds_intra_message::SNDS_INTRA_MESSAGE& message);

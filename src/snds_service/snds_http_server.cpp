@@ -30,7 +30,7 @@ void SNDSHTTPService::init()
             v_to_worker.get()->writeMessage(std::move(outbound_message));
 
             //TODO thread pool
-            auto inbound_message = v_to_service->readMessage();
+            auto inbound_message = v_to_service->waitAndReadAll();
             if (!inbound_message) 
             {
                 m_logger->debug("Queue shutdown detected, returning HTTP 500");
@@ -71,7 +71,7 @@ void SNDSHTTPService::init()
             m_logger->debug("Writing message from POST request to service queue...\n{}", outbound_message->print_details());
             v_to_dt.get()->writeMessage(std::move(outbound_message));
             //TODO thread pool
-            auto inbound_message = v_to_service->readMessage();
+            auto inbound_message = v_to_service->waitAndReadAll();
             if (!inbound_message) 
             {
                 m_logger->debug("Queue shutdown detected, returning HTTP 500");

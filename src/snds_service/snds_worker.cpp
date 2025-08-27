@@ -229,8 +229,8 @@ void Worker::process_temporal_query_request(const temporal_query::TemporalQuery&
 {
 
     auto query_hash = temporal_query::temporal_query_hash_string(temporal_query);
-    auto [_, inserted] = pending_temporal_queries.emplace(query_hash, temporal_query);
-    if (!inserted) 
+    auto [_, inserted_pending] = pending_temporal_queries.emplace(query_hash, temporal_query);
+    if (!inserted_pending) 
     {
         m_logger->info("Duplicate TemporalQuery {} for ID: {}", temporal_query::serialize_temporal_query(temporal_query), temporal_query.id);
         return;
@@ -253,6 +253,33 @@ void Worker::process_temporal_query_request(const temporal_query::TemporalQuery&
     v_to_consumer->writeMessage(std::move(message));
 }
 
+nlohmann::json Worker::apply_filters_to_doc(const nlohmann::json& doc, const std::unordered_set<std::string>& keep)
+{
+    if (keep.empty()) return doc;
+
+    if (doc.is_object()) 
+    {
+        nlohmann::json out = nlohmann::json::object();
+        for (const auto& k : keep) if (doc.contains(k)) out[k] = doc[k];
+        return out;
+    }
+
+    if (doc.is_array()) 
+    {
+        nlohmann::json out = nlohmann::json::array();
+        for (const auto& el : doc) 
+        {
+            if (!el.is_object()) continue;
+            nlohmann::json obj = nlohmann::json::object();
+            for (const auto& k : keep) if (el.contains(k)) obj[k] = el[k];
+            out.push_back(std::move(obj));
+        }
+        return out;
+    }
+
+    return doc;
+}
+
 void Worker::process_temporal_query_response
 (
     const std::string& parent_query_hash,
@@ -267,24 +294,41 @@ void Worker::process_temporal_query_response
         return;
     }
 
-    // Copy the query BEFORE any erase
-    auto parent_query = it->second;
+    // Snapshot the query (don’t erase yet; we need it if last_interest is false)
+    const auto parent_query = it->second;
 
-    // Split the WHOLE buffer into all balanced JSON slices
+    // Precompute keep-set once for this batch
+    std::unordered_set<std::string> keep;
+    if (!parent_query.filters.empty()) 
+    {
+        for (const auto& f : parent_query.filters) keep.insert(f.key);
+    }
+
+    // Split full buffer into balanced JSON slices (some frames contain >1 doc)
     auto slices = extract_all_json_slices(content);
-    if (slices.empty()) {
+    if (slices.empty()) 
+    {
         m_logger->error("No JSON found. Hex head: {}", hexdump(content, 0, 64));
-        if (last_interest) pending_temporal_queries.erase(it);
+        if (last_interest) 
+        {
+            // Nothing to aggregate, drop any pending state for this hash
+            temporal_buffers.erase(parent_query_hash);
+            pending_temporal_queries.erase(it);
+        }
         return;
     }
 
+    // Ensure a vector exists for this query hash
+    auto& bucket = temporal_buffers[parent_query_hash];
+
+    // Process every slice -> sanitize -> parse -> (optionally) filter -> buffer
     for (size_t idx = 0; idx < slices.size(); ++idx) 
     {
         std::string sanitized = fix_mixed_utf8_cp1252(slices[idx]);
 
         if (!nlohmann::json::accept(sanitized)) 
         {
-            m_logger->error("Slice #{} not valid JSON after sanitization; skipping.", idx);
+            m_logger->error("Slice #{} invalid after sanitization; skipping.", idx);
             continue;
         }
 
@@ -295,61 +339,48 @@ void Worker::process_temporal_query_response
             continue;
         }
 
-        // Apply filters (use the already-parsed doc)
-        std::string out;
-        if (!parent_query.filters.empty()) 
-        {
-            m_logger->info("Applying filters to the data received");
-            std::unordered_set<std::string> keep;
-            for (const auto& f : parent_query.filters) keep.insert(f.key);
-
-            nlohmann::json filtered;
-            if (doc.is_object()) 
-            {
-                filtered = nlohmann::json::object();
-                for (const auto& k : keep) if (doc.contains(k)) filtered[k] = doc[k];
-            } 
-            else if (doc.is_array()) 
-            {
-                filtered = nlohmann::json::array();
-                for (const auto& el : doc) 
-                {
-                    if (!el.is_object()) continue;
-                    nlohmann::json obj = nlohmann::json::object();
-                    for (const auto& k : keep) if (el.contains(k)) obj[k] = el[k];
-                    filtered.push_back(std::move(obj));
-                }
-            } 
-            else 
-            {
-                filtered = doc; // fallback
-            }
-            out = filtered.dump(2);
-        } 
-        else 
-        {
-            out = std::move(sanitized);
-        }
-
-        m_logger->debug("Sending data to HTTP server: {}", out);
-        out.push_back('\n');
-
-        auto message = std::make_unique<snds_intra_message::SNDS_INTRA_MESSAGE>(
-            "",
-            snds_intra_message::SNDS_INTRA_MESSAGE_TYPE::TEMPORAL_QUERY_RESPONSE,
-            snds_intra_message::SNDS_CLIENT_TYPES::WORKER,
-            std::move(out),
-            snds_intra_message::HTTP_MESSAGE_TYPE::HTTP_EMPTY
-        );
-
-        v_to_service->writeMessage(std::move(message));
+        // Apply filters per-slice and buffer the result
+        nlohmann::json filtered = apply_filters_to_doc(doc, keep);
+        bucket.push_back(std::move(filtered));
     }
 
-    // Erase AFTER processing all slices
-    if (last_interest) 
+    // If this was NOT the last interest, keep accumulating
+    if (!last_interest) 
     {
-        pending_temporal_queries.erase(it);
+        m_logger->debug("Buffered {} items for hash {} (waiting for lastInterest).", temporal_buffers[parent_query_hash].size(), parent_query_hash);
+        return;
     }
+
+    // lastInterest: bundle and send once
+    nlohmann::json bundle;
+    bundle["parentQueryHash"] = parent_query_hash;
+    bundle["query"] = temporal_query::serialize_temporal_query(parent_query);
+    bundle["items"] = nlohmann::json::array();
+
+    auto temporal_buffer_iterator = temporal_buffers.find(parent_query_hash);
+    if (temporal_buffer_iterator != temporal_buffers.end()) 
+    {
+        for (auto& el : temporal_buffer_iterator->second) bundle["items"].push_back(std::move(el));
+    }
+
+    std::string out = bundle.dump(2);
+    m_logger->debug("Sending BULK temporal response ({} items) for hash {}", bundle["items"].size(), parent_query_hash);
+    m_logger->debug("Response looks like this:\n{}", out);
+
+    auto message = std::make_unique<snds_intra_message::SNDS_INTRA_MESSAGE>
+    (
+        "",
+        snds_intra_message::SNDS_INTRA_MESSAGE_TYPE::TEMPORAL_QUERY_RESPONSE,
+        snds_intra_message::SNDS_CLIENT_TYPES::WORKER,
+        std::move(out += "\n"),
+        snds_intra_message::HTTP_MESSAGE_TYPE::HTTP_EMPTY
+    );
+
+    v_to_service->writeMessage(std::move(message));
+
+    // Cleanup state for this query
+    temporal_buffers.erase(parent_query_hash);
+    pending_temporal_queries.erase(it);
 }
 
 void Worker::process_subscription_request(const std::string& id, const std::string& subURL)
@@ -645,12 +676,12 @@ void Worker::process_registry_file(const std::string& payload, const std::string
             std::move(name),
             snds_intra_message::SNDS_INTRA_MESSAGE_TYPE::GET_BY_ID_FOR_TYPE_REQUEST,
             snds_intra_message::SNDS_CLIENT_TYPES::WORKER,
-            "",   // Empty message name.
+            "",
             snds_intra_message::HTTP_MESSAGE_TYPE::HTTP_EMPTY
         );
         
         m_logger->info("Pushing request to the consumer for id {}", id);
-        v_to_consumer.get()->writeMessage(std::move(message));
+        v_to_consumer->writeMessage(std::move(message));
     }
     
     // Update pending_ids_to_type_map with the registry file name as key and the set of ids.

@@ -136,6 +136,26 @@ void SNDSConsumer::express_get_by_id_from_node_interest(const std::string& conte
 void SNDSConsumer::express_get_by_id_for_type_interest(const std::string& content)
 {
     auto tmp_interest  = parsed_interest_name::parse_from_string(content);
+
+
+    auto maybe_id = tmp_interest.get_interest_parameter(0);
+    auto maybe_type = tmp_interest.get_interest_parameter(1);
+
+    if(!maybe_id.has_value())
+    {
+        m_logger->error("Received getByIdForType Interest without value in the ID...");
+        return;
+    }
+
+    if(!maybe_type.has_value())
+    {
+        m_logger->error("Received getByIdForType Interest without type in the TYPE...");
+        return;
+    }
+
+    auto id = maybe_id.value();
+    auto type = maybe_type.value();
+
     auto name = parsed_interest_name::to_custom_ndn_name
     (
         parsed_interest_name::make_parsed_interest_name
@@ -143,7 +163,7 @@ void SNDSConsumer::express_get_by_id_for_type_interest(const std::string& conten
             snds_prefix,
             tmp_interest.name,
             parsed_interest_name::interest_message_type::INTEREST_MESSAGE_TYPE::GET_BY_ID_FOR_TYPE,
-            {*tmp_interest.get_interest_parameter(0), *tmp_interest.get_interest_parameter(1)}
+            {id, type}
         )
     );
 

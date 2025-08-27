@@ -147,7 +147,7 @@ void log_non_ascii(const std::string& s, std::shared_ptr<spdlog::logger> lg)
             break;
         }
 
-        lg->debug("Normal character: {}", s[i]);
+        //lg->debug("Normal character: {}", s[i]);
     }
 }
 
