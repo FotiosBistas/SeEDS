@@ -205,13 +205,13 @@ void DigitalTwin::process_by_id_and_type_advertisement(const std::string& id, co
     m_logger->debug("The ID is the following: {}", id);
     auto interest_name = parsed_interest_name::make_parsed_interest_name
     (
-        type, 
-        id,
+        snds_prefix, 
+        type,
         parsed_interest_name::interest_message_type::INTEREST_MESSAGE_TYPE::BY_ID_AND_TYPE_ADVERTISEMENT,
         {id, type}
     );
 
-    auto message = std::make_unique<snds_intra_message::SNDS_INTRA_MESSAGE>
+    auto message1 = std::make_unique<snds_intra_message::SNDS_INTRA_MESSAGE>
     (
         parsed_interest_name::to_custom_ndn_name(interest_name),
         snds_intra_message::SNDS_INTRA_MESSAGE_TYPE::BY_ID_AND_TYPE_ADVERTISEMENT,
@@ -220,8 +220,8 @@ void DigitalTwin::process_by_id_and_type_advertisement(const std::string& id, co
         snds_intra_message::HTTP_MESSAGE_TYPE::HTTP_EMPTY
     );
 
-    m_logger->info("Pushing byType advertisement to the Consumer...\n{}", message.get()->print_details());
-    v_to_consumer->writeMessage(std::move(message));
+    m_logger->info("Pushing byType advertisement to the Consumer...\n{}", message1.get()->print_details());
+    v_to_consumer->writeMessage(std::move(message1));
 
     std::string type_scope = getSNDSNodeScopeNameForSubscription(type, id_scope_prefix, number_of_snds_services);
 
@@ -229,8 +229,8 @@ void DigitalTwin::process_by_id_and_type_advertisement(const std::string& id, co
     (
         snds_prefix, 
         type_scope,
-        parsed_interest_name::interest_message_type::INTEREST_MESSAGE_TYPE::BY_ID_AND_TYPE_ADVERTISEMENT,
-        {id, type, type_scope}
+        parsed_interest_name::interest_message_type::INTEREST_MESSAGE_TYPE::SCOPE,
+        {id, type, snds_id_scope_name}
     );
 
     auto message2 = std::make_unique<snds_intra_message::SNDS_INTRA_MESSAGE>

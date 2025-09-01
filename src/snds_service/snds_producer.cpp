@@ -392,7 +392,9 @@ void SNDSProducer::process_subscription_notification_interest(const parsed_inter
 {
     auto interest_response = parsed_interest_name::to_custom_ndn_name(interest, true);
     auto maybe_id = interest.get_interest_parameter(0);
-    auto maybe_snds_node = interest.get_interest_parameter(1);
+    auto maybe_type = interest.get_interest_parameter(1);
+    auto maybe_notifying_snds_node = interest.get_interest_parameter(2);
+    auto our_snds_id_scope = interest.name;
 
 
     if(!maybe_id.has_value())
@@ -401,46 +403,50 @@ void SNDSProducer::process_subscription_notification_interest(const parsed_inter
         return;
     }
 
-    if(!maybe_snds_node.has_value())
+    if(!maybe_type.has_value())
     {
-        m_logger->warn("Received SNDS NODE with no value: {}", __func__);
-        return;
+        m_logger->warn("Received TYPE with no value: {}", __func__);
+    }
+
+    if(!maybe_notifying_snds_node.has_value())
+    {
+        m_logger->warn("Received notifying SNDS NODE with no value: {}", __func__);
     }
 
     auto id = maybe_id.value();
-    auto snds_node = maybe_snds_node.value();
+    auto type = maybe_type.value_or("");
+    auto notifying_snds_node = maybe_notifying_snds_node.value_or("");
 
-    m_logger->info("Subscription Notification request received: id = {}, snds_node = {} in func: {}", id, snds_node, __func__);
+    m_logger->info("Subscription Notification request received: id = {}, type = {}, our_snds_id_scope = {}, notifying_snds_node = {} in func: {}", id, type, our_snds_id_scope, notifying_snds_node, __func__);
 
+    //auto tmp_interest = parsed_interest_name::to_custom_ndn_name
+    //(
+    //    parsed_interest_name::make_parsed_interest_name
+    //    (
+    //        snds_prefix,
+    //        snds_node,
+    //        parsed_interest_name::interest_message_type::INTEREST_MESSAGE_TYPE::GET_BY_ID_FROM_NODE,
+    //        {id, snds_node}
+    //    )
+    //);
 
-    auto tmp_interest = parsed_interest_name::to_custom_ndn_name
-    (
-        parsed_interest_name::make_parsed_interest_name
-        (
-            snds_prefix,
-            snds_node,
-            parsed_interest_name::interest_message_type::INTEREST_MESSAGE_TYPE::GET_BY_ID_FROM_NODE,
-            {id, snds_node}
-        )
-    );
+    //auto message = std::make_unique<snds_intra_message::SNDS_INTRA_MESSAGE>
+    //(
+    //    std::move(tmp_interest),
+    //    snds_intra_message::SNDS_INTRA_MESSAGE_TYPE::GET_BY_ID_FROM_NODE_REQUEST,
+    //    snds_intra_message::SNDS_CLIENT_TYPES::PRODUCER,
+    //    "",
+    //    snds_intra_message::HTTP_MESSAGE_TYPE::HTTP_EMPTY
+    //);
 
-    auto message = std::make_unique<snds_intra_message::SNDS_INTRA_MESSAGE>
-    (
-        std::move(tmp_interest),
-        snds_intra_message::SNDS_INTRA_MESSAGE_TYPE::GET_BY_ID_FROM_NODE_REQUEST,
-        snds_intra_message::SNDS_CLIENT_TYPES::PRODUCER,
-        "",
-        snds_intra_message::HTTP_MESSAGE_TYPE::HTTP_EMPTY
-    );
+    //m_logger->debug("Sending message:{} in func: {}", message->print_details(), __func__);
 
-    m_logger->debug("Sending message:{} in func: {}", message->print_details(), __func__);
+    ////by convention the consumer should only express interests in the network
+    //v_to_consumer->writeMessage(std::move(message));
 
-    //by convention the consumer should only express interests in the network
-    v_to_consumer->writeMessage(std::move(message));
-
-    //send ack so the consumer is happy 
-    auto ack_message = snds_intra_message::to_string(snds_intra_message::SNDS_CONTROL_MESSAGE_TYPE::ACK_NODE_NOTIFIED);
-    sendData(interest_response, ack_message);
+    ////send ack so the consumer is happy 
+    //auto ack_message = snds_intra_message::to_string(snds_intra_message::SNDS_CONTROL_MESSAGE_TYPE::ACK_NODE_NOTIFIED);
+    //sendData(interest_response, ack_message);
 }
 
 void SNDSProducer::process_get_by_id_for_type_interest(const parsed_interest_name::ParsedInterestName& interest)
@@ -601,6 +607,7 @@ void SNDSProducer::process_new_subscription_interest(const parsed_interest_name:
 {
 
     auto interest_type      = interest.command;
+    //we are responsible for the name
     auto our_snds_node_id   = interest.name;
     auto maybe_name                    = interest.get_interest_parameter(0);
     auto maybe_snds_node_id_subscriber = interest.get_interest_parameter(1);
@@ -684,9 +691,11 @@ void SNDSProducer::process_scope_notification_interest(const parsed_interest_nam
 {
 
     auto interest_response = parsed_interest_name::to_custom_ndn_name(interest, true);
-    // this name is an ID like car1
-    auto maybe_name = interest.get_interest_parameter(0);
-    if (!maybe_name.has_value())
+    // this name an ID like car1
+    auto maybe_id = interest.get_interest_parameter(0);
+    auto maybe_type = interest.get_interest_parameter(1);
+
+    if (!maybe_id.has_value())
     {
         m_logger->error("Received interest in {} with incorrect value for parameter.", __func__);
         auto nack_message = snds_intra_message::to_string(snds_intra_message::SNDS_CONTROL_MESSAGE_TYPE::NACK_ERROR);
@@ -694,14 +703,23 @@ void SNDSProducer::process_scope_notification_interest(const parsed_interest_nam
         return;
     }
 
-    auto name = *maybe_name;
-
-    m_logger->info("Subscription notification for ID name {}.", name);
-
-    auto iterator = subscribed_nodes_for_id.find(name);
-    if(iterator == subscribed_nodes_for_id.end())
+    if (!maybe_type.has_value())
     {
-        m_logger->info("No subscribers found for ID {}.", name);
+        m_logger->warn("Received interest in {} with incorrect value for parameter.", __func__);
+    }
+
+    auto id = maybe_id.value();
+    auto type = maybe_type.value_or("");
+
+    auto type_of_subscription = type == "" ? "BY_ID" : "BY_TYPE";
+    const auto& container = type_of_subscription == "BY_ID" ? subscribed_nodes_for_id : subscribed_nodes_for_type;
+
+    m_logger->info("[{}] Subscription notification for ID name {} and/or TYPE: {}.", type_of_subscription, id, type);
+
+    auto iterator = container.find(id);
+    if(iterator == container.end())
+    {
+        m_logger->info("No subscribers found for ID: {} and/or TYPE: {}.", id, type);
         m_logger->info("Responding to interest: {}", interest_response);
         //TODO proper ack messages
         auto ack_message = snds_intra_message::to_string(snds_intra_message::SNDS_CONTROL_MESSAGE_TYPE::ACK_SUBSCRIPTION_NO_SUBSCRIBERS);
@@ -720,7 +738,7 @@ void SNDSProducer::process_scope_notification_interest(const parsed_interest_nam
                 snds_prefix, 
                 snds_node,
                 parsed_interest_name::interest_message_type::INTEREST_MESSAGE_TYPE::SUBSCRIPTION_NOTIFICATION,
-                {name, snds_node}
+                {id, type, snds_id_scope_name}
             )
         );
 
