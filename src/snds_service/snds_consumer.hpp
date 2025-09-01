@@ -40,8 +40,8 @@ public:
     void express_get_by_id_interest(const std::string& content);
     void express_get_by_id_for_type_interest(const std::string& content);
     void express_get_by_type_interest(const std::string& content);
-    void express_id_with_scope_interest(const std::string& content);
-    void express_id_subscription_interest(const std::string& content);
+    void express_scope_interest(const std::string& content);
+    void express_subscription_interest(const std::string& content);
     void express_id_subscription_notification(const std::string& content);
     void express_temporal_query_interest(const std::string& content);
     void express_by_id_and_type_advertisement_interest(const std::string& content);

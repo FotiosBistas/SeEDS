@@ -19,7 +19,8 @@
     X(BY_ID_AND_TYPE_ADVERTISEMENT,   "byIDAndTypeAdvertisement") \
     X(SCOPE,                          "scope") \
     X(SCOPE_NOTIFICATION,             "scopeNotification") \
-    X(NEW_SUBSCRIPTION,               "newSubscription") \
+    X(NEW_ID_SUBSCRIPTION,            "newIdSubscription") \
+    X(NEW_TYPE_SUBSCRIPTION,          "newTypeSubscription") \
     X(SUBSCRIPTION_NOTIFICATION,      "subscriptionNotification") \
     X(GET_BY_TYPE,                    "getByType") \
     X(GET_BY_ID,                      "getByID") \

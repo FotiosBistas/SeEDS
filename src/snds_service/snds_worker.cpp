@@ -92,25 +92,36 @@ void Worker::_handle_http_server_intra_message(snds_intra_message::SNDS_INTRA_ME
             process_new_get_by_type(type_iterator->second);
             break;
         }
+        case snds_intra_message::SNDS_INTRA_MESSAGE_TYPE::BY_TYPE_SUBSCRIPTION:
         case snds_intra_message::SNDS_INTRA_MESSAGE_TYPE::BY_ID_SUBSCRIPTION:
         {
             auto params = message.unpack_query_params_from_message();
-            auto id_iterator = params.find(message.get_param_name_id_().data());
-            auto url_iterator = params.find(message.get_param_name_subscription_url_().data()); 
-
-            if(id_iterator == params.end())
+            const auto msg_type = message.get_message_type();
+        
+            // URL is required
+            const auto url_key_sv = message.get_param_name_subscription_url_();
+            const std::string url_key(url_key_sv.data(), url_key_sv.size());
+            auto url_it = params.find(url_key);
+            if (url_it == params.end() || url_it->second.empty()) 
             {
-                m_logger->error("Received {} with empty: {}", snds_intra_message::to_string(message.get_message_type()), message.get_param_name_id_());
+                m_logger->error("Received {} with empty: {}", snds_intra_message::to_string(msg_type), url_key);
                 return;
             }
+        
+            // Decide which key we require based on the message type
+            const bool by_id = (msg_type == snds_intra_message::SNDS_INTRA_MESSAGE_TYPE::BY_ID_SUBSCRIPTION);
+            const auto key_sv = by_id ? message.get_param_name_id_() : message.get_param_name_type_();
+            const std::string key_name(key_sv.data(), key_sv.size());
+        
+            auto key_it = params.find(key_name);
 
-            if(url_iterator == params.end())
+            if (key_it == params.end() || key_it->second.empty()) 
             {
-                m_logger->error("Received {} with empty: {}", snds_intra_message::to_string(message.get_message_type()), message.get_param_name_subscription_url_());
+                m_logger->error("Received {} missing required: {}", snds_intra_message::to_string(msg_type), key_name);
                 return;
             }
-
-            process_subscription_request(id_iterator->second, url_iterator->second);
+        
+            process_subscription_request(key_it->second, url_it->second, msg_type);
             break;
         }
     }
@@ -383,63 +394,70 @@ void Worker::process_temporal_query_response
     pending_temporal_queries.erase(it);
 }
 
-void Worker::process_subscription_request(const std::string& id, const std::string& subURL)
+void Worker::process_subscription_request
+(
+    const std::string& name,
+    const std::string& subURL,
+    const snds_intra_message::SNDS_INTRA_MESSAGE_TYPE msg_type
+)
 {
-    // Retrieve the subscription set for this ID.
-    // If 'id' is new, operator[] creates an empty set.
-    auto& subscriptions = subscribed_by_id_users[id];
+    // Pick container
+    auto& container = (msg_type == snds_intra_message::SNDS_INTRA_MESSAGE_TYPE::BY_ID_SUBSCRIPTION)? subscribed_by_id_users: subscribed_by_type_users;
 
-    // Record whether this is the first subscription for the ID in order to send the interest
-    bool first_subscription = subscriptions.empty();
+    auto& subscriptions = container[name]; // creates empty set if missing
 
-    // Insert the new subscription URL into the set.
-    bool is_new_subscription = subscriptions.insert(subURL).second;
+    const bool first_subscription = subscriptions.empty();
+
+    const bool is_new_subscription = subscriptions.insert(subURL).second;
 
     if (!is_new_subscription) 
     {
-        m_logger->info("Duplicate subscription for ID: {0} and URL {1}. Ignored...", id, subURL);
-        return;
-    } 
-
-    if(!first_subscription)
-    {
-        m_logger->info("This is not the first subscription for ID: {0} and URL {1}. Ignored...", id, subURL);
+        m_logger->info("Duplicate subscription for Name: {} and URL {}. Ignored...", name, subURL);
         return;
     }
 
-    m_logger->info("Stored new subscription for ID: {0} and URL: {1}", id, subURL);
+    if (!first_subscription) 
+    {
+        m_logger->info("Not first subscription for Name: {} (URL {}). No interest sent.", name, subURL);
+        return;
+    }
 
-    m_logger->info("Pushing getByID subscription interest for ID: {}", id);
-    // Build the interest name using the scope name and the prepared ID.
-    // NOTE: you need to append you own SNDS ID that you want to subscribe to
-    // This will return something like SNDS_ID_scope_0
-    auto node_scope_name = getSNDSNodeScopeNameForSubscription(id, id_scope_prefix, number_of_snds_services);
-    m_logger->info("Created new node scope name: {} for ID: {} with URL: {}", node_scope_name, id, subURL);
+    m_logger->info("Stored FIRST subscription for Name: {} and URL: {}", name, subURL);
+
+    // Build scope + interest according to type
+    const bool by_id = (msg_type == snds_intra_message::SNDS_INTRA_MESSAGE_TYPE::BY_ID_SUBSCRIPTION);
+
+    const std::string node_scope_name = getSNDSNodeScopeNameForSubscription(name, id_scope_prefix, number_of_snds_services);
+
+    m_logger->info("Created node scope name: {} for Name: {} with URL: {}", node_scope_name, name, subURL);
+    m_logger->info("Hi this is me: {} I'm going to ask node: {} to subscribe to: {}", snds_id_scope_name, node_scope_name, name);
+
+    const auto interest_kind = by_id ? parsed_interest_name::interest_message_type::INTEREST_MESSAGE_TYPE::NEW_ID_SUBSCRIPTION : parsed_interest_name::interest_message_type::INTEREST_MESSAGE_TYPE::NEW_TYPE_SUBSCRIPTION;
 
     auto interest_name = parsed_interest_name::to_custom_ndn_name
     (
         parsed_interest_name::make_parsed_interest_name
         (
             snds_prefix,
-            node_scope_name, 
-            parsed_interest_name::interest_message_type::INTEREST_MESSAGE_TYPE::NEW_SUBSCRIPTION,
-            {id, id_scope_prefix + snds_id}
+            node_scope_name,
+            interest_kind,
+            {name, snds_id_scope_name}
         )
     );
 
     m_logger->info("Created interest name: {}", interest_name);
-    // Create the intra-SNDS message (using the proper constructor)
+
     auto message = std::make_unique<snds_intra_message::SNDS_INTRA_MESSAGE>
     (
         std::move(interest_name),
-        snds_intra_message::SNDS_INTRA_MESSAGE_TYPE::BY_ID_SUBSCRIPTION,
+        msg_type,  // BY_ID_SUBSCRIPTION or BY_TYPE_SUBSCRIPTION
         snds_intra_message::SNDS_CLIENT_TYPES::WORKER,
         "",
         snds_intra_message::HTTP_MESSAGE_TYPE::HTTP_EMPTY
     );
 
-    m_logger->debug("Sending message to consumer...\n{}", message.get()->print_details());
-    v_to_consumer.get()->writeMessage(std::move(message));
+    m_logger->debug("Sending message to consumer...\n{}", message->print_details());
+    v_to_consumer->writeMessage(std::move(message));
 }
 
 void Worker::process_new_get_by_id(const std::string& id)

@@ -35,9 +35,10 @@ void SNDSConsumer::init(){
                 express_get_by_id_interest(content);
                 break;
             }
+            case snds_intra_message::SNDS_INTRA_MESSAGE_TYPE::BY_ID_AND_TYPE_WITH_SCOPE_ADVERTISEMENT:
             case snds_intra_message::SNDS_INTRA_MESSAGE_TYPE::BY_ID_WITH_SCOPE_ADVERTISEMENT:
             {
-                express_id_with_scope_interest(content);
+                express_scope_interest(content);
                 break;
             }
             case snds_intra_message::SNDS_INTRA_MESSAGE_TYPE::GET_BY_TYPE_REQUEST:
@@ -55,9 +56,10 @@ void SNDSConsumer::init(){
                 express_by_id_and_type_advertisement_interest(content);
                 break;
             }
+            case snds_intra_message::SNDS_INTRA_MESSAGE_TYPE::BY_TYPE_SUBSCRIPTION: 
             case snds_intra_message::SNDS_INTRA_MESSAGE_TYPE::BY_ID_SUBSCRIPTION:
             {
-                express_id_subscription_interest(content);
+                express_subscription_interest(content);
                 break;
             }
             case snds_intra_message::SNDS_INTRA_MESSAGE_TYPE::SUBSCRIPTION_NOTIFICATION:
@@ -322,7 +324,7 @@ void SNDSConsumer::express_id_subscription_notification(const std::string& conte
         parsed_interest_name::make_parsed_interest_name
         (
             snds_prefix, 
-            tmp_interest.name,
+            snds_node,
             parsed_interest_name::interest_message_type::INTEREST_MESSAGE_TYPE::SUBSCRIPTION_NOTIFICATION,
             // these are the ID and the scope
             {id, snds_node}
@@ -349,26 +351,56 @@ void SNDSConsumer::express_id_subscription_notification(const std::string& conte
 
 }
 
-void SNDSConsumer::express_id_subscription_interest(const std::string& content)
+void SNDSConsumer::express_subscription_interest(const std::string& content)
 {
     auto tmp_interest = parsed_interest_name::parse_from_string(content);
 
-    // we know the format must be /snds_prefix/snds_id_scope_name/id
-    auto name = parsed_interest_name::to_custom_ndn_name
+
+    auto interest_type        = tmp_interest.command;
+    auto other_scope_name     = tmp_interest.name;
+    auto maybe_name           = tmp_interest.get_interest_parameter(0);
+    auto maybe_our_scope_name = tmp_interest.get_interest_parameter(1);
+
+
+    m_logger->info("Received other scope name: {} in {}", other_scope_name, __func__);
+
+    if(!maybe_name.has_value())
+    {
+        m_logger->error("Received subscription interest without Name value in: {}", __func__);
+        return;
+    }
+
+    if(!maybe_our_scope_name.has_value())
+    {
+        m_logger->error("Received id subscription interest without ID SCOPE NAME in: {}", __func__);
+        return;
+    }
+
+    auto name           = maybe_name.value();
+    auto our_scope_name = maybe_our_scope_name.value();
+
+    m_logger->info("Received other scope name: {}, our scope name: {} for name: {} in func: {}", other_scope_name, our_scope_name, name, __func__);
+
+    const bool by_id = (interest_type == parsed_interest_name::interest_message_type::INTEREST_MESSAGE_TYPE::NEW_ID_SUBSCRIPTION);
+    const char* kind = by_id ? "BY_ID" : "BY_TYPE";
+    const auto interest_kind = by_id ? parsed_interest_name::interest_message_type::INTEREST_MESSAGE_TYPE::NEW_ID_SUBSCRIPTION : parsed_interest_name::interest_message_type::INTEREST_MESSAGE_TYPE::NEW_TYPE_SUBSCRIPTION;
+
+    // we know the format must be /snds_prefix/snds_id_scope_name/name
+    auto interest_name = parsed_interest_name::to_custom_ndn_name
     (
         parsed_interest_name::make_parsed_interest_name
         (
             snds_prefix, 
-            snds_id_scope_name,
-            parsed_interest_name::interest_message_type::INTEREST_MESSAGE_TYPE::NEW_SUBSCRIPTION,
+            other_scope_name,
+            interest_kind,
             // these are the ID and the scope
-            {*tmp_interest.get_interest_parameter(0), *tmp_interest.get_interest_parameter(1)}
+            {name, our_scope_name}
         )
     );
 
-    m_logger->debug("Created name: {} in func: {}", name, __func__);
+    m_logger->debug("Created name: {} in func: {}", interest_name, __func__);
 
-    ndn::Name interestName(name);
+    ndn::Name interestName(interest_name);
     //interestName.appendVersion();
     ndn::Interest interest(interestName);
     interest.setCanBePrefix(true);
@@ -386,17 +418,23 @@ void SNDSConsumer::express_id_subscription_interest(const std::string& content)
 
 }
 
-void SNDSConsumer::express_id_with_scope_interest(const std::string& content)
+void SNDSConsumer::express_scope_interest(const std::string& content)
 {
     auto tmp_interest = parsed_interest_name::parse_from_string(content);
     auto maybe_id = tmp_interest.get_interest_parameter(0);
-    auto maybe_snds_node = tmp_interest.get_interest_parameter(1);
+    auto maybe_type = tmp_interest.get_interest_parameter(1);
+    auto maybe_snds_node = tmp_interest.get_interest_parameter(2);
 
 
     if(!maybe_id.has_value())
     {
         m_logger->warn("Received ID with no value in: {}", __func__);
         return;
+    }
+
+    if(!maybe_type.has_value())
+    {
+        m_logger->warn("Received TYPE with no value in: {}", __func__);
     }
 
     if(!maybe_snds_node.has_value())
@@ -406,6 +444,7 @@ void SNDSConsumer::express_id_with_scope_interest(const std::string& content)
     }
 
     auto id = maybe_id.value();
+    auto type = maybe_type.value_or("");
     auto snds_node = maybe_snds_node.value();
 
     // we know the format must be /snds_prefix/snds_id_scope_name/id
@@ -416,8 +455,7 @@ void SNDSConsumer::express_id_with_scope_interest(const std::string& content)
             snds_prefix, 
             snds_id_scope_name,
             parsed_interest_name::interest_message_type::INTEREST_MESSAGE_TYPE::SCOPE_NOTIFICATION,
-            // build a temporary vector<string> from the unwrapped optional
-            {id, snds_node}
+            {id, type, snds_node}
         )
     );
 

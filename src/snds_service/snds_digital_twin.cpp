@@ -180,7 +180,8 @@ void DigitalTwin::process_by_id_advertisement(const std::string& id)
         snds_prefix, 
         id_scope,
         parsed_interest_name::interest_message_type::INTEREST_MESSAGE_TYPE::SCOPE,
-        {id, id_scope}
+        //empty value is a placeholder for type
+        {id, "", id_scope}
     );
 
     auto message2 = std::make_unique<snds_intra_message::SNDS_INTRA_MESSAGE>
@@ -209,6 +210,7 @@ void DigitalTwin::process_by_id_and_type_advertisement(const std::string& id, co
         parsed_interest_name::interest_message_type::INTEREST_MESSAGE_TYPE::BY_ID_AND_TYPE_ADVERTISEMENT,
         {id, type}
     );
+
     auto message = std::make_unique<snds_intra_message::SNDS_INTRA_MESSAGE>
     (
         parsed_interest_name::to_custom_ndn_name(interest_name),
@@ -217,8 +219,31 @@ void DigitalTwin::process_by_id_and_type_advertisement(const std::string& id, co
         "",
         snds_intra_message::HTTP_MESSAGE_TYPE::HTTP_EMPTY
     );
+
     m_logger->info("Pushing byType advertisement to the Consumer...\n{}", message.get()->print_details());
     v_to_consumer->writeMessage(std::move(message));
+
+    std::string type_scope = getSNDSNodeScopeNameForSubscription(type, id_scope_prefix, number_of_snds_services);
+
+    interest_name = parsed_interest_name::make_parsed_interest_name
+    (
+        snds_prefix, 
+        type_scope,
+        parsed_interest_name::interest_message_type::INTEREST_MESSAGE_TYPE::BY_ID_AND_TYPE_ADVERTISEMENT,
+        {id, type, type_scope}
+    );
+
+    auto message2 = std::make_unique<snds_intra_message::SNDS_INTRA_MESSAGE>
+    (
+        parsed_interest_name::to_custom_ndn_name(interest_name),
+        snds_intra_message::SNDS_INTRA_MESSAGE_TYPE::BY_ID_AND_TYPE_WITH_SCOPE_ADVERTISEMENT,
+        snds_intra_message::SNDS_CLIENT_TYPES::DIGITAL_TWIN,
+        "",
+        snds_intra_message::HTTP_MESSAGE_TYPE::HTTP_EMPTY
+    );
+
+    m_logger->info("Pushing byIdAndType with Scope advertisement to the Consumer...\n{}", message2.get()->print_details());
+    v_to_consumer->writeMessage(std::move(message2));
 
 }
 

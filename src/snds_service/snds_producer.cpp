@@ -309,7 +309,8 @@ void SNDSProducer::onInterest(const ndn::Interest& interest)
     case parsed_interest_name::interest_message_type::INTEREST_MESSAGE_TYPE::SCOPE_NOTIFICATION:
         process_scope_notification_interest(pi);
         break;
-    case parsed_interest_name::interest_message_type::INTEREST_MESSAGE_TYPE::NEW_SUBSCRIPTION:
+    case parsed_interest_name::interest_message_type::INTEREST_MESSAGE_TYPE::NEW_ID_SUBSCRIPTION:
+    case parsed_interest_name::interest_message_type::INTEREST_MESSAGE_TYPE::NEW_TYPE_SUBSCRIPTION:
         process_new_subscription_interest(pi);
         break;
     case parsed_interest_name::interest_message_type::INTEREST_MESSAGE_TYPE::GET_BY_ID_FROM_NODE:
@@ -595,13 +596,20 @@ void SNDSProducer::process_by_type_advertisement_interest(const parsed_interest_
   	sendData(interest_response, ack_message);
 }
 
+
 void SNDSProducer::process_new_subscription_interest(const parsed_interest_name::ParsedInterestName& interest) 
 {
-    auto maybe_name         = interest.get_interest_parameter(0);
-    auto maybe_snds_node_id = interest.get_interest_parameter(1);
+
+    auto interest_type      = interest.command;
+    auto our_snds_node_id   = interest.name;
+    auto maybe_name                    = interest.get_interest_parameter(0);
+    auto maybe_snds_node_id_subscriber = interest.get_interest_parameter(1);
     auto interest_response = parsed_interest_name::to_custom_ndn_name(interest, true);
 
-    if (!maybe_name.has_value() || !maybe_snds_node_id.has_value())
+
+    m_logger->info("Received our_snds_node_id: {} in func: {}", our_snds_node_id, __func__);
+
+    if (!maybe_name.has_value() || !maybe_snds_node_id_subscriber.has_value())
     {
         m_logger->error("In function {} got Name or SNDS Node ID with no value.", __func__);
         auto nack_message = snds_intra_message::to_string(snds_intra_message::SNDS_CONTROL_MESSAGE_TYPE::NACK_ERROR);
@@ -610,22 +618,28 @@ void SNDSProducer::process_new_subscription_interest(const parsed_interest_name:
     }
 
     auto name = *maybe_name;
-    auto snds_node_id = *maybe_snds_node_id;
+    auto snds_node_id_subscriber = *maybe_snds_node_id_subscriber;
 
-    m_logger->info("Got interest indicating new subscription for name: {0}, and snds node: {1}", name, snds_node_id);
-    auto& subscribers = subscribed_nodes_for_id[name];
+    m_logger->info("Got interest indicating new subscription for name: {0}, and snds node: {1}", name, snds_node_id_subscriber);
+
+    const bool by_id = (interest_type == parsed_interest_name::interest_message_type::INTEREST_MESSAGE_TYPE::NEW_ID_SUBSCRIPTION);
+    const char* kind = by_id ? "BY_ID" : "BY_TYPE";
+
+    auto& subscribers = by_id ? subscribed_nodes_for_id[name] : subscribed_nodes_for_type[name];
+
+
     // Try to insert the ID into the set
-    auto [_, inserted] = subscribers.insert(snds_node_id);
+    auto [_, inserted] = subscribers.insert(snds_node_id_subscriber);
     if (inserted) 
     {
-        m_logger->info("New subscription: {} subscribed to {}", snds_node_id, name);
-        m_logger->info("Responding to interest: {}", interest_response);
-        //TODO proper ack messages
+        m_logger->info("[{}] New subscription: {} subscribed to {}", kind, snds_node_id_subscriber, name);
+        m_logger->info("[{}] Responding to interest: {}", kind, interest_response);
         auto ack_message = snds_intra_message::to_string(snds_intra_message::SNDS_CONTROL_MESSAGE_TYPE::ACK_SUBSCRIPTION_NEW);
         sendData(interest_response, ack_message);
         return;
     }
-    m_logger->info("Subscription: {} already exists for {}", snds_node_id, name);
+
+    m_logger->info("Subscription: {} already exists for {}", snds_node_id_subscriber, name);
     m_logger->info("Responding to interest: {}", interest_response);
     auto ack_message = snds_intra_message::to_string(snds_intra_message::SNDS_CONTROL_MESSAGE_TYPE::ACK_SUBSCRIPTION_EXISTS);
     sendData(interest_response, ack_message);

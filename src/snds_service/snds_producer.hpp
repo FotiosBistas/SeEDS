@@ -102,4 +102,5 @@ public:
 private:
 	std::unordered_map<std::string, std::unordered_set<std::string>> type_registry; //maps Type names to vectors of IDs
 	std::unordered_map<std::string, std::unordered_set<std::string>> subscribed_nodes_for_id; //maps ID to subscribed nodes
+	std::unordered_map<std::string, std::unordered_set<std::string>> subscribed_nodes_for_type; //maps TYPE to subscribed nodes
 };

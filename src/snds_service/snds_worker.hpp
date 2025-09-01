@@ -45,8 +45,8 @@ public:
 
 private:
   	// Map for storing subscriptions: id -> list of subscriber URLs
-  	// Used for serving subscription requests
-  	std::unordered_map<std::string, std::unordered_set<std::string>> subscribed_by_id_users;
+	std::unordered_map<std::string, std::unordered_set<std::string>> subscribed_by_id_users;
+	std::unordered_map<std::string, std::unordered_set<std::string>> subscribed_by_type_users;
 
 	// TODO ask john about this 
 	// simplify the request for the pending type
@@ -73,7 +73,7 @@ private:
 
   	void process_new_get_by_id(const std::string& id);
   	void process_processed_get_by_id(const std::string& id, const std::string& payload);
-  	void process_subscription_request(const std::string& id, const std::string& url);
+  	void process_subscription_request(const std::string& name, const std::string& url, const snds_intra_message::SNDS_INTRA_MESSAGE_TYPE msg_type);
   	void process_new_get_by_type(const std::string& type);
 	//TODO need to ask JOHN about this
   	void process_processed_get_by_type(const std::string& id, const std::string& type, std::string& payload);
