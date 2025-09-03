@@ -286,6 +286,26 @@ namespace parsed_interest_name {
         };
     }
 
+    static inline std::vector<std::string>
+    split_keep_empty(std::string_view s, char delim)
+    {
+        std::vector<std::string> out;
+        size_t start = 0;
+        while (true) 
+        {
+            size_t pos = s.find(delim, start);
+            if (pos == std::string_view::npos) 
+            {
+                out.emplace_back(s.substr(start));         // final segment (may be empty)
+                break;
+            }
+            out.emplace_back(s.substr(start, pos - start)); // may be empty when pos==start
+            start = pos + 1;
+        }
+        return out;
+    }
+
+
     /**
      * 
      * @brief Parses an ndn::Name into a ParsedInterest structure.

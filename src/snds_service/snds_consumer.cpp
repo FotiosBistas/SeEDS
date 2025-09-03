@@ -191,6 +191,24 @@ void SNDSConsumer::express_get_by_id_for_type_interest(const std::string& conten
 void SNDSConsumer::express_by_id_and_type_advertisement_interest(const std::string& content)
 {
     auto tmp_interest  = parsed_interest_name::parse_from_string(content);
+    
+    auto maybe_id   = tmp_interest.get_interest_parameter(0);
+    auto maybe_type = tmp_interest.get_interest_parameter(1);
+
+    if(!maybe_id.has_value())
+    {
+        m_logger->error("Received ID with no value in: {}", __func__);
+        return;
+    }
+
+    if(!maybe_type.has_value())
+    {
+        m_logger->error("Received TYPE with no value in: {}", __func__);
+        return;
+    }
+
+    auto id = maybe_id.value();
+    auto type = maybe_type.value();
 
     auto name = parsed_interest_name::to_custom_ndn_name
     (
@@ -198,7 +216,7 @@ void SNDSConsumer::express_by_id_and_type_advertisement_interest(const std::stri
         parsed_interest_name::make_parsed_interest_name
         (
             snds_prefix,
-            tmp_interest.prefix, //TODO ask John if this is okay
+            tmp_interest.name,
             parsed_interest_name::interest_message_type::INTEREST_MESSAGE_TYPE::BY_ID_AND_TYPE_ADVERTISEMENT,
             {*tmp_interest.get_interest_parameter(0), *tmp_interest.get_interest_parameter(1)}
         )
@@ -483,6 +501,16 @@ void SNDSConsumer::express_get_by_id_interest(const std::string& content)
 {
     auto tmp_interest = parsed_interest_name::parse_from_string(content);
 
+    auto maybe_id = tmp_interest.get_interest_parameter(0);
+
+    if(!maybe_id.has_value())
+    {
+        m_logger->error("Received ID with no value in {}", __func__);
+        return;
+    }
+
+    auto id = maybe_id.value();
+
     auto name = parsed_interest_name::to_custom_ndn_name
     (
         parsed_interest_name::make_parsed_interest_name
@@ -490,8 +518,7 @@ void SNDSConsumer::express_get_by_id_interest(const std::string& content)
             tmp_interest.prefix, 
             tmp_interest.name,
             parsed_interest_name::interest_message_type::INTEREST_MESSAGE_TYPE::GET_BY_ID,
-            // build a temporary vector<string> from the unwrapped optional
-            {*tmp_interest.get_interest_parameter(0)}
+            {id}
         )
     );
 

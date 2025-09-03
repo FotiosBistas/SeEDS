@@ -230,12 +230,12 @@ parsed_interest_name::ParsedInterestName parsed_interest_name::parse_from_string
         if (pos != std::string::npos && pos + 1 < command_string.size()) 
         {
             auto parameter_list = command_string.substr(pos + 1);
-            for (auto& kv : split(parameter_list, '&')) 
+
+            // KEEP empties here so "" is preserved between &&
+            for (auto& kv : split_keep_empty(parameter_list, '&')) 
             {
-                if (!kv.empty()) 
-                {
-                    pi.params.push_back(std::move(kv));
-                }
+                // push even if empty
+                pi.params.push_back(std::move(kv));
             }
         }
     }
