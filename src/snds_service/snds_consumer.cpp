@@ -958,6 +958,53 @@ void SNDSConsumer::onData(const ndn::Interest& interest, const ndn::Data& data)
             m_logger->debug("Sanitized payload to:\n{}", payload);
 
             // data.getName() equivalent with interest.toUri()
+
+            //direct mode: just check whether the count is empty or 1
+            nlohmann::json j = nlohmann::json::parse(payload);
+            nlohmann::json item;
+            if (!_extract_direct_temporal_item(j, item)) {
+                m_logger->warn("Direct mode flagged, but unable to extract item; falling back to manifest path.");
+                // ... proceed with manifest handling
+            } else {
+                m_logger->debug("Direct mode...");
+                parsed_interest_name::ParsedInterestName env =
+                parsed_interest_name::make_parsed_interest_name
+                (
+                    /*prefix*/ "",            // not used by build_query_uri
+                    /*name*/   "",            // not used by build_query_uri
+                    parsed_interest_name::interest_message_type::INTEREST_MESSAGE_TYPE::VERSION,
+                    {}
+                );
+                    
+                // item is guaranteed to be an object; safe to call value()
+                const std::string id   = item.value("id", item.value("_id", pi.get_interest_parameter(0).value_or("")));
+                const std::string type = item.value("type", "");
+                const std::string date = item.value("date", "");
+
+                parsed_interest_name::add_param(env, GET_PARAMETER_ID_TAG,  id);
+                parsed_interest_name::add_param(env, GET_PARAMETER_TYPE_TAG, type);
+                parsed_interest_name::add_param(env, GET_PARAMETER_DATE_TAG, date);
+                parsed_interest_name::add_param(env, GET_PARAMETER_IS_METAFILE_TAG, "false");
+                parsed_interest_name::add_param(env, GET_PARAMETER_PARENT_QUERY_HASH_TAG, "");
+                parsed_interest_name::add_param(env, GET_PARAMETER_LAST_METAFILE_INTEREST_TAG, "true");
+                parsed_interest_name::add_param(env, GET_PARAMETER_RETRIEVE_MODE, "direct");
+                
+                const bool values_already_encoded = true;
+                std::string name = parsed_interest_name::build_query_uri("/", env.params, /*encode_values=*/!values_already_encoded); 
+                
+                auto message = std::make_unique<snds_intra_message::SNDS_INTRA_MESSAGE>
+                (
+                    std::move(name),
+                    snds_intra_message::SNDS_INTRA_MESSAGE_TYPE::VERSION_RESPONSE,
+                    snds_intra_message::SNDS_CLIENT_TYPES::CONSUMER,
+                    std::move(payload),
+                    snds_intra_message::HTTP_MESSAGE_TYPE::HTTP_EMPTY
+                );
+                v_to_worker->writeMessage(std::move(message));
+                return; // IMPORTANT: stop here so you don’t enter the manifest path
+            }
+
+
             auto parent_temporal_query = temporal_query_from_interest(pi);
             m_logger->debug("Created Parent Temporal Query: {}", temporal_query::serialize_kv(parent_temporal_query));
             send_metafile_interests(payload, parent_temporal_query);
@@ -965,4 +1012,49 @@ void SNDSConsumer::onData(const ndn::Interest& interest, const ndn::Data& data)
         }
     }
 
+};
+
+
+bool SNDSConsumer::_is_direct_temporal_payload(const nlohmann::json& j)
+{
+    // Schema A: {"mode":"direct","items":[{...}]}
+    if (j.is_object() && j.value("mode", "") == "direct") 
+    {
+        const auto& items = j.value("items", nlohmann::json::array());
+        return items.is_array() && !items.empty() && items.front().is_object();
+    }
+
+    // Schema B: [ { "": { ...doc... } } ] or [ { "TYPE": { ... } } ]
+    if (j.is_array() && !j.empty() && j.front().is_object() && j.front().size() == 1) 
+    {
+        const auto& inner = j.front().begin().value();
+        return inner.is_object(); // contains fields like id, date, type
+    }
+
+    return false;
+}
+
+
+bool SNDSConsumer::_extract_direct_temporal_item(const nlohmann::json& j, nlohmann::json& out)
+{
+    // Schema A 
+    if (j.is_object() && j.value("mode","") == "direct") 
+    {
+        const auto& items = j.value("items", nlohmann::json::array());
+        if (items.is_array() && !items.empty() && items.front().is_object()) 
+        {
+            out = items.front();
+            return true;
+        }
+        return false;
+    }
+
+    // Schema B (legacy): [ { "<key>": { ... } } ]
+    if (j.is_array() && !j.empty() && j.front().is_object() && j.front().size() == 1) 
+    {
+        out = j.front().begin().value();   // the inner { ... }
+        return out.is_object();
+    }
+
+    return false;
 }

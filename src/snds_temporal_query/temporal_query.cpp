@@ -105,6 +105,7 @@ temporal_query::TemporalQuery temporal_query::from_params(const std::unordered_m
         if (auto it = map.find(k); it != map.end()) it->second(q, v);
         else q.extras[k] = v;
     }
+
     return q;
 }
 
@@ -300,8 +301,7 @@ temporal_query::TemporalQuery temporal_query::deserialize_temporal_query(std::st
     {
         if (!j.contains(key))
         {
-            throw std::invalid_argument(
-                std::string("Missing key in TemporalQuery JSON: ") + key);
+            throw std::invalid_argument(std::string("Missing key in TemporalQuery JSON: ") + key);
         }
     }
 

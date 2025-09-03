@@ -195,7 +195,13 @@ void Worker::_handle_consumer_intra_message(snds_intra_message::SNDS_INTRA_MESSA
         {
             auto payload = message.move_payload();
             auto params = message.parse_uri_query_to_map_raw(message.get_message());
-            process_temporal_query_response(params[GET_PARAMETER_PARENT_QUERY_HASH_TAG], std::move(payload), params[GET_PARAMETER_LAST_METAFILE_INTEREST_TAG] == "true");
+            process_temporal_query_response
+            (
+                params[GET_PARAMETER_PARENT_QUERY_HASH_TAG], 
+                std::move(payload), 
+                params[GET_PARAMETER_LAST_METAFILE_INTEREST_TAG] == "true", 
+                params[GET_PARAMETER_RETRIEVE_MODE] == "direct"
+            );
             break;
         }
     }
@@ -295,9 +301,46 @@ void Worker::process_temporal_query_response
 (
     const std::string& parent_query_hash,
     const std::string& content,
-    bool last_interest
+    bool last_interest,
+    bool is_direct_mode
 )
 {
+    // =======================
+    // DIRECT MODE (no parent query state)
+    // =======================
+    if (is_direct_mode) 
+    {
+        m_logger->info("Direct mode...");
+        nlohmann::json item;
+        if (!_extract_direct_temporal_item(content, item)) 
+        {
+            m_logger->error("Direct mode payload not understood. First 64 bytes: {}", hexdump(content, 0, 64));
+            return;
+        }
+
+        // (Optional) apply ad-hoc filtering here if you want; no parent_query is available.
+        // Build a uniform response envelope the HTTP layer expects.
+        nlohmann::json bundle;
+        bundle["mode"]  = "direct";
+        bundle["items"] = nlohmann::json::array();
+        bundle["items"].push_back(std::move(item));
+
+        std::string out = bundle.dump(2);
+        auto message = std::make_unique<snds_intra_message::SNDS_INTRA_MESSAGE>
+        (
+            /*name*/"",
+            snds_intra_message::SNDS_INTRA_MESSAGE_TYPE::TEMPORAL_QUERY_RESPONSE,
+            snds_intra_message::SNDS_CLIENT_TYPES::WORKER,
+            std::move(out += "\n"),
+            snds_intra_message::HTTP_MESSAGE_TYPE::HTTP_EMPTY
+        );
+        v_to_service->writeMessage(std::move(message));
+        return;
+    }
+
+    // =======================
+    // AGGREGATED/MANIFEST MODE (requires parent query state)
+    // =======================
     auto it = pending_temporal_queries.find(parent_query_hash);
     if (it == pending_temporal_queries.end()) 
     {
@@ -305,7 +348,7 @@ void Worker::process_temporal_query_response
         return;
     }
 
-    // Snapshot the query (don’t erase yet; we need it if last_interest is false)
+    // Safe: we have state
     const auto parent_query = it->second;
 
     // Precompute keep-set once for this batch
@@ -315,14 +358,13 @@ void Worker::process_temporal_query_response
         for (const auto& f : parent_query.filters) keep.insert(f.key);
     }
 
-    // Split full buffer into balanced JSON slices (some frames contain >1 doc)
+    // Split full buffer into balanced JSON slices
     auto slices = extract_all_json_slices(content);
     if (slices.empty()) 
     {
         m_logger->error("No JSON found. Hex head: {}", hexdump(content, 0, 64));
         if (last_interest) 
         {
-            // Nothing to aggregate, drop any pending state for this hash
             temporal_buffers.erase(parent_query_hash);
             pending_temporal_queries.erase(it);
         }
@@ -343,35 +385,33 @@ void Worker::process_temporal_query_response
             continue;
         }
 
-        nlohmann::json doc = nlohmann::json::parse(sanitized, /*cb=*/nullptr, /*allow_exceptions=*/false);
+        nlohmann::json doc = nlohmann::json::parse(sanitized, nullptr, false);
         if (doc.is_discarded()) 
         {
             m_logger->error("Slice #{} parse discarded; skipping.", idx);
             continue;
         }
 
-        // Apply filters per-slice and buffer the result
         nlohmann::json filtered = apply_filters_to_doc(doc, keep);
         bucket.push_back(std::move(filtered));
     }
 
-    // If this was NOT the last interest, keep accumulating
     if (!last_interest) 
     {
         m_logger->debug("Buffered {} items for hash {} (waiting for lastInterest).", temporal_buffers[parent_query_hash].size(), parent_query_hash);
         return;
     }
 
-    // lastInterest: bundle and send once
+    // Bundle and send once (last interest)
     nlohmann::json bundle;
+    bundle["mode"]            = "manifest";
     bundle["parentQueryHash"] = parent_query_hash;
-    bundle["query"] = temporal_query::serialize_temporal_query(parent_query);
-    bundle["items"] = nlohmann::json::array();
+    bundle["query"]           = temporal_query::serialize_temporal_query(parent_query);
+    bundle["items"]           = nlohmann::json::array();
 
-    auto temporal_buffer_iterator = temporal_buffers.find(parent_query_hash);
-    if (temporal_buffer_iterator != temporal_buffers.end()) 
+    if (auto tbi = temporal_buffers.find(parent_query_hash); tbi != temporal_buffers.end()) 
     {
-        for (auto& el : temporal_buffer_iterator->second) bundle["items"].push_back(std::move(el));
+        for (auto& el : tbi->second) bundle["items"].push_back(std::move(el));
     }
 
     std::string out = bundle.dump(2);
@@ -389,10 +429,11 @@ void Worker::process_temporal_query_response
 
     v_to_service->writeMessage(std::move(message));
 
-    // Cleanup state for this query
+    // Cleanup state
     temporal_buffers.erase(parent_query_hash);
     pending_temporal_queries.erase(it);
 }
+
 
 void Worker::process_subscription_request
 (
@@ -704,4 +745,38 @@ void Worker::process_registry_file(const std::string& payload, const std::string
     
     // Update pending_ids_to_type_map with the registry file name as key and the set of ids.
     pending_ids_to_type_map[type] = std::move(id_set);
+}
+
+// Extract the single item from a "direct" payload.
+// Supports both shapes:
+//  A) {"mode":"direct","items":[{...}]}
+//  B) [ { "<key or empty>": { ...doc... } } ]
+bool Worker::_extract_direct_temporal_item(const std::string& content, nlohmann::json& out)
+{
+    if (!nlohmann::json::accept(content)) return false;
+    nlohmann::json j = nlohmann::json::parse(content, nullptr, false);
+    if (j.is_discarded()) return false;
+
+    // Schema A
+    if (j.is_object() && j.value("mode","") == "direct") 
+    {
+        const auto& items = j.value("items", nlohmann::json::array());
+        if (items.is_array() && !items.empty() && items.front().is_object()) 
+        {
+            out = items.front();
+            return true;
+        }
+    }
+
+    // Schema B (legacy array with single inner object under any key, incl. "")
+    if (j.is_array() && !j.empty() && j.front().is_object() && j.front().size() == 1) 
+    {
+        out = j.front().begin().value();
+        return out.is_object();
+    }
+
+    // Fallback: if it's just an object, treat it as the item
+    if (j.is_object()) { out = std::move(j); return true; }
+
+    return false;
 }

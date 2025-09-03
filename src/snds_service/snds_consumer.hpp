@@ -68,5 +68,8 @@ public:
     std::string handleTemporalQuery(const temporal_query::TemporalQuery& query);
 
     void send_metafile_interests(const std::string& body, const temporal_query::TemporalQuery& parent_query);
+private:
 
+    bool _is_direct_temporal_payload(const nlohmann::json& j);
+    bool _extract_direct_temporal_item(const nlohmann::json& j, nlohmann::json& out);
 };

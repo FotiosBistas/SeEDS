@@ -81,22 +81,13 @@ private:
 	void process_ack_message(std::string&& name, std::string&& payload);
     void process_processed_get_by_id_from_node(std::string&& id, std::string&& payload);
   	void process_temporal_query_request(const temporal_query::TemporalQuery& temporal_query);
-  	void process_temporal_query_response(const std::string& parent_query_hash, const std::string& content, bool last_interest);
+  	void process_temporal_query_response(const std::string& parent_query_hash, const std::string& content, bool last_interest, bool is_direct_mode);
 
 	nlohmann::json apply_filters_to_doc(const nlohmann::json& doc, const std::unordered_set<std::string>& keep);
 	void _handle_consumer_intra_message(snds_intra_message::SNDS_INTRA_MESSAGE& message);
 	void _handle_http_server_intra_message(snds_intra_message::SNDS_INTRA_MESSAGE& message);
 	void _handle_producer_intra_message(snds_intra_message::SNDS_INTRA_MESSAGE& message);
 
-  	static constexpr const char* GET_PARAMETER_ID_TAG      = "id";
-  	static constexpr const char* GET_PARAMETER_TYPE_TAG    = "type";
-  	static constexpr const char* GET_PARAMETER_FIELDS_TAG  = "filters";
-    static constexpr const char* GET_PARAMETER_SUB_URL_TAG = "suburl";
-    static constexpr const char* GET_PARAMETER_IS_SUB_TAG  = "isSub";
-  	// all of the below are temporal query related
-  	static constexpr const char* GET_PARAMETER_DATE_TAG="date";
-  	static constexpr const char* GET_PARAMETER_TIMEFRAME_TAG="timeframe";
-  	static constexpr const char* GET_PARAMETER_COUNT_TAG="count";
-  	static constexpr const char* GET_PARAMETER_PARENT_QUERY_HASH_TAG="parentQueryHash";
-  	static constexpr const char* GET_PARAMETER_LAST_METAFILE_INTEREST_TAG="lastInterest";
+	bool _extract_direct_temporal_item(const std::string& content, nlohmann::json& out);
+
 };
