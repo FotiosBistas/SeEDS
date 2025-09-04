@@ -30,11 +30,11 @@ void SNDSConsumer::init(){
 
         switch (type)
         {
-            case snds_intra_message::SNDS_INTRA_MESSAGE_TYPE::GET_BY_ID_REQUEST:
-            {
-                express_get_by_id_interest(content);
-                break;
-            }
+            //case snds_intra_message::SNDS_INTRA_MESSAGE_TYPE::GET_BY_ID_REQUEST:
+            //{
+            //    express_get_by_id_interest(content);
+            //    break;
+            //}
             case snds_intra_message::SNDS_INTRA_MESSAGE_TYPE::BY_ID_AND_TYPE_WITH_SCOPE_ADVERTISEMENT:
             case snds_intra_message::SNDS_INTRA_MESSAGE_TYPE::BY_ID_WITH_SCOPE_ADVERTISEMENT:
             {
@@ -46,11 +46,11 @@ void SNDSConsumer::init(){
                 express_get_by_type_interest(content);
                 break;
             }
-            case snds_intra_message::SNDS_INTRA_MESSAGE_TYPE::GET_BY_ID_FOR_TYPE_REQUEST:
-            {
-                express_get_by_id_for_type_interest(content);
-                break;
-            }
+            //case snds_intra_message::SNDS_INTRA_MESSAGE_TYPE::GET_BY_ID_FOR_TYPE_REQUEST:
+            //{
+            //    express_get_by_id_for_type_interest(content);
+            //    break;
+            //}
             case snds_intra_message::SNDS_INTRA_MESSAGE_TYPE::BY_ID_AND_TYPE_ADVERTISEMENT:
             {
                 express_by_id_and_type_advertisement_interest(content);
@@ -72,6 +72,8 @@ void SNDSConsumer::init(){
                 express_get_by_id_from_node_interest(content);
                 break;
             }
+            case snds_intra_message::SNDS_INTRA_MESSAGE_TYPE::GET_BY_ID_FOR_TYPE_REQUEST:
+            case snds_intra_message::SNDS_INTRA_MESSAGE_TYPE::GET_BY_ID_REQUEST:
             case snds_intra_message::SNDS_INTRA_MESSAGE_TYPE::TEMPORAL_QUERY_REQUEST:
             {
                 express_temporal_query_interest(content);
@@ -248,12 +250,17 @@ void SNDSConsumer::express_temporal_query_interest(const std::string& content)
     //query.date = md5_hex(&query.date, query.date.size());
     auto tmp_name = temporal_query::to_path(query);
 
+    m_logger->debug("Query.type: {}", query.type);
+    m_logger->debug("Query.id: {}", query.id);
+    // Use type if provided; otherwise fall back to id
+    const std::string& entity = (!query.type.empty() ? query.type : query.id);
+
     auto name = parsed_interest_name::to_custom_ndn_name
     (
         parsed_interest_name::make_parsed_interest_name
         (
             snds_prefix, 
-            query.id,
+            entity,
             parsed_interest_name::interest_message_type::INTEREST_MESSAGE_TYPE::TEMPORAL_QUERY,
             temporal_query::to_fields(query)
         )

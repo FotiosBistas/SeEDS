@@ -12,6 +12,14 @@ size_t getSNDSNodeForSubscription
     return hash_value % number_of_snds_services;
 }
 
+std::string trim_copy(std::string_view s) 
+{
+    size_t a = 0, b = s.size();
+    while (a < b && std::isspace(static_cast<unsigned char>(s[a]))) ++a;
+    while (b > a && std::isspace(static_cast<unsigned char>(s[b-1]))) --b;
+    return std::string{s.substr(a, b-a)};
+}
+
 std::string fix_mixed_utf8_cp1252(const std::string& s) 
 {
     std::string out;

@@ -290,49 +290,120 @@ std::string temporal_query::serialize_kv(const temporal_query::TemporalQuery& q)
 }
 
 
-// Parse a JSON string back into a TemporalQuery struct.
-temporal_query::TemporalQuery temporal_query::deserialize_temporal_query(std::string_view json_string)
+temporal_query::TemporalQuery temporal_query::deserialize_temporal_query(std::string_view input)
 {
-    // Parse input into JSON object
-    auto j = nlohmann::json::parse(json_string);
+    const std::string s = trim_copy(input);
 
-    // Validate required keys
-    for (auto key : {"timeframe", "date", "id", "type", "count"})
+    // Try JSON (only if it *looks* like JSON)
+    if (!s.empty() && (s.front() == '{' || s.front() == '[')) 
     {
-        if (!j.contains(key))
+        auto j = nlohmann::json::parse(s);
+        TemporalQuery q;
+
+        if (j.contains("filters")) q.filters = parse_filters(j.at("filters").get<std::string>());
+        if (j.contains("timeframe")) q.frame = string_to_timeframe(j.at("timeframe").get<std::string>());
+        if (j.contains("date"))  q.date  = j.at("date").get<std::string>();
+        if (j.contains("id"))    q.id    = j.at("id").get<std::string>();
+        if (j.contains("type"))  q.type  = j.at("type").get<std::string>();
+        if (j.contains("count")) q.count = j.at("count").get<std::string>();
+
+        // extras
+        for (auto &item : j.items()) 
         {
-            throw std::invalid_argument(std::string("Missing key in TemporalQuery JSON: ") + key);
+            const auto &key = item.key();
+            if (key=="timeframe"||key=="date"||key=="id"||key=="type"||key=="count"||key=="filters") continue;
+            q.extras[key] = item.value().dump(); // preserve as string
+        }
+        return q;
+    }
+
+    // Try query-string form: "id=car2&type=getByID&timeframe=now"
+    if (s.find('=') != std::string::npos) 
+    {
+        auto params = params_from_querystring(s);
+        return from_params(params);
+    }
+
+    // Fallback: path-like strings
+    auto params = params_from_pathlike(s);
+    return from_params(params);
+}
+
+std::unordered_map<std::string,std::string> temporal_query::params_from_querystring(std::string_view qs) 
+{
+    std::unordered_map<std::string,std::string> out;
+    size_t pos = 0;
+    while (pos < qs.size()) 
+    {
+        auto amp = qs.find('&', pos);
+        auto part = qs.substr(pos, amp==std::string_view::npos ? qs.size()-pos : amp-pos);
+        auto eq = part.find('=');
+        std::string k = eq==std::string_view::npos ? std::string(part) : std::string(part.substr(0,eq));
+        std::string v = eq==std::string_view::npos ? "" : std::string(part.substr(eq+1));
+        out[url_decode(k)] = url_decode(v);
+        if (amp == std::string_view::npos) break;
+        pos = amp + 1;
+    }
+    return out;
+}
+
+// Accept forms like:
+//   "/SNDS/car2/getByID:car2"
+//   "/SNDS/Car/getByID:car2"
+std::unordered_map<std::string,std::string> temporal_query::params_from_pathlike(std::string_view s)
+{
+    std::unordered_map<std::string,std::string> out;
+    std::vector<std::string_view> parts;
+    size_t start = 0;
+    while (start < s.size()) 
+    {
+        auto slash = s.find('/', start);
+        auto tok = s.substr(start, slash==std::string_view::npos ? s.size()-start : slash-start);
+        if (!tok.empty()) parts.push_back(tok);
+        if (slash == std::string_view::npos) break;
+        start = slash + 1;
+    }
+
+    for (auto p : parts) 
+    {
+        auto colon = p.find(':');
+        if (colon == std::string_view::npos) continue;
+        auto left  = p.substr(0, colon);
+        auto right = p.substr(colon+1);
+
+        if (left == "getByID") 
+        {
+            out["id"]   = std::string(right);
+        } 
+        else if (left == "getByIDForType") 
+        {
+            // expect "<id>&<type>"
+            auto amp = right.find('&');
+            if (amp != std::string_view::npos) 
+            {
+                out["id"]   = std::string(right.substr(0, amp));
+                out["type"] = std::string(right.substr(amp+1));
+            } 
+            else 
+            {
+                // fallback: if no '&', treat whole thing as id
+                out["id"] = std::string(right);
+            }
         }
     }
 
-    TemporalQuery q;
-    // load filters CSV → vector<Filter>
-    if (j.contains("filters"))
+    // heuristic fallback if still no id
+    if (!out.count("id")) 
     {
-        auto csv = j.at("filters").get<std::string>();
-        q.filters = parse_filters(csv);
-    }
-    // Correct field name for timeframe
-    q.frame = string_to_timeframe(j.at("timeframe").get<std::string>());
-    q.date = j.at("date").get<std::string>();
-    q.id = j.at("id").get<std::string>();
-    q.type = j.at("type").get<std::string>();
-    q.count = j.at("count").get<std::string>();
-    // Capture any additional fields as "extras"
-    for (auto &item : j.items())
-    {
-        const auto &key = item.key();
-        if (key == "timeframe" ||
-            key == "date" ||
-            key == "id" ||
-            key == "type" ||
-            key == "count" ||
-            key == "filters")
+        for (size_t i=0;i+1<parts.size();++i) 
         {
-            continue;
+            if (parts[i] == "SNDS" && i+1 < parts.size()) 
+            {
+                out["id"] = std::string(parts[i+1]);
+                break;
+            }
         }
-        // Store the value as string (or adapt if you need other types)
-        q.extras[key] = item.value().get<std::string>();
     }
-    return q;
+
+    return out;
 }

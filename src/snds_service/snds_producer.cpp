@@ -125,6 +125,10 @@ void SNDSProducer::init(){
         {
             continue;
         }
+        //if (message == nullptr) 
+        //{
+        //    break;
+        //}
 
         auto content = message.get()->get_message();
         auto length = message.get()->get_message_length();

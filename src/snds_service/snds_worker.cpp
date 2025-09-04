@@ -318,6 +318,27 @@ void Worker::process_temporal_query_response
             return;
         }
 
+        // ---- Clear pending GET_BY_ID for this ID (if present) ----
+        // Prefer "id", fall back to "_id"
+        const std::string resolved_id = item.value("id", item.value("_id", std::string{}));
+        if (!resolved_id.empty()) 
+        {
+            const auto erased = pending_get_by_id_requests.erase(resolved_id);
+            m_logger->debug("Cleared pending_get_by_id_requests for '{}': erased={}", resolved_id, erased);
+        } 
+        else 
+        {
+            m_logger->warn("Direct mode item had no 'id'/'_id'; cannot clear pending_get_by_id_requests");
+        }
+
+        //same thing here
+        const std::string resolved_type = item.value("type", std::string{});
+        if (!resolved_type.empty()) 
+        {
+            const auto erasedT = pending_get_by_type_requests.erase(resolved_type);
+            m_logger->debug("Cleared pending_get_by_type_requests for '{}': erased={}", resolved_type, erasedT);
+        }
+
         // (Optional) apply ad-hoc filtering here if you want; no parent_query is available.
         // Build a uniform response envelope the HTTP layer expects.
         nlohmann::json bundle;

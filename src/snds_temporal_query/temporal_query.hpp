@@ -104,6 +104,8 @@ namespace temporal_query{
     TemporalQuery deserialize_temporal_query(std::string_view json_string);
     std::vector<Filter> parse_filters(std::string_view csv);
     std::string filters_to_csv(const std::vector<Filter>& filters);
+    std::unordered_map<std::string,std::string> params_from_pathlike(std::string_view s);
+    std::unordered_map<std::string,std::string> params_from_querystring(std::string_view qs);
     /// Format a TemporalQuery as a path of the form
     ///   /[type]/[id]/params(date="…"&count="…"&timeframe="…")
     /// If q.type is empty, the leading “/type” is omitted.

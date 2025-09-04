@@ -35,6 +35,7 @@ std::string format_timestamp_ms(long long ms_since_epoch);
 std::unordered_map<std::string,std::string> parse_query_params(std::string_view qs);
 
 std::string build_query_uri(std::string_view base_path, const std::vector<std::string>& kv_tokens, bool encode_values = false);
+std::string trim_copy(std::string_view s);
 std::string json_to_string(const nlohmann::json& j);
 std::string sanitize_utf8(const std::string& s);
 std::string fix_mixed_utf8_cp1252(const std::string& s);

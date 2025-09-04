@@ -273,13 +273,12 @@ namespace snds_intra_message
             //if (id_.has_value() && type_.has_value())
             //    return SNDS_INTRA_MESSAGE_TYPE::GET_BY_ID_AND_TYPE_REQUEST;
 
-            //new implementation requires routing through the temporal query API
-            if (id_.has_value())
-                //return SNDS_INTRA_MESSAGE_TYPE::GET_BY_ID_REQUEST;
-                return SNDS_INTRA_MESSAGE_TYPE::TEMPORAL_QUERY_REQUEST;
-
             if (type_.has_value())
                 return SNDS_INTRA_MESSAGE_TYPE::GET_BY_TYPE_REQUEST;
+
+            if (id_.has_value())
+                return SNDS_INTRA_MESSAGE_TYPE::GET_BY_ID_REQUEST;
+
 
 
             return SNDS_INTRA_MESSAGE_TYPE::GENERIC;
