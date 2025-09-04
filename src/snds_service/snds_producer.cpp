@@ -165,6 +165,36 @@ void SNDSProducer::process_temporal_query_advertisement(const std::string& conte
     auto query = temporal_query::deserialize_temporal_query(content);
     m_logger->debug("Deserialized temporal query to: {} in {}", temporal_query::serialize_temporal_query(query), __func__);
     //query.date = md5_hex(&query.date, query.date.size());
+
+    m_logger->debug("Query.type: {}", query.type);
+    m_logger->debug("Query.id: {}", query.id);
+    // Use type if provided; otherwise fall back to id
+    bool is_by_type = !query.type.empty() ? true : false;
+    const std::string& entity = (is_by_type ? query.type : query.id);
+
+
+    if(is_by_type)
+    {
+        auto type = query.type;
+        auto id = query.id;
+        auto iter = type_registry.find(type);
+        if (iter == type_registry.end())
+        {
+            m_logger->warn("Type {} not found in registry. Ignoring advertisement.", type);
+        }
+        // Access the vector of IDs stored by value.
+        auto& ids = iter->second;
+        // Try to insert the ID; check if it was already present
+        auto [_, inserted] = ids.insert(id);
+
+        if (!inserted) 
+        {
+            m_logger->warn("ID already registered for type {}. Skipping...", type);
+            auto warn_message = snds_intra_message::to_string(snds_intra_message::SNDS_CONTROL_MESSAGE_TYPE::WARNING_ALREADY_REGISTERED);
+            return;
+        }
+        m_logger->info("Inserted: {} to: {} registry", id, type);
+    }
     auto name = temporal_query::to_path(query, false, false, false);
     m_logger->debug("Created name from query: {} in {}", name, __func__);
     auto to_be_announced_name = parsed_interest_name::to_custom_ndn_name
@@ -292,9 +322,12 @@ void SNDSProducer::process_temporal_query_request(const std::string& content)
     //TODO receive data from the broker here?
     httplib::Client cli(broker_ip.c_str(), broker_port);
     auto res = cli.Post("/add", payload, "application/json");
-    if (res && res->status == 200) {
+    if (res && res->status == 200) 
+    {
         m_logger->info("Successfully POSTed to /add: {}", res->body);
-    } else {
+    } 
+    else 
+    {
         m_logger->error("Failed to POST to /add: {}", res ? res->body : "No response");
     }
 
