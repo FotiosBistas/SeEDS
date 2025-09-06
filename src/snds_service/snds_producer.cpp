@@ -27,6 +27,66 @@ void SNDSProducer::init(){
         std::bind(&SNDSProducer::onRegisterFailed, this, std::placeholders::_1, std::placeholders::_2)
     );
 
+    // [2025-03-04 08:29:36.980] [info] Announcing name: /SNDS/is_alive_0
+    m_logger->info("Announcing name: {}", snds_prefix + "/" + snds_is_alive_with_id);
+    m_face.setInterestFilter
+    (
+        snds_prefix + "/" + snds_is_alive_with_id,
+        std::bind(&SNDSProducer::onInterest, this, std::placeholders::_2),
+        std::bind(&SNDSProducer::onRegisterSuccess, this, std::placeholders::_1),
+        std::bind(&SNDSProducer::onRegisterFailed, this, std::placeholders::_1, std::placeholders::_2)
+    );
+
+    // [2025-03-04 08:29:36.980] [info] Announcing name: /SNDS/is_alive_0
+    m_logger->info("Announcing name: {}", snds_prefix + "/" + snds_state_with_id);
+    m_face.setInterestFilter
+    (
+        snds_prefix + "/" + snds_state_with_id,
+        std::bind(&SNDSProducer::onInterest, this, std::placeholders::_2),
+        std::bind(&SNDSProducer::onRegisterSuccess, this, std::placeholders::_1),
+        std::bind(&SNDSProducer::onRegisterFailed, this, std::placeholders::_1, std::placeholders::_2)
+    );
+
+    events_.on_type_add = [this](const std::string& type, const std::string& id) 
+    {
+        m_logger->info("[event] type_add: {} -> {}", type, id);
+    };
+
+    events_.on_type_remove = [this](const std::string& type, const std::string& id) 
+    {
+        m_logger->info("[event] type_remove: {} -> {}", type, id);
+    };
+
+    events_.on_subscribe_id = [this](const std::string& id, const std::string& node) 
+    {
+        m_logger->info("[event] subscribe_id: node={} -> id={}", node, id);
+    };
+
+    events_.on_unsubscribe_id = [this](const std::string& id, const std::string& node) 
+    {
+        m_logger->info("[event] unsubscribe_id: node={} from id={}", node, id);
+    };
+
+    events_.on_subscribe_type = [this](const std::string& type, const std::string& node) 
+    {
+        m_logger->info("[event] subscribe_type: node={} -> type={}", node, type);
+    };
+
+    events_.on_unsubscribe_type = [this](const std::string& type, const std::string& node) 
+    {
+        m_logger->info("[event] unsubscribe_type: node={} from type={}", node, type);
+    };
+
+    events_.on_announce_add = [this](const std::string& name) 
+    {
+        m_logger->info("[event] announce_add: {}", name);
+    };
+
+    events_.on_announce_remove = [this](const std::string& name) 
+    {
+      m_logger->info("[event] announce_remove: {}", name);
+    };
+
     // Advertise for each type in the registry map
     // [2025-03-04 08:29:36.980] [info] Announcing name: /SNDS/CAR
     // [2025-03-04 08:29:36.980] [info] Announcing name: /SNDS/CAR_registry
@@ -177,15 +237,8 @@ void SNDSProducer::process_temporal_query_advertisement(const std::string& conte
     {
         auto type = query.type;
         auto id = query.id;
-        auto iter = type_registry.find(type);
-        if (iter == type_registry.end())
-        {
-            m_logger->warn("Type {} not found in registry. Ignoring advertisement.", type);
-        }
-        // Access the vector of IDs stored by value.
-        auto& ids = iter->second;
         // Try to insert the ID; check if it was already present
-        auto [_, inserted] = ids.insert(id);
+        bool inserted = register_id_for_type(type_registry, events_, type, id);
 
         if (!inserted) 
         {
@@ -634,15 +687,8 @@ void SNDSProducer::process_by_type_advertisement_interest(const parsed_interest_
 
   	m_logger->info("Type advertisement: name(registry) = {0}, ID = {1}", type, id);
   	// Look up the content type (with a preceding slash) in the registry map.
-  	auto iter = type_registry.find(type);
-  	if (iter == type_registry.end())
-    {
-  	  	m_logger->warn("Type {} not found in registry. Ignoring advertisement.", type);
-  	}
-  	// Access the vector of IDs stored by value.
-  	auto& ids = iter->second;
   	// Try to insert the ID; check if it was already present
-  	auto [_, inserted] = ids.insert(id);
+    bool inserted = register_id_for_type(type_registry, events_, type, id);
 
   	if (!inserted) 
     {
@@ -687,11 +733,11 @@ void SNDSProducer::process_new_subscription_interest(const parsed_interest_name:
     const bool by_id = (interest_type == parsed_interest_name::interest_message_type::INTEREST_MESSAGE_TYPE::NEW_ID_SUBSCRIPTION);
     const char* kind = by_id ? "BY_ID" : "BY_TYPE";
 
-    auto& subscribers = by_id ? subscribed_nodes_for_id[name] : subscribed_nodes_for_type[name];
-
-
     // Try to insert the ID into the set
-    auto [_, inserted] = subscribers.insert(snds_node_id_subscriber);
+    bool inserted = by_id
+        ? subscribe_id(subscribed_nodes_for_id,   events_, name, snds_node_id_subscriber)
+        : subscribe_type(subscribed_nodes_for_type, events_, name, snds_node_id_subscriber);
+
     if (inserted) 
     {
         m_logger->info("[{}] New subscription: {} subscribed to {}", kind, snds_node_id_subscriber, name);
@@ -889,4 +935,56 @@ uint8_t SNDSProducer::_publish_to_broker(const nlohmann::json& doc)
         m_logger->error("Failed to publish to broker: {}", res ? res->body : "No response");
         return -1;
     }
+}
+
+std::optional<nlohmann::json> SNDSProducer::_http_get_json
+(
+    std::string_view path,
+    const std::vector<std::pair<std::string, std::string>>& q
+)
+{
+    httplib::Client cli(broker_ip.c_str(), broker_port);
+    cli.set_read_timeout(5, 0);
+    cli.set_connection_timeout(5, 0);
+
+    // Build query string with your url_encode()
+    std::string endpoint(path);
+    if (!q.empty()) 
+    {
+        endpoint += '?';
+        bool first = true;
+        for (auto& [k,v] : q) 
+        {
+            if (!first) endpoint += '&';
+            endpoint += url_encode(k) + "=" + url_encode(v);
+            first = false;
+        }
+    }
+
+    m_logger->debug("HTTP GET {}", endpoint);
+    auto res = cli.Get(endpoint.c_str());
+    if (res && res->status == 200) 
+    {
+        try 
+        {
+            return nlohmann::json::parse(res->body);
+        } 
+        catch (const std::exception& e) 
+        {
+            m_logger->error("Failed to parse JSON from {}: {}", endpoint, e.what());
+        }
+    } 
+    else 
+    {
+        m_logger->error("GET {} failed: {}", endpoint, res ? res->body : "No response");
+    }
+
+    return std::nullopt;
+}
+
+
+void SNDSProducer::onRegisterSuccess(const ndn::Name& prefix)
+{
+    m_logger->info("Successfully registered prefix: {}", prefix.toUri());
+    announce(announcements, events_, prefix.toUri());
 }

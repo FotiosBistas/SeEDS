@@ -42,7 +42,7 @@ void Broker::listen(){
 
         svr.Get("/state", [this](const httplib::Request& req, httplib::Response& res){
             logger->info("Received HTTP request for {}, with target {}", req.body, req.target);
-            auto type       = req.get_param_value("type");
+            auto type = req.get_param_value("type");
             if (type.empty()) {
                 res.status = 400;
                 res.set_content(
@@ -51,15 +51,13 @@ void Broker::listen(){
                 );
                 return;
             }
-
+        
             std::string json_request = fmt::format(R"({{"type": "{}"}})", type);
-            std::string body = state(json_request);
-            if(body.empty()){
+            std::string body = state(json_request);     // <- body will already be JSON
+        
+            if (body.empty()) {
                 res.status = 500;
-                res.set_content(
-                    R"({"error":"Failed to compute state"} )" "\n",
-                    "application/json"
-                );
+                res.set_content(R"({"error":"Failed to compute state"})" "\n", "application/json");
                 return;
             }
             res.status = 200;
@@ -363,7 +361,17 @@ std::string Broker::state(const std::string& request){
         auto coll = this->client[this->database][type];
         std::string fp = collection_fingerprint(coll);
         logger->info("Collection fingerprint: {}", fp);
-        return fp;
+        auto count = coll.count_documents({});
+
+        nlohmann::json out = {
+            {"collection", type},
+            {"algo", "SHA-256"},     // or "MD5" if you keep MD5 internally
+            {"hash", fp},
+            {"count", count}
+        };
+
+        logger->info("Collection {} fingerprint: {}", type, fp);
+        return out.dump();           // return valid JSON
     }
     catch (const std::exception& e) {
         logger->error("Error computing fingerprint: {}", e.what());

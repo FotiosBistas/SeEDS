@@ -42,32 +42,32 @@ public:
         std::string logFile = "ServiceBase.log",
         size_t number_of_snds_services = 1,
         std::string snds_prefix = "SNDS",
+        std::string snds_state_prefix = "state",
+        std::string snds_is_alive_prefix = "is_alive",
         std::string snds_id = "0",
         std::string id_scope_prefix = "SNDS_ID_scope_",
         std::string registry_file_postfix = "_registry",
-        std::string ackTag = "THIS_IS_AN_SNDS_ACK",
         std::string serviceName = "ServiceBase",
         std::string broker_ip   = "0.0.0.0",
-        size_t      broker_port = 10000,
-		std::string temporalQueryPrefix = "date%3D",
-        std::string metafilePrefix = "metafile%3Dtrue"
+        size_t      broker_port = 10000
     ):m_face(),
     m_keyChain(),
     m_validator(m_face), // m_validator must be initialized after m_face
     m_logger(nullptr), // Will be initialized below
     number_of_snds_services(number_of_snds_services),
     snds_prefix(std::move(snds_prefix)),
+    snds_state_prefix(std::move(snds_state_prefix)),
+    snds_is_alive_prefix(std::move(snds_is_alive_prefix)),
     snds_id(std::move(snds_id)),
     id_scope_prefix(std::move(id_scope_prefix)),
     registry_file_postfix(std::move(registry_file_postfix)),
-    m_ackTag(std::move(ackTag)),
     serviceName(std::move(serviceName)),
+    snds_state_with_id(this->snds_state_prefix + "_" + this->snds_id),
+    snds_is_alive_with_id(this->snds_is_alive_prefix + "_" + this->snds_id),
     snds_id_name(this->snds_prefix + "_" + this->snds_id),
     snds_id_scope_name(this->id_scope_prefix + this->snds_id),
     broker_ip(broker_ip),
-    broker_port(broker_port),
-	temporalQueryPrefix(temporalQueryPrefix),
-	metafilePrefix(metafilePrefix)
+    broker_port(broker_port)
     {
         // Logger initialization
         auto console_sink = std::make_shared<spdlog::sinks::stdout_color_sink_mt>();
@@ -94,15 +94,15 @@ public:
         m_logger->info("Log Level: {}", spdlog::level::to_string_view(logLevel));
         m_logger->info("Log File: {}", logFile);
         m_logger->info("Number of SNDS Services: {}", number_of_snds_services);
-        m_logger->info("SNDS Prefix: {}", snds_prefix);
-        m_logger->info("My SNDS ID: {}", snds_id);
-        m_logger->info("ID Scope Prefix: {}", id_scope_prefix);
-        m_logger->info("Registry File Postfix: {}", registry_file_postfix);
-        m_logger->info("ACK Tag: {}", m_ackTag);
+        m_logger->info("SNDS Prefix: {}", this->snds_prefix);
+        m_logger->info("My SNDS ID: {}", this->snds_id);
+        m_logger->info("ID Scope Prefix: {}", this->id_scope_prefix);
+        m_logger->info("SNDS state with ID: {}", this->snds_state_with_id);
+        m_logger->info("SNDS is alive with ID: {}", this->snds_is_alive_with_id);
+        m_logger->info("Registry File Postfix: {}", this->registry_file_postfix);
         m_logger->info("Service Name: {}", this->serviceName);
-        m_logger->info("Computed SNDS ID name: {}", snds_id_name);
-        m_logger->info("Computed SNDS ID Scope Name: {}", snds_id_scope_name);
-        m_logger->info("Temporal Query Prefix: {}", temporalQueryPrefix);
+        m_logger->info("Computed SNDS ID name: {}", this->snds_id_name);
+        m_logger->info("Computed SNDS ID Scope Name: {}", this->snds_id_scope_name);
         m_logger->info("===============================================");
     }
 
@@ -221,19 +221,17 @@ protected:
   	// Configurable protocol parameters:
   	size_t number_of_snds_services;       // Number of SNDS services.
   	std::string snds_prefix;              // e.g., "SNDS"
+    std::string snds_state_prefix;        // e.g., "state"
+    std::string snds_is_alive_prefix;     // e.g., "is_alive"
   	std::string snds_id;                  // e.g., "0"
+    std::string snds_state_with_id;       // e.g., "state_0"
+    std::string snds_is_alive_with_id;    // e.g., "is_alive_0"
   	std::string snds_id_name;             // Computed as snds_prefix + "_" + snds_id.
   	std::string id_scope_prefix;          // e.g., "SNDS_ID_scope_"
   	std::string snds_id_scope_name;       // Computed as snds_prefix + id_scope_prefix + snds_id.
   	std::string registry_file_postfix;    // e.g., "_registry"
-	std::string temporalQueryPrefix;      //e.g. "date%3D"
-    std::string metafilePrefix;           //e.g. "metafile%3D"
   	std::string serviceName;
+
   	std::string broker_ip;
   	size_t      broker_port;
-
-	std::string m_ackTag = "THIS_IS_AN_SNDS_ACK\r\n";
-  	std::string WARNING_ALREADY_REGISTERED = "WARNING_ALREADY_REGISTERED";
-  	static constexpr const char* ERASE_PREFIX="erase=";
-
 };

@@ -25,7 +25,8 @@
     X(GET_BY_TYPE,                    "getByType") \
     X(GET_BY_ID,                      "getByID") \
     X(GET_BY_ID_FOR_TYPE,             "getByIDForType") \
-    X(GET_BY_ID_FROM_NODE,            "getByIDFromNode")
+    X(GET_BY_ID_FROM_NODE,            "getByIDFromNode") \
+    X(GET_STATE,                      "getState")
 
 namespace parsed_interest_name {
 

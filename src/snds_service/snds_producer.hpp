@@ -1,6 +1,6 @@
 #include <ndn-cxx/face.hpp>
 #include <spdlog/spdlog.h>
-#include <nlohmann/json.hpp>  
+#include <nlohmann/json.hpp>
 
 #include "httplib.h"
 #include "snds_service_base.hpp"
@@ -9,98 +9,175 @@
 
 #include "snds_utils.h"
 
-class SNDSProducer : public ServiceBase {
+struct RegistryEvents
+{
+	// type_registry
+	std::function<void(const std::string &type, const std::string &id)> on_type_add;
+	std::function<void(const std::string &type, const std::string &id)> on_type_remove;
+
+	// subscribers by id
+	std::function<void(const std::string &id, const std::string &node)> on_subscribe_id;
+	std::function<void(const std::string &id, const std::string &node)> on_unsubscribe_id;
+
+	// subscribers by type
+	std::function<void(const std::string &type, const std::string &node)> on_subscribe_type;
+	std::function<void(const std::string &type, const std::string &node)> on_unsubscribe_type;
+
+	// announcements
+	std::function<void(const std::string &name)> on_announce_add;
+	std::function<void(const std::string &name)> on_announce_remove;
+};
+
+class SNDSProducer : public ServiceBase
+{
 public:
-    SNDSProducer
-	(
+	SNDSProducer(
 		spdlog::level::level_enum logLevel = spdlog::level::info,
-        std::string logFile = "Producer.log",
-        size_t number_of_snds_services = 1,
-        std::string snds_prefix        = "SNDS",
-        std::string snds_id            = "0",
-        std::string id_scope_prefix    = "SNDS_ID_scope_",
-        std::string registryFilePostfix = "_registry",
-        std::string serviceName = "Producer",
-        std::string broker_ip = "0.0.0.0",
-        size_t      broker_port = 10000,
-		std::string registryType = "CAR"
-	):ServiceBase
-	(
-		logLevel,
-        logFile,
-        number_of_snds_services,
-        snds_prefix,
-        snds_id,
-        id_scope_prefix,
-        registryFilePostfix,
-        "THIS_IS_AN_SNDS_ACK\n",
-        serviceName,
-        broker_ip,
-        broker_port
-	)
-  	{
-  	    m_logger->info("SNDSProducer initialized with serviceName: {}", this->serviceName);
-		m_logger->info("SNDSProducer will connect to Broker with IP: {0} and port: {1}", broker_ip, broker_port);
-  	    type_registry[registryType] = std::unordered_set<std::string>{};
-  	}
+		std::string logFile = "Producer.log",
+		size_t number_of_snds_services = 1,
+		std::string snds_prefix = "SNDS",
+		std::string snds_state_prefix = "state",
+		std::string snds_is_alive_prefix = "is_alive",
+		std::string snds_id = "0",
+		std::string id_scope_prefix = "SNDS_ID_scope_",
+		std::string registry_file_postfix = "_registry",
+		std::string serviceName = "Producer",
+		std::string broker_ip = "0.0.0.0",
+		size_t broker_port = 10000,
+		std::string registryType = "CAR")
+		: ServiceBase(
+			  logLevel,
+			  logFile,
+			  number_of_snds_services,
+			  snds_prefix,
+			  snds_state_prefix,
+			  snds_is_alive_prefix,
+			  snds_id,
+			  id_scope_prefix,
+			  registry_file_postfix,
+			  serviceName,
+			  broker_ip,
+			  broker_port)
+	{
+		m_logger->info("SNDSProducer initialized with serviceName: {}", this->serviceName);
+		m_logger->info("SNDSProducer will connect to Broker with IP: {} and port: {}",
+					   this->broker_ip, this->broker_port);
+		type_registry[registryType] = std::unordered_set<std::string>{};
+	}
 
 	void init();
 
+	void onRegisterSuccess(const ndn::Name &prefix);
+	void onInterest(const ndn::Interest &interest);
 
-    void onInterest(const ndn::Interest &interest);
-    void processRegistryRequest(const parsed_interest_name::ParsedInterestName& interest);
-	/**
-	 * @brief Processes an Interest that advertises a new content type.
-	 *
-	 * This function handles Interests that signal a new advertisement for a content type.
-	 * It expects the parsed Interest name to have the following format:
-	 * - The first component is the service prefix (e.g., "/SNDS").
-	 * - The second component is the command, representing the content type (e.g., "CAR").
-	 * - The third component (params[0]) is the identifier (ID) for that content type.
-	 *
-	 * If the Interest does not contain an ID, the function logs a warning and ignores the Interest.
-	 * If the ID is already registered for the type (as found in the myTypesRegistryMap), a warning is logged
-	 * and a warning Data packet is sent back.
-	 * Otherwise, the new ID is added to the registry, and an acknowledgment (ACK) is sent back.
-	 *
-	 * @param interest The Parsed Interest packet that triggered this callback.
-	 */
+	void processRegistryRequest(const parsed_interest_name::ParsedInterestName &interest);
+	void process_new_subscription_interest(const parsed_interest_name::ParsedInterestName &interest);
+	void process_scope_notification_interest(const parsed_interest_name::ParsedInterestName &interest);
+	void process_get_by_id_interest(const parsed_interest_name::ParsedInterestName &interest);
+	void process_by_type_advertisement_interest(const parsed_interest_name::ParsedInterestName &interest);
+	void process_get_by_type_interest(const parsed_interest_name::ParsedInterestName &interest);
+	void process_get_by_id_for_type_interest(const parsed_interest_name::ParsedInterestName &interest);
+	void process_subscription_notification_interest(const parsed_interest_name::ParsedInterestName &interest);
+	void process_temporal_query_interest(const parsed_interest_name::ParsedInterestName &interest);
+	void process_version_metafile_interest(const parsed_interest_name::ParsedInterestName &interest);
+	void process_temporal_query_advertisement(const std::string &content);
+	void process_by_id_advertisement(const std::string &content);
+	void process_temporal_query_request(const std::string &content);
 
-	/**
-	 * @brief Processes subscription-type Interests.
-	 *
-	 * Expects a parsed Interest name with the following structure:
-	 *   - prefix: m_sndsPrefix (e.g., "/SNDS")
-	 *   - command: something like "SNDS_ID_scope_X"
-	 *   - params[0]: the ID (e.g., "car1")
-	 *   - params[1] (optional): the SNDS_NODE identifier
-	 *
-	 * If two parameters are present, the Interest is treated as a new subscription request.
-	 * If only one parameter is present, it is treated as a notification, and the SNDS nodes
-	 * subscribed to that ID are notified.
-	 *
-	 * @param interest The Parsed Interest packet.
-	 */
-	void process_new_subscription_interest(const parsed_interest_name::ParsedInterestName& interest);
-	void process_scope_notification_interest(const parsed_interest_name::ParsedInterestName& interest);
-	void process_get_by_id_interest(const parsed_interest_name::ParsedInterestName& interest);
-	void process_by_type_advertisement_interest(const parsed_interest_name::ParsedInterestName& interest);
-	void process_get_by_type_interest(const parsed_interest_name::ParsedInterestName& interest);
-	void process_get_by_id_for_type_interest(const parsed_interest_name::ParsedInterestName& interest);
-	void process_subscription_notification_interest(const parsed_interest_name::ParsedInterestName& interest);
-	void process_temporal_query_interest(const parsed_interest_name::ParsedInterestName& interest);
-	void process_version_metafile_interest(const parsed_interest_name::ParsedInterestName& interest);
-	void process_temporal_query_advertisement(const std::string& content);
-	void process_by_id_advertisement(const std::string& content);
-	void process_temporal_query_request(const std::string& content);
+	uint8_t _publish_to_broker(const nlohmann::json &doc);
+	std::optional<nlohmann::json> _http_get_json(std::string_view path, const std::vector<std::pair<std::string, std::string>> &q);
 
-	uint8_t _publish_to_broker(const nlohmann::json& doc);
-
-	void handleTemporalQuery(parsed_interest_name::ParsedInterestName& interest);
-	void parseTemporalQuery(const std::string& body);
+	void handleTemporalQuery(parsed_interest_name::ParsedInterestName &interest);
+	void parseTemporalQuery(const std::string &body);
 
 private:
-	std::unordered_map<std::string, std::unordered_set<std::string>> type_registry; //maps Type names to vectors of IDs
-	std::unordered_map<std::string, std::unordered_set<std::string>> subscribed_nodes_for_id; //maps ID to subscribed nodes
-	std::unordered_map<std::string, std::unordered_set<std::string>> subscribed_nodes_for_type; //maps TYPE to subscribed nodes
+
+  	RegistryEvents events_;
+
+	using TypeRegistry = std::unordered_map<std::string, std::unordered_set<std::string>>;
+	using SubscribersByID = std::unordered_map<std::string, std::unordered_set<std::string>>;
+	using SubscribersByType = std::unordered_map<std::string, std::unordered_set<std::string>>;
+	using Announcements = std::unordered_set<std::string>;
+
+	TypeRegistry type_registry;					 // maps Type names to vectors of IDs
+	SubscribersByID subscribed_nodes_for_id;	 // maps ID to subscribed nodes
+	SubscribersByType subscribed_nodes_for_type; // maps TYPE to subscribed nodes
+	Announcements announcements;
+
+	inline bool register_id_for_type(TypeRegistry &reg, RegistryEvents &ev, const std::string &type, const std::string &id)
+	{
+		auto &ids = reg[type];
+		auto [it, inserted] = ids.insert(id);
+		if (inserted && ev.on_type_add)
+			ev.on_type_add(type, id);
+		return inserted;
+	}
+
+	inline bool unregister_id_for_type(TypeRegistry &reg, RegistryEvents &ev, const std::string &type, const std::string &id)
+	{
+		auto it = reg.find(type);
+		if (it == reg.end())
+			return false;
+		size_t erased = it->second.erase(id);
+		if (erased && ev.on_type_remove)
+			ev.on_type_remove(type, id);
+		return erased != 0;
+	}
+
+	inline bool subscribe_id(SubscribersByID &m, RegistryEvents &ev, const std::string &id, const std::string &node)
+	{
+		auto &s = m[id];
+		auto [_, inserted] = s.insert(node);
+		if (inserted && ev.on_subscribe_id)
+			ev.on_subscribe_id(id, node);
+		return inserted;
+	}
+
+	inline bool unsubscribe_id(SubscribersByID &m, RegistryEvents &ev, const std::string &id, const std::string &node)
+	{
+		auto it = m.find(id);
+		if (it == m.end())
+			return false;
+		size_t erased = it->second.erase(node);
+		if (erased && ev.on_unsubscribe_id)
+			ev.on_unsubscribe_id(id, node);
+		return erased != 0;
+	}
+
+	inline bool subscribe_type(SubscribersByType &m, RegistryEvents &ev, const std::string &type, const std::string &node)
+	{
+		auto &s = m[type];
+		auto [_, inserted] = s.insert(node);
+		if (inserted && ev.on_subscribe_type)
+			ev.on_subscribe_type(type, node);
+		return inserted;
+	}
+
+	inline bool unsubscribe_type(SubscribersByType &m, RegistryEvents &ev, const std::string &type, const std::string &node)
+	{
+		auto it = m.find(type);
+		if (it == m.end())
+			return false;
+		size_t erased = it->second.erase(node);
+		if (erased && ev.on_unsubscribe_type)
+			ev.on_unsubscribe_type(type, node);
+		return erased != 0;
+	}
+
+	inline bool announce(Announcements &a, RegistryEvents &ev, const std::string &name)
+	{
+		auto [_, inserted] = a.insert(name);
+		if (inserted && ev.on_announce_add)
+			ev.on_announce_add(name);
+		return inserted;
+	}
+
+	inline bool unannounce(Announcements &a, RegistryEvents &ev, const std::string &name)
+	{
+		size_t erased = a.erase(name);
+		if (erased && ev.on_announce_remove)
+			ev.on_announce_remove(name);
+		return erased != 0;
+	}
+
 };

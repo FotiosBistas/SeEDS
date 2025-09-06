@@ -75,17 +75,25 @@ std::string Broker::hash_document(bsoncxx::document::view document) {
 }
 
 std::string Broker::collection_fingerprint(mongocxx::collection& collection) {
+    // SHA-256 instead of MD5 (swap to EVP_md5() if you prefer)
     EVP_MD_CTX* ctx = EVP_MD_CTX_new();
     if (!ctx) throw std::runtime_error("EVP_MD_CTX_new failed");
-    if (EVP_DigestInit_ex(ctx, EVP_md5(), nullptr) != 1) {
+    if (EVP_DigestInit_ex(ctx, EVP_sha256(), nullptr) != 1) {
         EVP_MD_CTX_free(ctx);
         throw std::runtime_error("EVP_DigestInit_ex failed");
     }
 
     mongocxx::options::find opts;
+    // guarantee stable order
+    opts.sort(bsoncxx::builder::basic::make_document(
+        bsoncxx::builder::basic::kvp("_id", 1)
+    ));
 
     for (auto&& doc : collection.find({}, opts)) {
-        auto h = hash_document(doc);
+        // can drop volatile fields before hashing
+        // auto doc_view = strip_fields(doc, {"timestamp", "_id.timestamp"});
+
+        auto h = hash_document(doc); // your normalized JSON → MD5 (per-doc)
         if (EVP_DigestUpdate(ctx, h.data(), h.size()) != 1) {
             EVP_MD_CTX_free(ctx);
             throw std::runtime_error("EVP_DigestUpdate failed");
