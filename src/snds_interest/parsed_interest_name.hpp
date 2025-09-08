@@ -26,7 +26,9 @@
     X(GET_BY_ID,                      "getByID") \
     X(GET_BY_ID_FOR_TYPE,             "getByIDForType") \
     X(GET_BY_ID_FROM_NODE,            "getByIDFromNode") \
-    X(GET_STATE,                      "getState")
+    X(GET_RESILIENCE_META,            "getResilienceMeta") \
+    X(GET_RESILIENCE_PATCH,           "getResiliencePatch") \
+    X(GET_RESILIENCE_IS_ALIVE,        "getResilienceIsAlive")
 
 namespace parsed_interest_name {
 

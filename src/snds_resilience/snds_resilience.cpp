@@ -28,7 +28,28 @@ void snds_resilience::Store::mutate(std::function<void(nlohmann::json&)> fn)
     history_[version_] = state_;
     // trim
     while (history_.size() > keep_) history_.erase(history_.begin());
-    if (logger_) logger_->debug("[resilience] mutate → ver={} hash={}", version_, hash_);
+    if (logger_) 
+    {
+        logger_->info("[resilience] mutate → ver={} hash={}", version_, hash_);
+
+        std::ostringstream oss;
+        oss << "[resilience] history versions: ";
+        for (const auto& [ver, st] : history_) {
+            auto h = canonical_hash(st);
+            oss << ver << "(" << h.substr(0, 8) << ") "; // show first 8 chars
+        }
+        logger_->debug("{}", oss.str());
+
+        if (version_ > 1) 
+        {
+            auto itPrev = history_.find(version_ - 1);
+            if (itPrev != history_.end()) 
+            {
+                nlohmann::json diff = nlohmann::json::diff(itPrev->second, state_);
+                logger_->debug("[resilience] ops from v{} → v{}:\n{}", version_-1, version_, diff.dump(2));
+            }
+        }
+    }
 }
 
 void snds_resilience::Store::assign(nlohmann::json new_state) 
@@ -41,7 +62,8 @@ void snds_resilience::Store::assign(nlohmann::json new_state)
     if (logger_) logger_->debug("[resilience] assign → ver={} hash={}", version_, hash_);
 }
 
-std::optional<snds_resilience::Patch> snds_resilience::Store::make_patch_from(uint64_t base_version) const {
+std::optional<snds_resilience::Patch> snds_resilience::Store::make_patch_from(uint64_t base_version) const 
+{
     auto it = history_.find(base_version);
     if (it == history_.end()) return std::nullopt;
 
@@ -79,7 +101,8 @@ bool snds_resilience::Mirror::apply_snapshot(const Snapshot& snap)
     return true;
 }
 
-bool snds_resilience::Mirror::apply_patch(const Patch& p) {
+bool snds_resilience::Mirror::apply_patch(const Patch& p) 
+{
 
     if (p.base_version != version_) 
     {

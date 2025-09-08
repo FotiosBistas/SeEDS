@@ -50,41 +50,50 @@ void SNDSProducer::init(){
     events_.on_type_add = [this](const std::string& type, const std::string& id) 
     {
         m_logger->info("[event] type_add: {} -> {}", type, id);
+        upsert_type_id_(type, id);
+        update_store_with_broker_state_(type);
     };
 
     events_.on_type_remove = [this](const std::string& type, const std::string& id) 
     {
         m_logger->info("[event] type_remove: {} -> {}", type, id);
+        erase_type_id_(type, id);
     };
 
     events_.on_subscribe_id = [this](const std::string& id, const std::string& node) 
     {
         m_logger->info("[event] subscribe_id: node={} -> id={}", node, id);
+        upsert_sub_by_id_(id, node);
     };
 
     events_.on_unsubscribe_id = [this](const std::string& id, const std::string& node) 
     {
         m_logger->info("[event] unsubscribe_id: node={} from id={}", node, id);
+        erase_sub_by_id_(id, node);
     };
 
     events_.on_subscribe_type = [this](const std::string& type, const std::string& node) 
     {
         m_logger->info("[event] subscribe_type: node={} -> type={}", node, type);
+        upsert_sub_by_type_(type, node);
     };
 
     events_.on_unsubscribe_type = [this](const std::string& type, const std::string& node) 
     {
         m_logger->info("[event] unsubscribe_type: node={} from type={}", node, type);
+        erase_sub_by_type_(type, node);
     };
 
     events_.on_announce_add = [this](const std::string& name) 
     {
         m_logger->info("[event] announce_add: {}", name);
+        store_announce_(name);
     };
 
     events_.on_announce_remove = [this](const std::string& name) 
     {
-      m_logger->info("[event] announce_remove: {}", name);
+        m_logger->info("[event] announce_remove: {}", name);
+        store_unannounce_(name);
     };
 
     // Advertise for each type in the registry map
@@ -425,12 +434,35 @@ void SNDSProducer::onInterest(const ndn::Interest& interest)
     case parsed_interest_name::interest_message_type::INTEREST_MESSAGE_TYPE::VERSION:
         process_version_metafile_interest(pi);
         break;
+    case parsed_interest_name::interest_message_type::INTEREST_MESSAGE_TYPE::GET_RESILIENCE_IS_ALIVE:
+        process_resilience_is_alive_interest(pi);
+        break;
+    case parsed_interest_name::interest_message_type::INTEREST_MESSAGE_TYPE::GET_RESILIENCE_META:
+        process_resilience_meta_interest(pi);
+        break;
+    case parsed_interest_name::interest_message_type::INTEREST_MESSAGE_TYPE::GET_RESILIENCE_PATCH:
+        process_resilience_patch_interest(pi);
+        break;
     default:
         break;
     }
 
 }
 
+void SNDSProducer::process_resilience_is_alive_interest(const parsed_interest_name::ParsedInterestName &interest)
+{
+
+}
+
+void SNDSProducer::process_resilience_patch_interest(const parsed_interest_name::ParsedInterestName &interest)
+{
+
+}
+
+void SNDSProducer::process_resilience_meta_interest(const parsed_interest_name::ParsedInterestName &interest)
+{
+
+}
 
 void SNDSProducer::process_version_metafile_interest(const parsed_interest_name::ParsedInterestName& interest)
 {
@@ -907,13 +939,14 @@ void SNDSProducer::process_get_by_id_interest(const parsed_interest_name::Parsed
 
 uint8_t SNDSProducer::_publish_to_broker(const nlohmann::json& doc)
 {
-    if (!doc.contains("id") || !doc["id"].is_string()) 
+    m_logger->info("Publishing to broker...");
+    if (!doc.contains("id") || !doc["id"].is_string() || doc["id"].empty()) 
     {
         m_logger->error("{}: 'id' (string) is required", __func__);
         return -1;
     }
 
-    if(!doc.contains("type") || !doc["type"].is_string())
+    if(!doc.contains("type") || !doc["type"].is_string() || doc["type"].empty())
     {
         m_logger->warn("{}: 'type' (string) not provided...", __func__);
     }
@@ -928,10 +961,17 @@ uint8_t SNDSProducer::_publish_to_broker(const nlohmann::json& doc)
 
     auto res = cli.Post("/add", body, "application/json");
 
-    if (res && res->status == 200) {
+    if (res && res->status == 200) 
+    {
         m_logger->info("Published to broker OK: {}", res->body);
+        //special case for updating state 
+        m_logger->debug("Appending body to broker journal: {}", body);
+        append_broker_journal_(doc);
+        if (doc.contains("type") && doc["type"].is_string()) update_store_with_broker_state_(doc["type"].get_ref<const std::string&>());
         return 0;
-    } else {
+    } 
+    else 
+    {
         m_logger->error("Failed to publish to broker: {}", res ? res->body : "No response");
         return -1;
     }
@@ -987,4 +1027,257 @@ void SNDSProducer::onRegisterSuccess(const ndn::Name& prefix)
 {
     m_logger->info("Successfully registered prefix: {}", prefix.toUri());
     announce(announcements, events_, prefix.toUri());
+}
+
+static std::string iso8601_now_utc() 
+{
+    using namespace std::chrono;
+    auto now = system_clock::now();
+    std::time_t t = system_clock::to_time_t(now);
+    std::tm tm{};
+    gmtime_r(&t, &tm);
+    char buf[32];
+    std::strftime(buf, sizeof(buf), "%Y-%m-%dT%H:%M:%SZ", &tm);
+    return std::string(buf);
+}
+
+std::optional<nlohmann::json> SNDSProducer::fetch_broker_state_json_(const std::string& type) 
+{
+  // Reuse your existing HTTP helper; it already logs & parses
+  return _http_get_json("/state", {{"type", type}});
+}
+
+
+void SNDSProducer::upsert_type_id_(const std::string& type, const std::string& id) 
+{
+    store_.mutate([&](nlohmann::json& s)
+    {
+        auto& types = ensure_obj(s, "types");
+        auto& t     = types[type];               // auto-creates null
+        if (!t.is_object()) t = nlohmann::json::object();
+        auto& ids   = ensure_obj(t, "ids");
+        ids[id] = true;                          // add/overwrite
+    });
+}
+
+void SNDSProducer::erase_type_id_(const std::string& type, const std::string& id) 
+{
+    store_.mutate([&](nlohmann::json& s)
+    {
+        auto& types = ensure_obj(s, "types");
+        auto itT = types.find(type);
+        if (itT == types.end() || !itT->is_object()) return;
+        auto& ids = ensure_obj(*itT, "ids");
+        ids.erase(id);
+        // optional cleanup if empty
+        if (ids.empty()) itT->erase("ids");
+        if (itT->empty()) types.erase(type);
+    });
+}
+
+void SNDSProducer::upsert_sub_by_id_(const std::string& id, const std::string& node) 
+{
+    store_.mutate([&](nlohmann::json& s)
+    {
+        auto& subs = ensure_obj(s, "subscribers");
+        auto& byId = ensure_obj(subs, "byId");
+        auto& ent  = byId[id]; if (!ent.is_object()) ent = nlohmann::json::object();
+        auto& nodes= ensure_obj(ent, "nodes");
+        nodes[node] = true;
+    });
+}
+
+void SNDSProducer::erase_sub_by_id_(const std::string& id, const std::string& node) 
+{
+    store_.mutate([&](nlohmann::json& s)
+    {
+        auto& subs = ensure_obj(s, "subscribers");
+        auto& byId = ensure_obj(subs, "byId");
+        auto it = byId.find(id);
+        if (it == byId.end() || !it->is_object()) return;
+        auto& nodes = ensure_obj(*it, "nodes");
+        nodes.erase(node);
+        if (nodes.empty()) it->erase("nodes");
+        if (it->empty()) byId.erase(id);
+    });
+}
+
+void SNDSProducer::upsert_sub_by_type_(const std::string& type, const std::string& node) 
+{
+    store_.mutate([&](nlohmann::json& s)
+    {
+        auto& subs = ensure_obj(s, "subscribers");
+        auto& byT  = ensure_obj(subs, "byType");
+        auto& ent  = byT[type]; if (!ent.is_object()) ent = nlohmann::json::object();
+        auto& nodes= ensure_obj(ent, "nodes");
+        nodes[node] = true;
+    });
+}
+
+void SNDSProducer::erase_sub_by_type_(const std::string& type, const std::string& node) 
+{
+    store_.mutate([&](nlohmann::json& s)
+    {
+        auto& subs = ensure_obj(s, "subscribers");
+        auto& byT  = ensure_obj(subs, "byType");
+        auto it = byT.find(type);
+        if (it == byT.end() || !it->is_object()) return;
+        auto& nodes = ensure_obj(*it, "nodes");
+        nodes.erase(node);
+        if (nodes.empty()) it->erase("nodes");
+        if (it->empty()) byT.erase(type);
+    });
+}
+
+void SNDSProducer::store_announce_(const std::string& name) 
+{
+    store_.mutate([&](nlohmann::json& s)
+    {
+        auto& ann = ensure_obj(s, "announcements");
+        ann[name] = true;
+    });
+}
+
+void SNDSProducer::store_unannounce_(const std::string& name) 
+{
+    store_.mutate([&](nlohmann::json& s)
+    {
+        auto& ann = ensure_obj(s, "announcements");
+        ann.erase(name);
+    });
+}
+
+void SNDSProducer::update_store_with_broker_state_(const std::string& type) 
+{
+    const std::string effective_type = (type.empty() ? "GENERIC" : type);
+    auto j = fetch_broker_state_json_(effective_type);
+    if (!j) 
+    {
+        m_logger->warn("[broker] /state for type '{}' returned no JSON", type);
+        return;
+    }
+    // Expect: collection, algo, hash, count
+    store_.mutate([&](nlohmann::json& s)
+    {
+        auto& broker = ensure_obj(s, "broker");
+        auto& cols   = ensure_obj(broker, "collections");
+        cols[type] = {
+            {"algo",  j->value("algo",  "")},
+            {"hash",  j->value("hash",  "")},
+            {"count", j->value("count", 0)},
+            {"lastSeen", iso8601_now_utc()}
+        };
+        // keep endpoint around for observability
+        if (!broker.contains("endpoint")) broker["endpoint"] = fmt::format("{}:{}", broker_ip, broker_port);
+    });
+}
+
+void SNDSProducer::append_broker_journal_(const nlohmann::json& body)
+{
+    // Body must include at least id + type for deterministic replay.
+    const std::string id   = j_get_string_or(body, "id", "");
+    std::string       type = j_get_string_or(body, "type", "GENERIC");
+    if (type.empty()) type = "GENERIC";
+
+    if (id.empty()) 
+    {
+        m_logger->warn("[journal] skipping entry without 'id'");
+        return;
+    }
+
+    store_.mutate([&](nlohmann::json& s)
+    {
+        auto& broker  = ensure_obj(s, "broker");
+        auto& journal = ensure_arr(broker, "journal");
+
+        // Can dedupe identical consecutive payloads cheaply:
+        if (!journal.empty()) 
+        {
+            const auto& last = journal.back();
+            if (last.contains("payload") && last["payload"] == body) 
+            {
+                m_logger->debug("[journal] duplicate payload -> skip");
+                return;
+            }
+        }
+
+        nlohmann::json entry = 
+        {
+            {"ts",      iso8601_now_utc()},
+            {"type",    type},
+            {"id",      id},
+            {"payload", body}
+        };
+
+        journal.push_back(std::move(entry));
+
+        if (journal.size() > broker_journal_max)
+        {
+            // drop oldest to cap growth
+            const auto overflow = journal.size() - broker_journal_max;
+            journal.erase(journal.begin(), journal.begin() + static_cast<nlohmann::json::difference_type>(overflow));
+        }
+
+        try 
+        {
+            m_logger->debug("[journal] current entries ({}):\n{}", journal.size(), journal.dump(2));
+        } 
+        catch (const std::exception& e) 
+        {
+            m_logger->error("[journal] failed to dump JSON: {}", e.what());
+        }
+    });
+}
+
+
+void SNDSProducer::rehydrate_broker_from_journal_()
+{
+    m_logger->warn("[rehydrate] starting Broker rehydration from journal…");
+
+    // Snapshot journal to avoid mutating it while we POST
+    const auto snap = store_.get_snapshot().to_json();
+    const auto* broker = (snap.contains("state") && snap["state"].contains("broker")) ? &snap["state"]["broker"] : nullptr;
+    if (!broker || !broker->is_object())
+    {
+        m_logger->warn("[rehydrate] no 'broker' section in state; nothing to replay");
+        return;
+    }
+
+    const auto* journal = broker->contains("journal") ? &(*broker)["journal"] : nullptr;
+    if (!journal || !journal->is_array() || journal->empty())
+    {
+        m_logger->warn("[rehydrate] journal empty; nothing to replay");
+        return;
+    }
+
+    // POST each saved payload back to /add
+    httplib::Client cli(broker_ip.c_str(), broker_port);
+    cli.set_read_timeout(5, 0);
+    cli.set_connection_timeout(5, 0);
+
+    std::unordered_set<std::string> types_touched;
+
+    size_t ok = 0, fail = 0;
+    for (const auto& entry : *journal)
+    {
+        if (!entry.contains("payload")) continue;
+        const auto& payload = entry["payload"];
+        const auto  type    = payload.value("type", "GENERIC");
+
+        auto res = cli.Post("/add", payload.dump(), "application/json");
+        if (res && res->status == 200)
+        {
+            ok++;
+            types_touched.insert(type);
+        }
+        else
+        {
+            fail++;
+            m_logger->warn("[rehydrate] POST /add failed for id='{}' type='{}' : {}", payload.value("id",""), type, res ? std::to_string(res->status) : "no response");
+        }
+    }
+
+    // Refresh fingerprints for all types we touched
+    for (const auto& t : types_touched) update_store_with_broker_state_(t);
+    m_logger->warn("[rehydrate] completed: ok={} fail={}", ok, fail);
 }

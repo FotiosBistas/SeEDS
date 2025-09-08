@@ -62,7 +62,7 @@ set(MONGOCXX_LIBRARIES "${MONGO_CXX_LIBRARY_DIR}/libmongocxx.so")
 set(BSONCXX_LIBRARIES  "${MONGO_CXX_LIBRARY_DIR}/libbsoncxx.so")
 
 #####################################################################
-# Fetch and build ndn-cxx (via waf)
+# Fetch and build ndn-cxx (via waf, incremental)
 #####################################################################
 FetchContent_Declare(
   ndn-cxx
@@ -75,34 +75,45 @@ FetchContent_GetProperties(ndn-cxx)
 if(NOT ndn-cxx_POPULATED)
   FetchContent_Populate(ndn-cxx)
 
-  add_custom_target(ndn-cxx-build ALL
-    COMMAND ./waf distclean || true
+  set(NDN_CXX_INSTALL_DIR ${CMAKE_BINARY_DIR}/ndn-cxx/install)
+  set(NDN_CXX_INCLUDE_DIR ${NDN_CXX_INSTALL_DIR}/include)
+  set(NDN_CXX_LIBRARY_DIR ${NDN_CXX_INSTALL_DIR}/lib)
+
+  file(MAKE_DIRECTORY "${NDN_CXX_INCLUDE_DIR}" "${NDN_CXX_LIBRARY_DIR}")
+
+  add_custom_command(
+    OUTPUT ${NDN_CXX_LIBRARY_DIR}/libndn-cxx.so
     COMMAND ./waf configure
-            --prefix=${CMAKE_BINARY_DIR}/ndn-cxx/install
-            --libdir=${CMAKE_BINARY_DIR}/ndn-cxx/install/lib
+            --prefix=${NDN_CXX_INSTALL_DIR}
+            --libdir=${NDN_CXX_LIBRARY_DIR}
     COMMAND ./waf
     COMMAND ./waf install
     WORKING_DIRECTORY ${ndn-cxx_SOURCE_DIR}
-    COMMENT "Building ndn-cxx via waf"
+    BYPRODUCTS ${NDN_CXX_LIBRARY_DIR}/pkgconfig/libndn-cxx.pc
+    COMMENT "Building ndn-cxx via waf (incremental)"
+    VERBATIM
   )
+
+  add_custom_target(ndn-cxx-build
+    DEPENDS ${NDN_CXX_LIBRARY_DIR}/libndn-cxx.so
+  )
+
+  add_custom_target(ndn-cxx-clean
+    COMMAND ./waf distclean
+    WORKING_DIRECTORY ${ndn-cxx_SOURCE_DIR}
+    COMMENT "Running waf distclean for ndn-cxx"
+  )
+
+  add_library(ndn-cxx::ndn-cxx SHARED IMPORTED GLOBAL)
+  set_target_properties(ndn-cxx::ndn-cxx PROPERTIES
+    IMPORTED_LOCATION             "${NDN_CXX_LIBRARY_DIR}/libndn-cxx.so"
+    INTERFACE_INCLUDE_DIRECTORIES "${NDN_CXX_INCLUDE_DIR}"
+  )
+  add_dependencies(ndn-cxx::ndn-cxx ndn-cxx-build)
 endif()
 
-set(NDN_CXX_INCLUDE_DIR ${CMAKE_BINARY_DIR}/ndn-cxx/install/include)
-set(NDN_CXX_LIBRARY_DIR ${CMAKE_BINARY_DIR}/ndn-cxx/install/lib)
-
-# Ensure these folders exist at configure time so CMake doesn't error on IMPORTED target
-file(MAKE_DIRECTORY "${NDN_CXX_INCLUDE_DIR}" "${NDN_CXX_LIBRARY_DIR}")
-
-# Imported library target that will exist after ndn-cxx-build runs
-add_library(ndn-cxx::ndn-cxx SHARED IMPORTED GLOBAL)
-set_target_properties(ndn-cxx::ndn-cxx PROPERTIES
-  IMPORTED_LOCATION             "${NDN_CXX_LIBRARY_DIR}/libndn-cxx.so"
-  INTERFACE_INCLUDE_DIRECTORIES "${NDN_CXX_INCLUDE_DIR}"
-)
-add_dependencies(ndn-cxx::ndn-cxx ndn-cxx-build)
-
 #####################################################################
-# Fetch and build NFD (optional helper targets)
+# Fetch and build NFD
 #####################################################################
 FetchContent_Declare(
   nfd
@@ -130,7 +141,7 @@ if(NOT nfd_POPULATED)
 endif()
 
 #####################################################################
-# Fetch and build ndn-tools (optional helper targets)
+# Fetch and build ndn-tools
 #####################################################################
 FetchContent_Declare(
   ndn-tools
@@ -156,7 +167,7 @@ if(NOT ndn-tools_POPULATED)
 endif()
 
 #####################################################################
-# Export environment paths for NFD and ndn-cxx
+# Export environment paths
 #####################################################################
 set(NFD_BIN_DIR "${CMAKE_BINARY_DIR}/NFD/install/bin")
 set(NDN_CXX_BIN_DIR "${CMAKE_BINARY_DIR}/ndn-cxx/install/bin")
@@ -164,53 +175,40 @@ set(NDN_CXX_LIB_DIR "${CMAKE_BINARY_DIR}/ndn-cxx/install/lib")
 set(NDN_TOOLS_BIN_DIR "${CMAKE_BINARY_DIR}/ndn-tools/install/bin")
 set(BASHRC "$ENV{HOME}/.bashrc")
 
-# Only update .bashrc if needed
 file(READ "${BASHRC}" BASHRC_CONTENT)
 
-# Append PATH
 if(NOT BASHRC_CONTENT MATCHES "${NFD_BIN_DIR}")
   file(APPEND "${BASHRC}" "\n# Added by SeEDS CMake for local NFD build\n")
   file(APPEND "${BASHRC}" "export PATH=\$PATH:${NFD_BIN_DIR}:${NDN_CXX_BIN_DIR}\n")
 endif()
-
 if(NOT BASHRC_CONTENT MATCHES "${NDN_TOOLS_BIN_DIR}")
   file(APPEND "${BASHRC}" "export PATH=\$PATH:${NDN_TOOLS_BIN_DIR}\n")
 endif()
-
-# Append LD_LIBRARY_PATH
 if(NOT BASHRC_CONTENT MATCHES "${NDN_CXX_LIB_DIR}")
   file(APPEND "${BASHRC}" "export LD_LIBRARY_PATH=\$LD_LIBRARY_PATH:${NDN_CXX_LIB_DIR}\n")
 endif()
-
 if(NOT BASHRC_CONTENT MATCHES "${MONGO_CXX_LIBRARY_DIR}")
   file(APPEND "${BASHRC}" "export LD_LIBRARY_PATH=\$LD_LIBRARY_PATH:${MONGO_CXX_LIBRARY_DIR}\n")
 endif()
 
-# Ensure nfd.conf exists by copying from nfd.conf.sample
 set(NFD_CONF_DIR "${CMAKE_BINARY_DIR}/NFD/install/etc/ndn")
 set(NFD_CONF_SRC "${NFD_CONF_DIR}/nfd.conf.sample")
 set(NFD_CONF_DEST "${NFD_CONF_DIR}/nfd.conf")
-
 if(EXISTS "${NFD_CONF_SRC}" AND NOT EXISTS "${NFD_CONF_DEST}")
   file(COPY "${NFD_CONF_SRC}" DESTINATION "${NFD_CONF_DIR}")
   file(RENAME "${NFD_CONF_SRC}" "${NFD_CONF_DEST}")
 endif()
 
-# Add convenience shell script to launch NFD with correct LD_LIBRARY_PATH
 set(NFD_RUNNER_PATH "${CMAKE_BINARY_DIR}/run-nfd.sh")
-
 file(WRITE "${NFD_RUNNER_PATH}" "#!/bin/bash\n")
 file(APPEND "${NFD_RUNNER_PATH}" "# Auto-generated by CMake - run NFD with local ndn-cxx lib\n")
 file(APPEND "${NFD_RUNNER_PATH}" "export LD_LIBRARY_PATH=\$LD_LIBRARY_PATH:${NDN_CXX_LIB_DIR}\n")
 file(APPEND "${NFD_RUNNER_PATH}" "exec ${CMAKE_BINARY_DIR}/NFD/install/bin/nfd \"\$@\"\n")
-
-# Set executable permissions (755)
 file(CHMOD "${NFD_RUNNER_PATH}" PERMISSIONS
   OWNER_READ OWNER_WRITE OWNER_EXECUTE
   GROUP_READ GROUP_EXECUTE
   WORLD_READ WORLD_EXECUTE
 )
-
 message(STATUS "🛠  Created helper script to run NFD: ${NFD_RUNNER_PATH}")
 message(STATUS "👉  You can run it like this: sudo ./run-nfd.sh")
 
@@ -223,7 +221,6 @@ FetchContent_Declare(
   GIT_TAG v3.12.0
   GIT_SHALLOW TRUE
 )
-
 FetchContent_GetProperties(nlohmann_json)
 if(NOT nlohmann_json_POPULATED)
   FetchContent_Populate(nlohmann_json)
@@ -242,7 +239,6 @@ FetchContent_Declare(
   GIT_REPOSITORY https://github.com/gabime/spdlog.git
   GIT_TAG v1.11.0
 )
-
 FetchContent_GetProperties(spdlog)
 if(NOT spdlog_POPULATED)
   FetchContent_Populate(spdlog)
@@ -250,7 +246,7 @@ if(NOT spdlog_POPULATED)
 endif()
 
 #####################################################################
-# Fetch and add cpp-httplib (header-only)
+# Fetch and add cpp-httplib
 #####################################################################
 FetchContent_Declare(
   cpp-httplib
@@ -263,7 +259,7 @@ if(NOT cpp-httplib_POPULATED)
 endif()
 
 #####################################################################
-# Set up common source/include directories
+# Source dirs
 #####################################################################
 set(SNDS_MESSAGE_DIR        ${CMAKE_SOURCE_DIR}/src/snds_message)
 set(SNDS_QUERY_PARAMS_DIR   ${CMAKE_SOURCE_DIR}/src/snds_query_params)
@@ -276,7 +272,7 @@ set(SNDS_TEMPORAL_QUERY_DIR ${CMAKE_SOURCE_DIR}/src/snds_temporal_query)
 set(SNDS_RESILIENCE_DIR     ${CMAKE_SOURCE_DIR}/src/snds_resilience)
 
 #####################################################################
-# snds_query_params (header-only)
+# snds_query_params
 #####################################################################
 add_library(snds_query_params INTERFACE)
 target_include_directories(snds_query_params
@@ -286,14 +282,14 @@ target_include_directories(snds_query_params
 )
 
 #####################################################################
-# snds_message (header-only)
+# snds_message
 #####################################################################
 add_library(snds_message INTERFACE)
 target_include_directories(snds_message INTERFACE ${SNDS_MESSAGE_DIR})
 target_link_libraries(snds_message INTERFACE snds_query_params)
 
 #####################################################################
-# snds_utils (static)
+# snds_utils
 #####################################################################
 set(SNDS_UTILS_SOURCES ${SNDS_UTILS_DIR}/snds_utils.cpp)
 add_library(snds_utils STATIC ${SNDS_UTILS_SOURCES})
@@ -305,9 +301,8 @@ target_link_libraries(snds_utils PUBLIC
 )
 target_link_libraries(snds_query_params INTERFACE snds_utils)
 
-
 #####################################################################
-# temporal_query (static)
+# temporal_query
 #####################################################################
 set(SNDS_TEMPORAL_QUERY_SOURCES ${SNDS_TEMPORAL_QUERY_DIR}/temporal_query.cpp)
 add_library(temporal_query STATIC ${SNDS_TEMPORAL_QUERY_SOURCES})
@@ -319,7 +314,7 @@ target_link_libraries(temporal_query PRIVATE
 )
 
 #####################################################################
-# snds_resilience (static)
+# snds_resilience
 #####################################################################
 set(SNDS_RESILIENCE_SOURCES
   ${SNDS_RESILIENCE_DIR}/snds_resilience.cpp
@@ -333,7 +328,7 @@ target_link_libraries(snds_resilience PUBLIC
 )
 
 #####################################################################
-# snds_interest (static)
+# snds_interest
 #####################################################################
 set(SNDS_INTEREST_SOURCES ${SNDS_INTEREST_DIR}/parsed_interest_name.cpp)
 add_library(snds_interest STATIC ${SNDS_INTEREST_SOURCES})
@@ -341,7 +336,7 @@ target_include_directories(snds_interest PUBLIC ${SNDS_INTEREST_DIR})
 target_link_libraries(snds_interest PUBLIC ndn-cxx::ndn-cxx)
 
 #####################################################################
-# message_queue (static)
+# message_queue
 #####################################################################
 set(MESSAGE_QUEUE_SOURCES ${SNDS_QUEUE_DIR}/message_queue.cpp)
 add_library(message_queue STATIC ${MESSAGE_QUEUE_SOURCES})
@@ -358,7 +353,7 @@ target_link_libraries(message_queue
 )
 
 #####################################################################
-# snds_broker (static + exe) — isolated from daemon
+# snds_broker
 #####################################################################
 set(SNDS_BROKER_SOURCES
   ${SNDS_BROKER_DIR}/broker.cpp
@@ -384,7 +379,6 @@ target_link_libraries(snds_broker PUBLIC
 
 add_executable(snds_broker_bin ${SNDS_BROKER_DIR}/broker_main.cpp)
 add_dependencies(snds_broker_bin mongo-cxx-driver)
-
 target_include_directories(snds_broker_bin PRIVATE
   ${cpp-httplib_SOURCE_DIR}
   ${SNDS_BROKER_DIR}
@@ -392,19 +386,17 @@ target_include_directories(snds_broker_bin PRIVATE
   ${MONGO_CXX_INSTALL_DIR}/include/bsoncxx/v_noabi
   ${MONGO_CXX_INSTALL_DIR}/include/mongocxx/v_noabi
 )
-
 target_link_libraries(snds_broker_bin PRIVATE
   snds_broker
   spdlog::spdlog
 )
-# Ensure broker finds libmongocxx/libbsoncxx at runtime without env hacks
 set_target_properties(snds_broker_bin PROPERTIES
   BUILD_RPATH   "${MONGO_CXX_LIBRARY_DIR}"
   INSTALL_RPATH "${MONGO_CXX_LIBRARY_DIR}"
 )
 
 #####################################################################
-# snds_service (static) — no broker dependency
+# snds_service
 #####################################################################
 set(SNDS_SERVICE_SOURCES
   ${SNDS_SERVICE_DIR}/snds_service_base.cpp
@@ -429,6 +421,7 @@ target_link_libraries(snds_service PUBLIC
   ndn-cxx::ndn-cxx
   spdlog::spdlog
   nlohmann_json::nlohmann_json
+  snds_resilience
 )
 add_dependencies(snds_service ndn-cxx-build)
 

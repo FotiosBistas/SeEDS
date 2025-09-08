@@ -3,10 +3,11 @@
 #include <nlohmann/json.hpp>
 
 #include "httplib.h"
+
 #include "snds_service_base.hpp"
 #include "parsed_interest_name.hpp"
 #include "temporal_query.hpp"
-
+#include "snds_resilience.hpp"
 #include "snds_utils.h"
 
 struct RegistryEvents
@@ -45,7 +46,7 @@ public:
 		std::string broker_ip = "0.0.0.0",
 		size_t broker_port = 10000,
 		std::string registryType = "CAR")
-		: ServiceBase(
+		:ServiceBase(
 			  logLevel,
 			  logFile,
 			  number_of_snds_services,
@@ -58,10 +59,27 @@ public:
 			  serviceName,
 			  broker_ip,
 			  broker_port)
+  		,store_(m_logger)
 	{
+		store_.assign
+		(
+			nlohmann::json
+			{
+				{"types", nlohmann::json::object()},
+				{"subscribers", {{"byId", nlohmann::json::object()}, {"byType", nlohmann::json::object()}}},
+				{"announcements", nlohmann::json::object()},
+				{
+					"broker", 
+					{
+						{"endpoint", fmt::format("{}:{}", broker_ip, broker_port)},
+						{"collections", nlohmann::json::object()}   // per-type summaries
+					}
+				}
+			}
+		);
+
 		m_logger->info("SNDSProducer initialized with serviceName: {}", this->serviceName);
-		m_logger->info("SNDSProducer will connect to Broker with IP: {} and port: {}",
-					   this->broker_ip, this->broker_port);
+		m_logger->info("SNDSProducer will connect to Broker with IP: {} and port: {}", this->broker_ip, this->broker_port);
 		type_registry[registryType] = std::unordered_set<std::string>{};
 	}
 
@@ -80,6 +98,11 @@ public:
 	void process_subscription_notification_interest(const parsed_interest_name::ParsedInterestName &interest);
 	void process_temporal_query_interest(const parsed_interest_name::ParsedInterestName &interest);
 	void process_version_metafile_interest(const parsed_interest_name::ParsedInterestName &interest);
+
+	void process_resilience_is_alive_interest(const parsed_interest_name::ParsedInterestName &interest);
+	void process_resilience_patch_interest(const parsed_interest_name::ParsedInterestName &interest);
+	void process_resilience_meta_interest(const parsed_interest_name::ParsedInterestName &interest);
+
 	void process_temporal_query_advertisement(const std::string &content);
 	void process_by_id_advertisement(const std::string &content);
 	void process_temporal_query_request(const std::string &content);
@@ -103,6 +126,9 @@ private:
 	SubscribersByID subscribed_nodes_for_id;	 // maps ID to subscribed nodes
 	SubscribersByType subscribed_nodes_for_type; // maps TYPE to subscribed nodes
 	Announcements announcements;
+
+	snds_resilience::Store  store_;
+
 
 	inline bool register_id_for_type(TypeRegistry &reg, RegistryEvents &ev, const std::string &type, const std::string &id)
 	{
@@ -179,5 +205,70 @@ private:
 			ev.on_announce_remove(name);
 		return erased != 0;
 	}
+
+	static inline std::string normalize_type_(const nlohmann::json& doc) 
+	{
+		if (doc.contains("type") && doc["type"].is_string()) 
+		{
+			const auto& t = doc["type"].get_ref<const std::string&>();
+			if (!t.empty()) return t;
+		}
+		return "GENERIC";
+	}
+
+	static nlohmann::json& ensure_obj(nlohmann::json& j, const char* key) 
+	{
+		if (!j.contains(key) || !j[key].is_object()) j[key] = nlohmann::json::object();
+		return j[key];
+	}
+
+	static inline nlohmann::json& ensure_arr(nlohmann::json& j, const char* key) 
+	{
+		if (!j.contains(key) || !j[key].is_array()) j[key] = nlohmann::json::array();
+		return j[key];
+	}
+
+	static inline std::string j_get_string_or(const nlohmann::json& j, const char* key, std::string_view def)
+	{
+	    auto it = j.find(key);
+	    if (it == j.end()) return std::string(def);
+	    if (it->is_string()) return it->get<std::string>();
+	    // Fallback: stringify non-strings to avoid silent loss
+	    return it->dump();
+	}
+
+
+	// HTTP fetch to Broker /state?type=...
+	std::optional<nlohmann::json> fetch_broker_state_json_(const std::string& type);
+
+	// Registry → Store mutations
+	void upsert_type_id_(const std::string& type, const std::string& id);
+	void erase_type_id_(const std::string& type, const std::string& id);
+
+	void upsert_sub_by_id_(const std::string& id, const std::string& node);
+	void erase_sub_by_id_(const std::string& id, const std::string& node);
+
+	void upsert_sub_by_type_(const std::string& type, const std::string& node);
+	void erase_sub_by_type_(const std::string& type, const std::string& node);
+
+	// Announcements → Store
+	void store_announce_(const std::string& name);
+	void store_unannounce_(const std::string& name);
+
+	// Broker snapshot → Store
+	void update_store_with_broker_state_(const std::string& type);
+
+	// Keep the last N successful /add payloads so we can replay to a fresh Broker.
+	static constexpr size_t broker_journal_max = 5000;
+
+	// Append one entry to the broker journal (called after /add OK).
+	void append_broker_journal_(const nlohmann::json& body);
+
+	// Try to replay the journal into the Broker (use on failover or when Broker comes back).
+	void rehydrate_broker_from_journal_();
+
+	// Optional: convenience check that decides when to rebuild Broker
+	// (e.g., /state fails or collection looks empty after restart).
+	void maybe_rehydrate_broker_(const std::string& type);
 
 };
