@@ -102,6 +102,7 @@ public:
 	void process_resilience_is_alive_interest(const parsed_interest_name::ParsedInterestName &interest);
 	void process_resilience_patch_interest(const parsed_interest_name::ParsedInterestName &interest);
 	void process_resilience_meta_interest(const parsed_interest_name::ParsedInterestName &interest);
+	void process_resilience_snapshot_interest(const parsed_interest_name::ParsedInterestName &interest);
 
 	void process_temporal_query_advertisement(const std::string &content);
 	void process_by_id_advertisement(const std::string &content);
@@ -204,6 +205,18 @@ private:
 		if (erased && ev.on_announce_remove)
 			ev.on_announce_remove(name);
 		return erased != 0;
+	}
+
+	static inline std::string iso8601_now_utc() 
+	{
+	    using namespace std::chrono;
+	    auto now = system_clock::now();
+	    std::time_t t = system_clock::to_time_t(now);
+	    std::tm tm{};
+	    gmtime_r(&t, &tm);
+	    char buf[32];
+	    std::strftime(buf, sizeof(buf), "%Y-%m-%dT%H:%M:%SZ", &tm);
+	    return std::string(buf);
 	}
 
 	static inline std::string normalize_type_(const nlohmann::json& doc) 

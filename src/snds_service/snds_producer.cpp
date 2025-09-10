@@ -440,6 +440,9 @@ void SNDSProducer::onInterest(const ndn::Interest& interest)
     case parsed_interest_name::interest_message_type::INTEREST_MESSAGE_TYPE::GET_RESILIENCE_META:
         process_resilience_meta_interest(pi);
         break;
+    case parsed_interest_name::interest_message_type::INTEREST_MESSAGE_TYPE::GET_RESILIENCE_SNAPSHOT:
+        process_resilience_snapshot_interest(pi);
+        break;
     case parsed_interest_name::interest_message_type::INTEREST_MESSAGE_TYPE::GET_RESILIENCE_PATCH:
         process_resilience_patch_interest(pi);
         break;
@@ -449,19 +452,177 @@ void SNDSProducer::onInterest(const ndn::Interest& interest)
 
 }
 
+void SNDSProducer::process_resilience_snapshot_interest(const parsed_interest_name::ParsedInterestName& interest)
+{
+    const auto interest_response = parsed_interest_name::to_custom_ndn_name(interest, /*as_data_name*/ true);
+
+    // param: to_version
+    const auto maybe_to = interest.get_interest_parameter(0);
+
+    // latest version from the store (authoritative head)
+    const uint64_t latest_version = store_.get_meta().version;
+
+    if (!maybe_to.has_value())
+    {
+        nlohmann::json body = {{"error","missing_parameters"}, {"advice","fetch_snapshot"}, {"latest",latest_version}};
+        sendData(interest_response, body.dump());
+        return;
+    }
+
+    uint64_t to_version = 0;
+    try
+    {
+        to_version = std::stoull(*maybe_to);
+    }
+    catch (...)
+    {
+        nlohmann::json body = {{"error","invalid_parameters"}, {"advice","fetch_snapshot"}, {"latest",latest_version}};
+        sendData(interest_response, body.dump());
+        return;
+    }
+
+    // We serve snapshots for our current head only.
+    if (to_version != latest_version)
+    {
+        nlohmann::json body = {{"error","unknown_target_version"}, {"advice","fetch_snapshot"}, {"latest",latest_version}};
+        sendData(interest_response, body.dump());
+        return;
+    }
+
+    // Build snapshot of the current state
+    const auto snap = store_.get_snapshot();
+
+    // Race safety: ensure the store did not advance after we checked 'latest_version'
+    if (snap.version != to_version)
+    {
+        const uint64_t refreshed_latest = store_.get_meta().version;
+        nlohmann::json body = {{"error","store_advanced"}, {"advice","fetch_snapshot"}, {"latest",refreshed_latest}};
+        sendData(interest_response, body.dump());
+        return;
+    }
+
+    // Success: send snapshot as JSON (kind=snapshot, version/hash/state)
+    const std::string payload = snap.to_json().dump();
+    sendData(interest_response, payload);
+}
+
 void SNDSProducer::process_resilience_is_alive_interest(const parsed_interest_name::ParsedInterestName &interest)
 {
 
+    auto interest_response = parsed_interest_name::to_custom_ndn_name(interest, true);
+
+    const auto maybe_nonce = interest.get_interest_parameter(0);
+    if (!maybe_nonce) 
+    {
+        m_logger->warn("[isAlive] missing nonce");
+        nlohmann::json j = 
+        { 
+            {"ack", false}, 
+            {"reason","missing-nonce"} 
+        };
+        sendData(interest_response, j.dump());
+        return;
+    }
+
+    nlohmann::json j = 
+    {
+        {"ack",   true},
+        {"nonce", *maybe_nonce},
+        {"ts",    iso8601_now_utc()}
+    };
+
+    sendData(interest_response, j.dump());
 }
 
-void SNDSProducer::process_resilience_patch_interest(const parsed_interest_name::ParsedInterestName &interest)
+void SNDSProducer::process_resilience_patch_interest(const parsed_interest_name::ParsedInterestName& interest)
 {
+    const auto interest_response = parsed_interest_name::to_custom_ndn_name(interest, /*as_data_name*/ true);
 
+    // parameters: from_version, to_version
+    const auto maybe_from = interest.get_interest_parameter(0);
+    const auto maybe_to   = interest.get_interest_parameter(1);
+
+    // latest version from the authoritative store
+    const uint64_t latest_version = store_.get_meta().version;
+
+    if (!maybe_from.has_value() || !maybe_to.has_value()) 
+    {
+        nlohmann::json body = {{"error","missing_parameters"}, {"advice","fetch_snapshot"}, {"latest",latest_version}};
+        sendData(interest_response, body.dump());
+        return;
+    }
+
+    uint64_t from_version = 0;
+    uint64_t to_version   = 0;
+    try 
+    {
+        from_version = std::stoull(*maybe_from);
+        to_version   = std::stoull(*maybe_to);
+    } 
+    catch (...) 
+    {
+        nlohmann::json body = {{"error","invalid_parameters"}, {"advice","fetch_snapshot"}, {"latest",latest_version}};
+        sendData(interest_response, body.dump());
+        return;
+    }
+
+    if (to_version <= from_version) 
+    {
+        nlohmann::json body = {{"error","non_increasing_version"}, {"advice","fetch_snapshot"}, {"latest",latest_version}};
+        sendData(interest_response, body.dump());
+        return;
+    }
+
+    // We serve patches only to our current head (simple, deterministic contract).
+    // If the requested target differs, tell the consumer what to aim for.
+    if (to_version != latest_version) 
+    {
+        nlohmann::json body = {{"error","unknown_target_version"}, {"advice","fetch_snapshot"}, {"latest",latest_version}};
+        sendData(interest_response, body.dump());
+        return;
+    }
+
+    // Build patch from 'from_version' → CURRENT (latest_version)
+    auto patch_opt = store_.make_patch_from(from_version);
+    if (!patch_opt.has_value()) 
+    {
+        // likely too old; our history window dropped that base
+        nlohmann::json body = {{"error","patch_unavailable"}, {"advice","fetch_snapshot"}, {"latest",latest_version}};
+        sendData(interest_response, body.dump());
+        return;
+    }
+
+    // Safety: store may have advanced between checks; re-validate target
+    if (patch_opt->target_version != to_version) 
+    {
+        const uint64_t refreshed_latest = store_.get_meta().version;
+        nlohmann::json body = {{"error","store_advanced"}, {"advice","fetch_snapshot"}, {"latest",refreshed_latest}};
+        sendData(interest_response, body.dump());
+        return;
+    }
+
+    // Success: send the patch as JSON (kind=patch, with ops/hash/versions)
+    const std::string payload = patch_opt->to_json().dump();
+    sendData(interest_response, payload);
 }
 
 void SNDSProducer::process_resilience_meta_interest(const parsed_interest_name::ParsedInterestName &interest)
 {
 
+    const auto interest_response = parsed_interest_name::to_custom_ndn_name(interest, true);
+
+    const auto snap = store_.get_snapshot();  // has .version, .hash, .state
+
+    nlohmann::json meta = 
+    {
+        {"version", snap.version},            // uint64_t
+        {"hash",    snap.hash},               // canonical md5 of state
+        {"ts",      iso8601_now_utc()}        // ISO-8601 UTC
+    };
+
+    meta["state_name"] = snds_state_with_id;   // e.g., "state_0"
+
+    sendData(interest_response, meta.dump());
 }
 
 void SNDSProducer::process_version_metafile_interest(const parsed_interest_name::ParsedInterestName& interest)
@@ -1027,18 +1188,6 @@ void SNDSProducer::onRegisterSuccess(const ndn::Name& prefix)
 {
     m_logger->info("Successfully registered prefix: {}", prefix.toUri());
     announce(announcements, events_, prefix.toUri());
-}
-
-static std::string iso8601_now_utc() 
-{
-    using namespace std::chrono;
-    auto now = system_clock::now();
-    std::time_t t = system_clock::to_time_t(now);
-    std::tm tm{};
-    gmtime_r(&t, &tm);
-    char buf[32];
-    std::strftime(buf, sizeof(buf), "%Y-%m-%dT%H:%M:%SZ", &tm);
-    return std::string(buf);
 }
 
 std::optional<nlohmann::json> SNDSProducer::fetch_broker_state_json_(const std::string& type) 

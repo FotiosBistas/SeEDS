@@ -471,3 +471,30 @@ target_link_libraries(resilience_demo PRIVATE
   spdlog::spdlog
   nlohmann_json::nlohmann_json
 )
+
+#####################################################################
+# Resilience poller 
+#####################################################################
+add_executable(resilience_poller_bin
+  ${SNDS_RESILIENCE_DIR}/main.cpp
+  ${SNDS_RESILIENCE_DIR}/snds_resilience.cpp
+  ${SNDS_RESILIENCE_DIR}/snds_resilience_poller.cpp
+  ${SNDS_UTILS_DIR}/snds_utils.cpp
+)
+
+target_include_directories(resilience_poller_bin PRIVATE
+  ${SNDS_RESILIENCE_DIR}
+  ${SNDS_INTEREST_DIR}
+  ${SNDS_UTILS_DIR}
+  ${NDN_CXX_INCLUDE_DIR}
+)
+
+target_link_libraries(resilience_poller_bin PRIVATE
+  ndn-cxx::ndn-cxx
+  spdlog::spdlog
+  nlohmann_json::nlohmann_json
+  snds_interest      # for parsed_interest_name
+  snds_utils         # for url_decode and helpers
+)
+
+add_dependencies(resilience_poller_bin ndn-cxx-build)

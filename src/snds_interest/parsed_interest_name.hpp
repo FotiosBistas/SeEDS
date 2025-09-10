@@ -28,7 +28,8 @@
     X(GET_BY_ID_FROM_NODE,            "getByIDFromNode") \
     X(GET_RESILIENCE_META,            "getResilienceMeta") \
     X(GET_RESILIENCE_PATCH,           "getResiliencePatch") \
-    X(GET_RESILIENCE_IS_ALIVE,        "getResilienceIsAlive")
+    X(GET_RESILIENCE_IS_ALIVE,        "getResilienceIsAlive") \
+    X(GET_RESILIENCE_SNAPSHOT,        "getResilienceSnapshot")
 
 namespace parsed_interest_name {
 
