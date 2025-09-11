@@ -1,25 +1,30 @@
 // main.cpp
-#include <ndn-cxx/face.hpp>
-#include <boost/asio/signal_set.hpp>
-#include <spdlog/spdlog.h>
-#include <spdlog/sinks/stdout_color_sinks.h>
-
-#include "snds_resilience_poller.hpp"
-#include "snds_resilience.hpp"
-
-#include <nlohmann/json.hpp>
-
 #include <memory>
 #include <string>
 #include <chrono>
 #include <functional>
 #include <csignal>
 
+#include <ndn-cxx/face.hpp>
+#include <boost/asio/signal_set.hpp>
+#include <boost/asio.hpp>
+#include <spdlog/spdlog.h>
+#include <spdlog/sinks/stdout_color_sinks.h>
+#include <nlohmann/json.hpp>
+
+#include "snds_resilience_poller.hpp"
+#include "snds_resilience.hpp"
+#include "snds_ipc_tcp.hpp"
+
+
+
 using std::placeholders::_1;
 using std::placeholders::_2;
 
-// --- helpers wired via std::bind ---
+std::atomic<int>  miss_streak{0};
+std::atomic<bool> promoted{false};
 
+// --- helpers wired via std::bind ---
 static bool apply_snapshot_from_json(snds_resilience::Mirror* mirror, std::shared_ptr<spdlog::logger> log, const std::string& payload)
 {
     try 
@@ -87,16 +92,21 @@ int main(int argc, char** argv)
     // argv[3]: peer state name   (default "state_0")
     // argv[4]: alive period ms   (default 2000)
     // argv[5]: meta  period ms   (default 2000)
+    // Make host/port configurable (argv[6], argv[7]) with sensible defaults
     const std::string prefix       = (argc > 1) ? argv[1] : "SNDS";
     const std::string peer_alive   = (argc > 2) ? argv[2] : "is_alive_0";
     const std::string peer_state   = (argc > 3) ? argv[3] : "state_0";
     const int         alive_ms     = (argc > 4) ? std::stoi(argv[4]) : 2000;
     const int         meta_ms      = (argc > 5) ? std::stoi(argv[5]) : 2000;
+    const std::string ipc_host = (argc > 6) ? argv[6] : "127.0.0.1";
+    const uint16_t    ipc_port = (argc > 7) ? static_cast<uint16_t>(std::stoi(argv[7])) : 47832;
+
 
     // ---- logger ----
     auto logger = spdlog::stdout_color_mt("poller");
     logger->set_pattern("[%Y-%m-%d %H:%M:%S.%e] [%^%l%$] %v");
     logger->info("[main] starting poller: prefix='{}' alive='{}' state='{}' alive_ms={} meta_ms={}", prefix, peer_alive, peer_state, alive_ms, meta_ms);
+    logger->info("[main] starting IPC communication: ipc_host='{}', ipc_port='{}'", ipc_host, ipc_port);
 
     // ---- face & signals ----
     ndn::Face face;
@@ -115,24 +125,95 @@ int main(int argc, char** argv)
 
     snds_resilience::Mirror mirror(logger);
 
-    // wire callbacks
-    poller.on_alive = std::bind(
-        [](std::shared_ptr<spdlog::logger> log, bool ok){
-            if (!ok && log) log->warn("[poller] heartbeat missed");
-        },
-        logger, _1
-    );
 
-    poller.on_meta = std::bind(
-        [](std::shared_ptr<spdlog::logger> log, const ResiliencePoller::Meta& m){
-            if (log) log->info("[poller] remote version={} hash={}", m.version, m.hash);
-        },
-        logger, _1
-    );
+    auto ipc_send = [&](const char* kind, const std::string& payload)
+    {
+        try 
+        {
+            nlohmann::json env = {{"kind", kind}, {"payload", nlohmann::json::parse(payload)}};
+
+            boost::asio::io_context ioc;
+            boost::asio::ip::tcp::socket sock{ioc};
+            boost::asio::ip::tcp::endpoint ep(
+            boost::asio::ip::make_address(ipc_host), ipc_port);
+            sock.connect(ep);
+            snds_ipc_tcp::send_json(sock, env);
+            sock.close();
+        } 
+        catch (...) 
+        {
+            if (logger) logger->debug("[ipc] send failed (non-fatal)");
+        }
+    };
+    // wire callbacks
+    poller.on_alive = [&, logger](bool ok) 
+    {
+        if (ok) 
+        {
+            if (miss_streak.load() != 0 && logger) logger->info("[poller] heartbeat OK (miss streak {} -> 0)", miss_streak.load());
+            miss_streak.store(0);
+            return;
+        }
+
+        const int m = miss_streak.fetch_add(1) + 1;
+        if (logger) logger->warn("[poller] heartbeat missed (streak = {})", m);
+
+        if (m >= 3 && !promoted.exchange(true)) 
+        {
+            if (logger) logger->warn("[poller] promoting to PRIMARY ({} consecutive misses)", m);
+            nlohmann::json role = 
+            {
+                {"role",   "primary"},
+                {"reason", "alive-missed"},
+                {"misses", m}
+            };
+            ipc_send("role", role.dump());
+
+            // --- stop this process cleanly after promotion ---
+            if (logger) logger->warn("[poller] stopping poller and IO after promotion");
+            poller.stop();
+            face.getIoContext().stop();
+        }
+    };
+
+    poller.on_meta = [&](const ResiliencePoller::Meta& m) {
+        if (logger) logger->info("[poller] remote version={} hash={}", m.version, m.hash);
+
+        // Recreate the meta JSON the producer expects to log
+        nlohmann::json meta = {
+            {"version", m.version},
+            {"hash",    m.hash},
+            {"ts",      m.ts}
+            // You can also include state_name if you want, e.g. {"state_name", peer_state}
+        };
+
+        if (logger) logger->info("[poller] Sending META to the IPC channel");
+        ipc_send("meta", meta.dump());
+    };
 
     // Apply snapshot/patch via Mirror (std::bind, no lambdas)
-    poller.on_apply_snapshot      = std::bind(&apply_snapshot_from_json, &mirror, logger, _1);
-    poller.on_apply_patch         = std::bind(&apply_patch_from_json,    &mirror, logger, _1);
+    poller.on_apply_snapshot = [&](const std::string& payload) 
+    {
+        const bool ok = apply_snapshot_from_json(&mirror, logger, payload);
+        if (ok) 
+        {
+            if(logger) logger->info("[poller] Sending data to the IPC channel");
+            ipc_send("snapshot", payload);
+        }
+        return ok;
+    };
+
+    poller.on_apply_patch = [&](const std::string& payload) 
+    {
+        const bool ok = apply_patch_from_json(&mirror, logger, payload);
+        if (ok) 
+        {
+            if(logger) logger->info("[poller] Sending data to the IPC channel");
+            ipc_send("patch", payload);
+        }
+        return ok;
+    };
+
     poller.on_patch_applied_ok    = std::bind(&on_patch_applied_log,     logger, _1, _2);
     poller.on_snapshot_applied_ok = std::bind(&on_snapshot_applied_log,  logger, _1);
 

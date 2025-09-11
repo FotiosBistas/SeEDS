@@ -96,6 +96,11 @@ void SNDSProducer::init(){
         store_unannounce_(name);
     };
 
+    if (enable_resilience_ipc_) 
+    {
+        start_resilience_ipc_();
+    }
+
     // Advertise for each type in the registry map
     // [2025-03-04 08:29:36.980] [info] Announcing name: /SNDS/CAR
     // [2025-03-04 08:29:36.980] [info] Announcing name: /SNDS/CAR_registry
@@ -176,6 +181,17 @@ void SNDSProducer::init(){
     while (running.load())
     {
         // m_logger->debug("Reading packet...");
+        if (am_primary_.load() && resilience_ipc_running_.load()) 
+        {
+            m_logger->warn("[resilience-ipc] stopping IPC listener (became PRIMARY)");
+            stop_resilience_ipc_(); // safe here; runs on a different thread than the IPC server
+        }
+
+        // Continuous warm-up: when secondary receives a patch/snapshot, replay new journal items
+        if (!am_primary_.load() && rehydrate_tick_.exchange(false)) 
+        {
+            replay_broker_journal_incremental_();
+        }
         // Process events non-blockingly (or with a timeout)
         m_face.processEvents(ndn::time::seconds(2)); // Process for 1 second
 
@@ -1192,8 +1208,7 @@ void SNDSProducer::onRegisterSuccess(const ndn::Name& prefix)
 
 std::optional<nlohmann::json> SNDSProducer::fetch_broker_state_json_(const std::string& type) 
 {
-  // Reuse your existing HTTP helper; it already logs & parses
-  return _http_get_json("/state", {{"type", type}});
+    return _http_get_json("/state", {{"type", type}});
 }
 
 
@@ -1305,18 +1320,20 @@ void SNDSProducer::update_store_with_broker_state_(const std::string& type)
         m_logger->warn("[broker] /state for type '{}' returned no JSON", type);
         return;
     }
-    // Expect: collection, algo, hash, count
+
     store_.mutate([&](nlohmann::json& s)
     {
         auto& broker = ensure_obj(s, "broker");
         auto& cols   = ensure_obj(broker, "collections");
-        cols[type] = {
-            {"algo",  j->value("algo",  "")},
-            {"hash",  j->value("hash",  "")},
-            {"count", j->value("count", 0)},
+
+        cols[effective_type] = 
+        {
+            {"algo",    j->value("algo",  "")},
+            {"hash",    j->value("hash",  "")},
+            {"count",   j->value("count", 0)},
             {"lastSeen", iso8601_now_utc()}
         };
-        // keep endpoint around for observability
+
         if (!broker.contains("endpoint")) broker["endpoint"] = fmt::format("{}:{}", broker_ip, broker_port);
     });
 }
@@ -1429,4 +1446,222 @@ void SNDSProducer::rehydrate_broker_from_journal_()
     // Refresh fingerprints for all types we touched
     for (const auto& t : types_touched) update_store_with_broker_state_(t);
     m_logger->warn("[rehydrate] completed: ok={} fail={}", ok, fail);
+}
+
+void SNDSProducer::start_resilience_ipc_() 
+{
+    if (resilience_ipc_running_.exchange(true)) return;
+
+    resilience_ipc_thr_ = std::thread([this]{
+        try 
+        {
+            boost::asio::io_context ioc;
+            boost::asio::ip::tcp::acceptor acc(ioc, {boost::asio::ip::make_address(resilience_ipc_host_), resilience_ipc_port_});
+
+            m_logger->info("[resilience-ipc] listening on {}:{}", resilience_ipc_host_, resilience_ipc_port_);
+
+            while (resilience_ipc_running_.load()) 
+            {
+                boost::asio::ip::tcp::socket sock{ioc};
+                acc.accept(sock);  // blocks until a client connects
+
+                m_logger->info("[resilience-ipc] Client connected...");
+
+                // 4-byte big-endian length (capped at 32 MiB)
+                char hdr[4];
+                boost::asio::read(sock, boost::asio::buffer(hdr,4));
+                const uint32_t n = snds_ipc_tcp::read_be32(hdr);
+                if (n == 0 || n > (32u << 20)) { sock.close(); continue; }
+
+                std::string body(n, '\0');
+                boost::asio::read(sock, boost::asio::buffer(body.data(), body.size()));
+                sock.close();
+
+                // envelope: { "kind": "...", "payload": {...} }
+                const auto env     = nlohmann::json::parse(body);
+                const auto kind    = env.value("kind", std::string{});
+                const auto payload = env.at("payload");
+
+                m_logger->info("[resilience-ipc] Found message type: {}", kind);
+                if (kind == "snapshot") 
+                {
+                    store_.assign(payload.at("state"));
+                    if (!am_primary_.load()) rehydrate_tick_.store(true);
+                }
+                else if (kind == "patch") 
+                {
+                    auto snap      = store_.get_snapshot();
+                    auto new_state = snap.state.patch(payload.at("ops"));
+                    store_.assign(std::move(new_state));
+                    if (!am_primary_.load()) rehydrate_tick_.store(true);
+                }
+                else if (kind == "meta") 
+                {
+                    m_logger->debug("[resilience-ipc] meta v={} hash={}", payload.value("version", 0ULL), payload.value("hash", ""));
+                }
+                else if (kind == "role")
+                {
+                    const std::string role   = payload.value("role",   "");
+                    const std::string reason = payload.value("reason", "");
+                    const uint32_t    misses = payload.value("misses", 0U);
+                
+                if (role == "primary") 
+                {
+                    m_logger->warn("[resilience-ipc] promotion to PRIMARY (reason={}, misses={})", reason, misses);
+
+                    // Persist role for observability
+                    store_.mutate([&](nlohmann::json& s)
+                    {
+                        auto& r = ensure_obj(s, "resilience");
+                        r["role"]   = "primary";
+                        r["since"]  = iso8601_now_utc();
+                        r["reason"] = reason;
+                        r["misses"] = misses;
+                    });
+
+                    am_primary_.store(true);
+
+                    // IMPORTANT: do NOT call stop_resilience_ipc_() here (we're on the IPC thread).
+                    // Just request stop; the loop will exit after this iteration.
+                    resilience_ipc_running_.store(false);
+                    m_logger->warn("[resilience-ipc] stop requested; will be joined from main loop");
+                }
+                    else if (role == "secondary") 
+                    {
+                        m_logger->warn("[resilience-ipc] demoted to SECONDARY (reason={})", reason);
+                        store_.mutate([&](nlohmann::json& s)
+                        {
+                            auto& r = ensure_obj(s, "resilience");
+                            r["role"]   = "secondary";
+                            r["since"]  = iso8601_now_utc();
+                            r["reason"] = reason;
+                        });
+                        am_primary_.store(false);
+                    } 
+                    else 
+                    {
+                        m_logger->warn("[resilience-ipc] unknown role='{}'", role);
+                    }
+                }
+                else 
+                {
+                    m_logger->warn("[resilience-ipc] unknown kind='{}'", kind);
+                }
+            }
+        } 
+        catch (const std::exception& e) 
+        {
+            m_logger->warn("[resilience-ipc] server error: {}", e.what());
+        }
+    });
+}
+
+void SNDSProducer::stop_resilience_ipc_() {
+    if (!resilience_ipc_running_.exchange(false)) return;
+    // Nudge accept() to unblock so the thread can exit
+    try 
+    {
+        boost::asio::io_context ioc;
+        boost::asio::ip::tcp::socket poke{ioc};
+        poke.connect({boost::asio::ip::make_address(resilience_ipc_host_), resilience_ipc_port_});
+    } 
+    catch (...) {} // best-effort
+    if (resilience_ipc_thr_.joinable()) resilience_ipc_thr_.join();
+}
+
+void SNDSProducer::replay_broker_journal_incremental_()
+{
+    const auto snap = store_.get_snapshot().to_json();
+    const auto* broker  = (snap.contains("state") && snap["state"].contains("broker")) ? &snap["state"]["broker"] : nullptr;
+    const auto* journal = (broker && broker->contains("journal")) ? &(*broker)["journal"] : nullptr;
+
+    if (!journal || !journal->is_array()) 
+    {
+        m_logger->warn("[rehydrate] no broker.journal to replay");
+        return;
+    }
+
+    // If the journal was truncated (cap), resync cursor by fingerprint if possible.
+    size_t start = broker_journal_cursor_;
+    if (start > journal->size()) start = 0;
+
+    if (!last_replayed_fp_.empty()) 
+    {
+        bool found = false;
+        for (size_t i = (start > 0 ? start - 1 : 0); i < journal->size(); ++i) 
+        {
+            const auto fp = fingerprint_entry_((*journal)[i]);
+            if (fp == last_replayed_fp_) 
+            {
+                start = i + 1;   // pick up right after last known entry
+                found = true;
+                break;
+            }
+        }
+        if (!found) 
+        {
+            // Could not find our anchor (likely old entries dropped) → start from 0
+            start = 0;
+        }
+    }
+
+    if (start >= journal->size()) 
+    {
+        m_logger->debug("[rehydrate] up to date (cursor={}, size={})", broker_journal_cursor_, journal->size());
+        return;
+    }
+
+    httplib::Client cli(broker_ip.c_str(), broker_port);
+    cli.set_connection_timeout(2, 0);
+    cli.set_read_timeout(3, 0);
+
+    size_t ok = 0, fail = 0;
+    std::unordered_set<std::string> types_touched;
+
+    for (size_t i = start; i < journal->size(); ++i) 
+    {
+        const auto& entry = (*journal)[i];
+        if (!entry.contains("payload")) continue;
+
+        const auto& payload = entry["payload"];
+        const std::string type = payload.value("type", "GENERIC");
+
+        auto res = cli.Post("/add", payload.dump(), "application/json");
+        if (res && res->status == 200) 
+        {
+            ok++;
+            types_touched.insert(type);
+            if (mirror_to_secondary_) 
+            {
+                nlohmann::json payload_secondary = payload;               // copy
+                const std::string secondary_type = to_secondary_collection_(type, secondary_suffix_);
+                payload_secondary["type"] = secondary_type;
+
+                auto res2 = cli.Post("/add", payload_secondary.dump(), "application/json");
+                if (!(res2 && res2->status == 200)) 
+                {
+                    m_logger->warn("[rehydrate][mirror] POST /add to secondary collection '{}' failed at idx={} id='{}': {}", secondary_type, i, payload.value("id",""), res2 ? std::to_string(res2->status) : "no response");
+                } 
+                else 
+                {
+                    types_touched.insert(secondary_type); // refresh broker fingerprints for the mirrored collection too
+                }
+            }
+            last_replayed_fp_       = fingerprint_entry_(entry);
+            broker_journal_cursor_  = i + 1; // advance only on success
+        } 
+        else 
+        {
+            fail++;
+            m_logger->warn("[rehydrate] POST /add failed at idx={} id='{}' type='{}' : {}", i, payload.value("id",""), type, res ? std::to_string(res->status) : "no response");
+            break; // back off; we'll retry from same cursor later
+        }
+    }
+
+    for (const auto& t : types_touched) 
+    {
+        update_store_with_broker_state_(t);
+    }
+
+    m_logger->info("[rehydrate] incremental replay done: ok={} fail={} cursor={}/{}", ok, fail, broker_journal_cursor_, journal->size());
 }

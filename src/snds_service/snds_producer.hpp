@@ -1,5 +1,6 @@
 #include <ndn-cxx/face.hpp>
 #include <spdlog/spdlog.h>
+#include <boost/asio.hpp>
 #include <nlohmann/json.hpp>
 
 #include "httplib.h"
@@ -9,6 +10,7 @@
 #include "temporal_query.hpp"
 #include "snds_resilience.hpp"
 #include "snds_utils.h"
+#include "snds_ipc_tcp.hpp" 
 
 struct RegistryEvents
 {
@@ -45,7 +47,10 @@ public:
 		std::string serviceName = "Producer",
 		std::string broker_ip = "0.0.0.0",
 		size_t broker_port = 10000,
-		std::string registryType = "CAR")
+		std::string registryType = "CAR",
+		bool enable_resilience_ipc_ = true,
+		std::string resilience_ipc_host_ = "127.0.0.1",
+		size_t      resilience_ipc_port_ =  47832)
 		:ServiceBase(
 			  logLevel,
 			  logFile,
@@ -60,26 +65,47 @@ public:
 			  broker_ip,
 			  broker_port)
   		,store_(m_logger)
+		,enable_resilience_ipc_(enable_resilience_ipc_)
+		,resilience_ipc_host_(resilience_ipc_host_)
+		,resilience_ipc_port_(resilience_ipc_port_)
 	{
-		store_.assign
-		(
-			nlohmann::json
-			{
-				{"types", nlohmann::json::object()},
-				{"subscribers", {{"byId", nlohmann::json::object()}, {"byType", nlohmann::json::object()}}},
-				{"announcements", nlohmann::json::object()},
+
+		nlohmann::json init = 
+		{
+			{"types", nlohmann::json::object()},
+			{"subscribers", {{"byId", nlohmann::json::object()}, {"byType", nlohmann::json::object()}}},
+			{"announcements", nlohmann::json::object()},
+			{"broker", 
 				{
-					"broker", 
-					{
-						{"endpoint", fmt::format("{}:{}", broker_ip, broker_port)},
-						{"collections", nlohmann::json::object()}   // per-type summaries
-					}
+					{"endpoint", fmt::format("{}:{}", this->broker_ip, this->broker_port)},
+					{"collections", nlohmann::json::object()}
 				}
 			}
-		);
+		};
+
+		if (enable_resilience_ipc_) 
+		{
+			init["resilience"] = 
+			{
+				{"role",   "secondary"},
+				{"since",  iso8601_now_utc()},
+				{"reason", "startup"}
+			};
+		} 
+		else
+		{
+			init["resilience"] = 
+			{
+				{"role", "primary"},
+				{"since", iso8601_now_utc()},
+				{"reason", "startup"}
+			};
+		}
+		store_.assign(std::move(init));
 
 		m_logger->info("SNDSProducer initialized with serviceName: {}", this->serviceName);
 		m_logger->info("SNDSProducer will connect to Broker with IP: {} and port: {}", this->broker_ip, this->broker_port);
+		m_logger->info("SNDSProducer will connect to IPC with IP: {} and port: {}", this->resilience_ipc_host_, this->resilience_ipc_port_);
 		type_registry[registryType] = std::unordered_set<std::string>{};
 	}
 
@@ -130,6 +156,25 @@ private:
 
 	snds_resilience::Store  store_;
 
+	// role/flag (set from ctor, CLI, or env)
+  	bool enable_resilience_ipc_ = false;
+
+  	// IPC config
+  	std::string resilience_ipc_host_ = "127.0.0.1";
+  	uint16_t    resilience_ipc_port_ = 47832;
+
+  	// thread control
+  	std::thread              resilience_ipc_thr_;
+  	std::atomic<bool>        resilience_ipc_running_{false};
+	std::atomic<bool>        am_primary_{false};
+
+	// --- incremental broker replay state ---
+	std::atomic<bool> rehydrate_tick_{false};   // set on each patch/snapshot while secondary
+	size_t           broker_journal_cursor_{0}; // next index to replay
+	std::string      last_replayed_fp_;         // fingerprint of last replayed entry
+
+	bool        mirror_to_secondary_ = true;            // toggle for your debug mirroring
+	std::string secondary_suffix_    = "_secondary";    // collection suffix
 
 	inline bool register_id_for_type(TypeRegistry &reg, RegistryEvents &ev, const std::string &type, const std::string &id)
 	{
@@ -205,6 +250,23 @@ private:
 		if (erased && ev.on_announce_remove)
 			ev.on_announce_remove(name);
 		return erased != 0;
+	}
+
+
+	static inline std::string to_secondary_collection_(const std::string& t, const std::string& suffix)
+	{
+		return (t.empty() ? "GENERIC" : t) + suffix;
+	}
+
+	static inline std::string fingerprint_entry_(const nlohmann::json& e)
+	{
+	    // Use fields that are replicated 1:1 via snapshots/patches.
+	    // Add payload dump for extra uniqueness.
+	    const std::string ts   = e.value("ts",   "");
+	    const std::string id   = e.value("id",   "");
+	    const std::string type = e.value("type", "");
+	    const std::string pl   = e.contains("payload") ? e["payload"].dump() : "";
+	    return ts + "|" + type + "|" + id + "|" + pl;
 	}
 
 	static inline std::string iso8601_now_utc() 
@@ -283,5 +345,9 @@ private:
 	// Optional: convenience check that decides when to rebuild Broker
 	// (e.g., /state fails or collection looks empty after restart).
 	void maybe_rehydrate_broker_(const std::string& type);
+	void replay_broker_journal_incremental_();
+
+	void start_resilience_ipc_();
+  	void stop_resilience_ipc_();
 
 };

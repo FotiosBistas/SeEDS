@@ -10,7 +10,8 @@
 #include <spdlog/spdlog.h>
 
 
-namespace snds_resilience{
+namespace snds_resilience
+{
 
     std::string canonical_dump(const nlohmann::json& j);
     std::string canonical_hash(const nlohmann::json& j);

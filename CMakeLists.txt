@@ -270,16 +270,27 @@ set(SNDS_BROKER_DIR         ${CMAKE_SOURCE_DIR}/src/snds_broker)
 set(SNDS_INTEREST_DIR       ${CMAKE_SOURCE_DIR}/src/snds_interest)
 set(SNDS_TEMPORAL_QUERY_DIR ${CMAKE_SOURCE_DIR}/src/snds_temporal_query)
 set(SNDS_RESILIENCE_DIR     ${CMAKE_SOURCE_DIR}/src/snds_resilience)
+set(SNDS_IPC_DIR            ${CMAKE_SOURCE_DIR}/src/snds_inter_process_communication/)
+
 
 #####################################################################
 # snds_query_params
 #####################################################################
 add_library(snds_query_params INTERFACE)
-target_include_directories(snds_query_params
-  INTERFACE
-    ${SNDS_QUERY_PARAMS_DIR}
-    ${cpp-httplib_SOURCE_DIR}
+target_include_directories(snds_query_params INTERFACE
+  ${SNDS_QUERY_PARAMS_DIR}
+  ${cpp-httplib_SOURCE_DIR}
 )
+
+#####################################################################
+# snds_ipc (header-only)
+#####################################################################
+add_library(snds_ipc INTERFACE)
+target_include_directories(snds_ipc INTERFACE ${SNDS_IPC_DIR})
+
+# Asio is header-only here, but on POSIX we still want pthreads for safety.
+find_package(Threads REQUIRED)
+target_link_libraries(snds_ipc INTERFACE Threads::Threads)
 
 #####################################################################
 # snds_message
@@ -412,6 +423,7 @@ target_include_directories(snds_service PUBLIC
   ${NDN_CXX_INCLUDE_DIR}
   ${cpp-httplib_SOURCE_DIR}
 )
+
 target_link_libraries(snds_service PUBLIC
   snds_utils
   snds_interest
@@ -422,6 +434,7 @@ target_link_libraries(snds_service PUBLIC
   spdlog::spdlog
   nlohmann_json::nlohmann_json
   snds_resilience
+  snds_ipc
 )
 add_dependencies(snds_service ndn-cxx-build)
 
@@ -486,6 +499,7 @@ target_include_directories(resilience_poller_bin PRIVATE
   ${SNDS_RESILIENCE_DIR}
   ${SNDS_INTEREST_DIR}
   ${SNDS_UTILS_DIR}
+  ${SNDS_IPC_DIR}
   ${NDN_CXX_INCLUDE_DIR}
 )
 
@@ -493,8 +507,9 @@ target_link_libraries(resilience_poller_bin PRIVATE
   ndn-cxx::ndn-cxx
   spdlog::spdlog
   nlohmann_json::nlohmann_json
-  snds_interest      # for parsed_interest_name
-  snds_utils         # for url_decode and helpers
+  snds_interest
+  snds_utils
+  snds_ipc
 )
 
 add_dependencies(resilience_poller_bin ndn-cxx-build)
