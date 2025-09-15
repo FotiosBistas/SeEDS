@@ -98,6 +98,36 @@ void Broker::listen(){
             res.set_content(results.dump(2), "application/json");
         });
 
+        svr.Get("/dump", [this](const httplib::Request& req, httplib::Response& res)
+        {
+            logger->info("Received HTTP request for {}, with target {}", req.body, req.target);
+        
+            // Optional: dump a single collection with ?type=CollectionName
+            std::string type = req.get_param_value("type");
+        
+            nlohmann::json result;
+            if (!type.empty()) 
+            {
+                result = dump_database(type);
+            } 
+            else 
+            {
+                result = dump_database(); // all collections
+            }
+        
+            // Simple success / error handling
+            if (result.is_object() && result.contains("status") && result["status"] == "error") 
+            {
+                res.status = 500;
+                res.set_content(result.dump(2) + "\n", "application/json");
+                return;
+            }
+        
+            res.status = 200;
+            res.set_content(result.dump(2) + "\n", "application/json");
+        });
+
+
         svr.Get("/get", [this](const httplib::Request& req, httplib::Response& res){
             logger->info("Received HTTP request for {}, with target {}", req.body, req.target);
 
@@ -350,32 +380,129 @@ nlohmann::json Broker::get(const std::string& request){
 }
 
 
+
 void Broker::remove(){}
 
-std::string Broker::state(const std::string& request){
+std::string Broker::state(const std::string& request)
+{
+    auto is_secondary = [&](const std::string& name) 
+    {
+        return name.find(secondary_suffix) != std::string::npos;
+    };
 
-    try {
+    try 
+    {
         auto jsonData = bsoncxx::from_json(request);
         auto view = jsonData.view();
-        std::string_view type = view["type"].get_value().get_string().value;
+
+        const auto type_el = view["type"];
+        if (!type_el || type_el.type() != bsoncxx::type::k_string) {
+            logger->error("Invalid or missing 'type' in /state request");
+            return R"({"status":"error","message":"missing or invalid 'type'"})";
+        }
+
+        std::string_view type_sv = type_el.get_value().get_string().value;
+
+        // Skip SECONDARY collections while still returning valid JSON
+        if (is_secondary(std::string(type_sv)))
+        {
+            logger->info("Skipping fingerprint for SECONDARY collection: {}", type_sv);
+            nlohmann::json out = 
+            {
+                {"collection", std::string(type_sv)},
+                {"secondary",  true},
+                {"algo",       ""},
+                {"hash",       ""},
+                {"count",      0}
+            };
+            return out.dump();
+        }
+
+        // Normal path
+        const std::string type{type_sv};
         auto coll = this->client[this->database][type];
         std::string fp = collection_fingerprint(coll);
         logger->info("Collection fingerprint: {}", fp);
         auto count = coll.count_documents({});
 
-        nlohmann::json out = {
+        nlohmann::json out = 
+        {
             {"collection", type},
-            {"algo", "SHA-256"},     // or "MD5" if you keep MD5 internally
-            {"hash", fp},
-            {"count", count}
+            {"algo",       "SHA-256"},
+            {"hash",       fp},
+            {"count",      count}
         };
 
         logger->info("Collection {} fingerprint: {}", type, fp);
-        return out.dump();           // return valid JSON
+        return out.dump();
     }
-    catch (const std::exception& e) {
+    catch (const std::exception& e) 
+    {
         logger->error("Error computing fingerprint: {}", e.what());
-        return "";
+        return R"({"status":"error","message":"failed to compute fingerprint"})";
+    }
+}
+
+nlohmann::json Broker::dump_database(const std::optional<std::string>& collection) 
+{
+    nlohmann::json out = nlohmann::json::object();
+
+    auto is_secondary = [&](const std::string& name) 
+    {
+        return name.find(secondary_suffix) != std::string::npos;
+    };
+
+    try 
+    {
+        auto db = this->client[this->database];
+
+        std::vector<std::string> collections;
+        if (collection && !collection->empty()) 
+        {
+            collections.push_back(*collection);
+        } 
+        else 
+        {
+            collections = db.list_collection_names();
+        }
+
+        for (const auto& coll_name : collections) 
+        {
+            if (is_secondary(coll_name)) 
+            {
+                logger->debug("Skipping secondary collection in dump: {}", coll_name);
+                continue;
+            }
+
+            logger->info("Dumping collection: {}", coll_name);
+            auto coll = db[coll_name];
+
+            nlohmann::json docs = nlohmann::json::array();
+            mongocxx::options::find opts;
+            // (optional) can set a batch size if there are very large collections
+            // opts.batch_size(1000);
+
+            auto cursor = coll.find({}, opts);
+            for (auto&& doc : cursor) 
+            {
+                // bsoncxx::to_json preserves special types as extended JSON (e.g. {"$oid":...})
+                docs.push_back(nlohmann::json::parse(bsoncxx::to_json(doc)));
+            }
+
+            out[coll_name] = std::move(docs);
+        }
+
+        return out;
+    } 
+    catch (const std::exception& e) 
+    {
+        logger->error("dump_database failed: {}", e.what());
+        // Return a structured error object; caller can decide how to respond.
+        return nlohmann::json
+        {
+            {"status", "error"},
+            {"message", e.what()}
+        };
     }
 }
 

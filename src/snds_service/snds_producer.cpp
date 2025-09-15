@@ -101,6 +101,9 @@ void SNDSProducer::init(){
         start_resilience_ipc_();
     }
 
+    maybe_rehydrate_broker_(/*type unused*/"");
+
+
     // Advertise for each type in the registry map
     // [2025-03-04 08:29:36.980] [info] Announcing name: /SNDS/CAR
     // [2025-03-04 08:29:36.980] [info] Announcing name: /SNDS/CAR_registry
@@ -173,9 +176,6 @@ void SNDSProducer::init(){
         m_keyChain.setDefaultIdentity(identity);
         m_logger->info("Created and set default identity: {}", identityName.toUri());
     }
-
-    // Process events in a blocking mode once (if needed)
-    m_face.processEvents(ndn::time::milliseconds(-1));
 
     // Run the loop until 'running' is false.
     while (running.load())
@@ -1396,58 +1396,6 @@ void SNDSProducer::append_broker_journal_(const nlohmann::json& body)
 }
 
 
-void SNDSProducer::rehydrate_broker_from_journal_()
-{
-    m_logger->warn("[rehydrate] starting Broker rehydration from journal…");
-
-    // Snapshot journal to avoid mutating it while we POST
-    const auto snap = store_.get_snapshot().to_json();
-    const auto* broker = (snap.contains("state") && snap["state"].contains("broker")) ? &snap["state"]["broker"] : nullptr;
-    if (!broker || !broker->is_object())
-    {
-        m_logger->warn("[rehydrate] no 'broker' section in state; nothing to replay");
-        return;
-    }
-
-    const auto* journal = broker->contains("journal") ? &(*broker)["journal"] : nullptr;
-    if (!journal || !journal->is_array() || journal->empty())
-    {
-        m_logger->warn("[rehydrate] journal empty; nothing to replay");
-        return;
-    }
-
-    // POST each saved payload back to /add
-    httplib::Client cli(broker_ip.c_str(), broker_port);
-    cli.set_read_timeout(5, 0);
-    cli.set_connection_timeout(5, 0);
-
-    std::unordered_set<std::string> types_touched;
-
-    size_t ok = 0, fail = 0;
-    for (const auto& entry : *journal)
-    {
-        if (!entry.contains("payload")) continue;
-        const auto& payload = entry["payload"];
-        const auto  type    = payload.value("type", "GENERIC");
-
-        auto res = cli.Post("/add", payload.dump(), "application/json");
-        if (res && res->status == 200)
-        {
-            ok++;
-            types_touched.insert(type);
-        }
-        else
-        {
-            fail++;
-            m_logger->warn("[rehydrate] POST /add failed for id='{}' type='{}' : {}", payload.value("id",""), type, res ? std::to_string(res->status) : "no response");
-        }
-    }
-
-    // Refresh fingerprints for all types we touched
-    for (const auto& t : types_touched) update_store_with_broker_state_(t);
-    m_logger->warn("[rehydrate] completed: ok={} fail={}", ok, fail);
-}
-
 void SNDSProducer::start_resilience_ipc_() 
 {
     if (resilience_ipc_running_.exchange(true)) return;
@@ -1569,6 +1517,90 @@ void SNDSProducer::stop_resilience_ipc_() {
     if (resilience_ipc_thr_.joinable()) resilience_ipc_thr_.join();
 }
 
+void SNDSProducer::rehydrate_broker_from_journal_()
+{
+    m_logger->warn("[rehydrate] starting Broker rehydration from journal…");
+
+    // Snapshot journal to avoid mutating it while we POST
+    const auto snap = store_.get_snapshot().to_json();
+    const auto* broker = (snap.contains("state") && snap["state"].contains("broker")) ? &snap["state"]["broker"] : nullptr;
+    if (!broker || !broker->is_object())
+    {
+        m_logger->warn("[rehydrate] no 'broker' section in state; nothing to replay");
+        return;
+    }
+
+    const auto* journal = broker->contains("journal") ? &(*broker)["journal"] : nullptr;
+    if (!journal || !journal->is_array() || journal->empty())
+    {
+        m_logger->warn("[rehydrate] journal empty; nothing to replay");
+        return;
+    }
+
+    // POST each saved payload back to /add
+    httplib::Client cli(broker_ip.c_str(), broker_port);
+    cli.set_read_timeout(5, 0);
+    cli.set_connection_timeout(5, 0);
+
+    std::unordered_set<std::string> types_touched;
+
+    size_t ok = 0, fail = 0;
+    for (const auto& entry : *journal)
+    {
+        if (!entry.contains("payload")) continue;
+        const auto& payload = entry["payload"];
+        const auto  type    = payload.value("type", "GENERIC");
+
+        auto res = cli.Post("/add", payload.dump(), "application/json");
+        if (res && res->status == 200)
+        {
+            ok++;
+            types_touched.insert(type);
+
+            if (mirror_to_secondary_) 
+            {
+                nlohmann::json payload_secondary = payload;  // copy
+                const std::string secondary_type = to_secondary_collection_(type, secondary_suffix_);
+                payload_secondary["type"] = secondary_type;
+
+                auto res2 = cli.Post("/add", payload_secondary.dump(), "application/json");
+                if (res2 && res2->status == 200) 
+                {
+                    types_touched.insert(secondary_type);
+                } 
+                else 
+                {
+                    m_logger->warn("[rehydrate][mirror] POST /add to secondary collection '{}' failed: {}", secondary_type, res2 ? std::to_string(res2->status) : "no response");
+                }
+            }
+        }
+        else
+        {
+            fail++;
+            m_logger->warn("[rehydrate] POST /add failed for id='{}' type='{}' : {}", payload.value("id",""), type, res ? std::to_string(res->status) : "no response");
+        }
+    }
+
+    // Refresh fingerprints for all types we touched
+    for (const auto& t : types_touched) update_store_with_broker_state_(t);
+    m_logger->warn("[rehydrate] completed: ok={} fail={}", ok, fail);
+
+    if (fail == 0) 
+    {
+        // Re-read the same logical state to compute size and last fp
+        const auto snap2  = store_.get_snapshot().to_json();
+        const auto* broker2  = (snap2.contains("state") && snap2["state"].contains("broker")) ? &snap2["state"]["broker"] : nullptr;
+        const auto* journal2 = (broker2 && broker2->contains("journal")) ? &(*broker2)["journal"] : nullptr;
+
+        if (journal2 && journal2->is_array() && !journal2->empty()) 
+        {
+            broker_journal_cursor_ = journal2->size();
+            last_replayed_fp_      = fingerprint_entry_((*journal2)[journal2->size() - 1]);
+            m_logger->info("[rehydrate] advanced cursor to {} and set last fingerprint", broker_journal_cursor_);
+        }
+    }
+}
+
 void SNDSProducer::replay_broker_journal_incremental_()
 {
     const auto snap = store_.get_snapshot().to_json();
@@ -1664,4 +1696,36 @@ void SNDSProducer::replay_broker_journal_incremental_()
     }
 
     m_logger->info("[rehydrate] incremental replay done: ok={} fail={} cursor={}/{}", ok, fail, broker_journal_cursor_, journal->size());
+}
+
+void SNDSProducer::maybe_rehydrate_broker_(const std::string& type/*type*/)
+{
+    // If we're secondary and we already have a broker journal in the store,
+    // replay it immediately so our local broker is filled at startup.
+    if (am_primary_.load()) 
+    {
+        return; // primary doesn't need to replay
+    }
+
+    const auto snap = store_.get_snapshot().to_json();
+    const auto* broker  = (snap.contains("state") && snap["state"].contains("broker")) ? &snap["state"]["broker"] : nullptr;
+    const auto* journal = (broker && broker->contains("journal")) ? &(*broker)["journal"] : nullptr;
+
+    if (!journal || !journal->is_array() || journal->empty()) 
+    {
+        m_logger->info("[rehydrate] no journal present yet; will re-check after snapshot/patch");
+        return;
+    }
+
+    // On first boot (cursor==0 and no fingerprint), do a full fill.
+    if (broker_journal_cursor_ == 0 && last_replayed_fp_.empty()) 
+    {
+        m_logger->warn("[rehydrate] bootstrapping local broker from existing journal ({} entries)", journal->size());
+        rehydrate_broker_from_journal_();
+    } else 
+    {
+        // If something already ran, just do an incremental pass.
+        m_logger->info("[rehydrate] running incremental replay at startup (cursor={}, size={})", broker_journal_cursor_, journal->size());
+        replay_broker_journal_incremental_();
+    }
 }

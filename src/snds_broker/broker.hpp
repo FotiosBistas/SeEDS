@@ -2,6 +2,7 @@
 
 #include <variant>
 #include <sstream>
+#include <optional>
 
 #include <spdlog/spdlog.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
@@ -50,6 +51,8 @@ public:
     void listen();
 private:
 
+    static constexpr std::string_view secondary_suffix = "_SECONDARY";
+
     std::string logFile;
     std::string ipAddress;
     std::string database;
@@ -76,6 +79,7 @@ private:
     std::optional<bsoncxx::document::value> set_generic_type(bsoncxx::v_noabi::document::view view);
     void filter_to_only_id(mongocxx::v_noabi::pipeline& pipeline);
     std::string format_timestamp_ms(long long ms_since_epoch);
+    nlohmann::json dump_database(const std::optional<std::string>& collection = std::nullopt);
 
     //api
     std::optional<InsertOrReplaceResult> add_one(const std::string& body, const bool versioned);

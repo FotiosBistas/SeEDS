@@ -174,7 +174,7 @@ private:
 	std::string      last_replayed_fp_;         // fingerprint of last replayed entry
 
 	bool        mirror_to_secondary_ = true;            // toggle for your debug mirroring
-	std::string secondary_suffix_    = "_secondary";    // collection suffix
+	std::string secondary_suffix_    = "_SECONDARY";    // collection suffix
 
 	inline bool register_id_for_type(TypeRegistry &reg, RegistryEvents &ev, const std::string &type, const std::string &id)
 	{
