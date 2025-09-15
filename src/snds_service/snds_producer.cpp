@@ -103,6 +103,10 @@ void SNDSProducer::init(){
 
     maybe_rehydrate_broker_(/*type unused*/"");
 
+    // One-time bootstrap: mirror current Broker data into secondary (or copy 1:1)
+    // Useful when primary & secondary are the same Broker during debugging.
+    seed_secondary_from_broker_dump_();
+
 
     // Advertise for each type in the registry map
     // [2025-03-04 08:29:36.980] [info] Announcing name: /SNDS/CAR
@@ -1727,5 +1731,38 @@ void SNDSProducer::maybe_rehydrate_broker_(const std::string& type/*type*/)
         // If something already ran, just do an incremental pass.
         m_logger->info("[rehydrate] running incremental replay at startup (cursor={}, size={})", broker_journal_cursor_, journal->size());
         replay_broker_journal_incremental_();
+    }
+}
+
+void SNDSProducer::seed_secondary_from_broker_dump_()
+{
+    m_logger->warn("[seed] starting bootstrap via /copy (mirror_to_secondary_={}, suffix='{}')", mirror_to_secondary_, secondary_suffix_);
+
+    auto dump = _http_get_json("/dump", {});
+    if (!dump) 
+    {
+        m_logger->warn("[seed] /dump returned no JSON — skipping bootstrap");
+        return;
+    }
+
+    nlohmann::json body = 
+    {
+        {"mirror_to_secondary", mirror_to_secondary_}, // <- true: write *_SECONDARY, false: copy 1:1 names
+        {"secondary_suffix",    secondary_suffix_},
+        {"collections",         *dump}
+    };
+
+    httplib::Client cli(broker_ip.c_str(), broker_port);
+    cli.set_read_timeout(60, 0);
+    cli.set_connection_timeout(5, 0);
+
+    auto res = cli.Post("/copy", body.dump(), "application/json");
+    if (res && res->status == 200) 
+    {
+        m_logger->warn("[seed] /copy OK: {}", res->body);
+    } 
+    else 
+    {
+        m_logger->error("[seed] /copy failed: {}", res ? res->body : "no response");
     }
 }

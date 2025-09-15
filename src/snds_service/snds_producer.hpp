@@ -350,4 +350,9 @@ private:
 	void start_resilience_ipc_();
   	void stop_resilience_ipc_();
 
+	// Seed secondary collections from the Broker's current primary data dump.
+	// If mirror_to_secondary_ is true, writes to {collection}{secondary_suffix_},
+	// otherwise writes back to {collection}.
+	void seed_secondary_from_broker_dump_();
+
 };

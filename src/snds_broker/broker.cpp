@@ -64,6 +64,121 @@ void Broker::listen(){
             res.set_content(body + "\n", "application/json");
         });
 
+        svr.Post("/copy", [this](const httplib::Request& req, httplib::Response& res) {
+            logger->info("Received /copy request (len={} bytes)", req.body.size());
+        
+            nlohmann::json body;
+            try {
+                body = nlohmann::json::parse(req.body);
+            } catch (const std::exception& e) {
+                res.status = 400;
+                res.set_content(
+                    nlohmann::json{{"status","error"},{"message",std::string("invalid JSON: ")+e.what()}}.dump(2),
+                    "application/json"
+                );
+                return;
+            }
+        
+            const bool mirror_to_secondary = body.value("mirror_to_secondary", true);
+            const std::string suffix = body.value("secondary_suffix", std::string("_SECONDARY"));
+        
+            if (!body.contains("collections") || !body["collections"].is_object()) {
+                res.status = 400;
+                res.set_content(nlohmann::json{
+                    {"status","error"},
+                    {"message","missing 'collections' object"}
+                }.dump(2), "application/json");
+                return;
+            }
+        
+            auto ends_with = [](const std::string& s, const std::string& suf){
+                return s.size() >= suf.size() && s.compare(s.size()-suf.size(), suf.size(), suf) == 0;
+            };
+        
+            auto is_versioned_name = [&](const std::string& name){
+                return ends_with(name, std::string("_VERSIONED"));
+            };
+        
+            nlohmann::json summary = nlohmann::json::object();
+            size_t inserted = 0, replaced = 0, failed = 0, skipped = 0;
+        
+            auto db = this->client[this->database];
+        
+            for (auto& kv : body["collections"].items()) {
+                const std::string source_name = kv.key();
+                const nlohmann::json& docs    = kv.value();
+            
+                if (!docs.is_array()) { skipped++; continue; }
+            
+                // Decide target collection name
+                const std::string target_name = mirror_to_secondary
+                    ? (source_name + suffix)          // e.g. CAR -> CAR_SECONDARY, CAR_VERSIONED -> CAR_VERSIONED_SECONDARY
+                    : source_name;                    // exact same name (1:1 copy)
+            
+                auto target = db[target_name];
+            
+                logger->info("[/copy] {} -> {} ({} docs)", source_name, target_name, docs.size());
+            
+                const bool versioned = is_versioned_name(source_name);
+            
+                for (const auto& jdoc : docs) {
+                    if (!jdoc.is_object()) { skipped++; continue; }
+                
+                    try {
+                        // Re-hydrate BSON from extended JSON exactly as dumped
+                        auto bval = bsoncxx::from_json(jdoc.dump());
+                        auto view = bval.view();
+                    
+                        if (versioned) {
+                            // Versioned collections use an embedded _id with { _id: <id>, timestamp: <date> }
+                            auto r = target.insert_one(view);
+                            if (r && r->result().inserted_count() == 1) inserted++;
+                            else failed++;
+                        } else {
+                            // Unversioned: replace/upsert by string _id
+                            auto id_el = view["_id"];
+                            if (!id_el || id_el.type() != bsoncxx::type::k_string) {
+                                logger->warn("[/copy] unversioned doc missing string _id, skipping: {}", jdoc.dump());
+                                skipped++;
+                                continue;
+                            }
+                            auto filter = bsoncxx::builder::basic::make_document(
+                                bsoncxx::builder::basic::kvp("_id", id_el.get_string().value)
+                            );
+                        
+                            auto r = target.replace_one(
+                                filter.view(),
+                                view,
+                                mongocxx::options::replace{}.upsert(true)
+                            );
+                            if (r) {
+                                // Upsert => either modified or upserted
+                                if (r->result().upserted_ids().size() > 0 || r->result().modified_count() > 0)
+                                    replaced++;
+                                else
+                                    // If nothing changed (identical), count as replaced to be generous
+                                    replaced++;
+                            } else {
+                                failed++;
+                            }
+                        }
+                    } catch (const std::exception& e) {
+                        failed++;
+                        logger->warn("[/copy] failed doc in {} -> {}: {}", source_name, target_name, e.what());
+                    }
+                }
+            }
+        
+            summary["status"]   = "ok";
+            summary["inserted"] = inserted;
+            summary["replaced"] = replaced;
+            summary["skipped"]  = skipped;
+            summary["failed"]   = failed;
+        
+            res.status = 200;
+            res.set_content(summary.dump(2), "application/json");
+        });
+
         svr.Get("/temporal-query", [this](const httplib::Request& req, httplib::Response& res){
             logger->info("Received HTTP request for {}, with target {}", req.body, req.target);
 
@@ -278,11 +393,26 @@ std::optional<InsertOrReplaceResult> Broker::add_one(const std::string& body, co
 
         logger->debug("Constructed ID document: {}", bsoncxx::to_json(doc_builder));
 
-        // helps you retrieve versions
-        if(versioned){
-            auto type_str_version = std::string(type.get_string().value) + "_VERSIONED";
-            logger->debug("Created type version: {}", type_str_version);
-            auto collection = this->client[database][type_str_version];
+        if (versioned) {
+            std::string type_str = std::string(type.get_string().value);
+        
+            // If the incoming type already carries the SECONDARY suffix, strip it for now.
+            bool is_secondary = false;
+            if (type_str.size() >= std::strlen(secondary_suffix.data()) &&
+                type_str.compare(type_str.size() - std::strlen(secondary_suffix.data()),
+                                 std::strlen(secondary_suffix.data()),
+                                 secondary_suffix) == 0)
+            {
+                is_secondary = true;
+                type_str.erase(type_str.size() - std::strlen(secondary_suffix.data())); // drop trailing "_SECONDARY"
+            }
+        
+            // Always form TYPE_VERSIONED, then (optionally) append _SECONDARY
+            std::string collection_name = type_str + "_VERSIONED";
+            if (is_secondary) collection_name += "_SECONDARY";
+        
+            logger->debug("Created type version: {}", collection_name);
+            auto collection = this->client[database][collection_name];
             auto result = collection.insert_one(doc_builder.extract());
             return result;
         }
