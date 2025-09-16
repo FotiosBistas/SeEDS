@@ -12,11 +12,18 @@
 #include <cstring>      // for std::memcpy
 #include <span>         // for std::span (C++20)
 #include <stdexcept>    // for std::length_error, std::invalid_argument, std::out_of_range
-#include <unordered_set>
+#include <unordered_map>
 #include <iomanip>
 #include <sstream>
+#include <memory>
+#include <span>
+#include <cstdint>  
 #include <openssl/evp.h>
+#include <ctime>
+
+#include <spdlog/logger.h>
 #include <spdlog/spdlog.h>
+#include <nlohmann/json.hpp>
 
 void removeIdPrefix(std::string& input);
 void removeTypePrefix(std::string& input);
@@ -26,6 +33,20 @@ bool isMetaFileTrue(const std::string& command);
 std::string format_timestamp_ms(long long ms_since_epoch);
 
 std::unordered_map<std::string,std::string> parse_query_params(std::string_view qs);
+
+std::string build_query_uri(std::string_view base_path, const std::vector<std::string>& kv_tokens, bool encode_values = false);
+std::string trim_copy(std::string_view s);
+std::string json_to_string(const nlohmann::json& j);
+std::string sanitize_utf8(const std::string& s);
+std::string fix_mixed_utf8_cp1252(const std::string& s);
+std::string extract_json_slice(const std::string& s);
+std::vector<std::string> extract_all_json_slices(const std::string& s);
+std::string hexdump(const std::string& s, size_t offset = 0, size_t len = 64);
+std::string hexdump_prefix(const std::string& s, size_t n = 32);
+bool is_all_ascii(const std::string& s);
+void log_non_ascii(const std::string& s, std::shared_ptr<spdlog::logger> lg);
+
+long long json_to_epoch_ms(const nlohmann::json& j);
 
 /**
  * @brief Decodes a URL-encoded string.
@@ -64,10 +85,14 @@ bool hasDateTag(const std::string& command);
  * by taking the hash modulo the total number of SNDS servers.
  *
  * @param name The subscription name for which to determine the responsible node.
- * @param numberOfSNDSServices The total number of SNDS servers.
- * @return The ID (an unsigned integer) of the responsible SNDS node.
+ * @param number_of_snds_services The total number of SNDS servers.
+ * @return The ID of the responsible SNDS node.
  */
-unsigned getSNDSNodeForSubscription(const std::string& name, int numberOfSNDSServices);
+size_t getSNDSNodeForSubscription
+(
+    const std::string& name, 
+    const size_t number_of_snds_services
+);
 
 /**
  * @brief Extracts the value associated with a specific tag from a GET request URL.
@@ -105,10 +130,10 @@ std::string removeLeadingSlash(const std::string &nm);
  *
  * @param id The subscription identifier.
  * @param prefix The scope prefix to use (for example, "/SNDS_ID_scope_").
- * @param numberOfSNDSServices The total number of SNDS servers.
+ * @param number_of_snds_services The total number of SNDS servers.
  * @return A string representing the scope name for the SNDS node.
  */
-std::string getSNDSNodeScopeNameForSubscription(const std::string& id, const std::string& prefix, int numberOfSNDSServices);
+std::string getSNDSNodeScopeNameForSubscription(const std::string& id, const std::string& prefix, const size_t number_of_snds_services);
 
 /**
  * @brief Determines if the GET request URL indicates a subscription request.
@@ -119,9 +144,8 @@ std::string getSNDSNodeScopeNameForSubscription(const std::string& id, const std
  * @param url The GET request URL as a std::string_view.
  * @return true if the "isSub" parameter equals "true", false otherwise.
  */
-inline bool isSubscriptionRequest(std::string_view url) {
-    constexpr std::string_view SUBtag = "isSub";
-    return get_from_get_request(url, SUBtag) == "true";
+inline bool is_subscription_request(std::string_view url, std::string_view is_sub_tag) {
+    return get_from_get_request(url, is_sub_tag) == "true";
 }
 
 /**
@@ -131,11 +155,11 @@ inline bool isSubscriptionRequest(std::string_view url) {
  * If the parameter is not present, an empty string is returned.
  *
  * @param url The GET request URL as a std::string_view.
+ * @param subscription_url_tag The GET request tag for the URL as a std::string_view.
  * @return A std::string containing the subscription URL.
  */
-inline std::string_view getURLfromSubscription(std::string_view url) {
-    constexpr std::string_view SUBURLtag = "suburl";
-    return get_from_get_request(url, SUBURLtag);
+inline std::string_view get_url_of_subscription(std::string_view url, std::string_view subscription_url_tag) {
+    return get_from_get_request(url, subscription_url_tag);
 }
 
 //TODO these functions below require their own data type
@@ -155,7 +179,7 @@ like (@yannisT):
 
 - Second ID: length 3, content "bus"
 */ 
-std::vector<std::string> parseIDsFromRegistryFilePayload(std::span<const uint8_t> payload, std::shared_ptr<spdlog::logger> logger = nullptr);
+std::vector<std::string> parse_ids_from_registry_file_payload(std::span<const uint8_t> payload, std::shared_ptr<spdlog::logger> logger = nullptr);
 
 /**
  * @brief Serializes a set of IDs into a binary payload.
@@ -174,7 +198,7 @@ std::vector<std::string> parseIDsFromRegistryFilePayload(std::span<const uint8_t
  *
  * @throws std::length_error if the number of IDs exceeds 65 535 or any ID's length exceeds 65 535.
  */
-std::vector<std::byte> serializeRegistryFilePayload(const std::unordered_set<std::string>& ids);
+std::vector<std::byte> serialize_registry_file_payload(const std::unordered_set<std::string>& ids);
 
 /**
  * @brief Checks whether a binary payload is marked as a registry response.

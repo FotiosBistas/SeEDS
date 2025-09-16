@@ -1,4 +1,4 @@
-#include "broker.h"
+#include "broker.hpp"
 
 std::vector<std::string> Broker::split(std::string_view s, const std::string& delimiter){
     std::vector<std::string> tokens;
@@ -75,17 +75,25 @@ std::string Broker::hash_document(bsoncxx::document::view document) {
 }
 
 std::string Broker::collection_fingerprint(mongocxx::collection& collection) {
+    // SHA-256 instead of MD5 (swap to EVP_md5() if you prefer)
     EVP_MD_CTX* ctx = EVP_MD_CTX_new();
     if (!ctx) throw std::runtime_error("EVP_MD_CTX_new failed");
-    if (EVP_DigestInit_ex(ctx, EVP_md5(), nullptr) != 1) {
+    if (EVP_DigestInit_ex(ctx, EVP_sha256(), nullptr) != 1) {
         EVP_MD_CTX_free(ctx);
         throw std::runtime_error("EVP_DigestInit_ex failed");
     }
 
     mongocxx::options::find opts;
+    // guarantee stable order
+    opts.sort(bsoncxx::builder::basic::make_document(
+        bsoncxx::builder::basic::kvp("_id", 1)
+    ));
 
     for (auto&& doc : collection.find({}, opts)) {
-        auto h = hash_document(doc);
+        // can drop volatile fields before hashing
+        // auto doc_view = strip_fields(doc, {"timestamp", "_id.timestamp"});
+
+        auto h = hash_document(doc); // your normalized JSON → MD5 (per-doc)
         if (EVP_DigestUpdate(ctx, h.data(), h.size()) != 1) {
             EVP_MD_CTX_free(ctx);
             throw std::runtime_error("EVP_DigestUpdate failed");
@@ -109,7 +117,7 @@ std::string Broker::collection_fingerprint(mongocxx::collection& collection) {
 }
 
 mongocxx::pipeline Broker::create_date_pipeline(
-    const Timeframe& frame,
+    const temporal_query::Timeframe& frame,
     const size_t count,
     std::string_view id,
     const std::chrono::_V2::system_clock::time_point& base_date,
@@ -119,7 +127,7 @@ mongocxx::pipeline Broker::create_date_pipeline(
     mongocxx::pipeline pipeline;
 
     switch(frame){
-        case Timeframe::NOW: {
+        case temporal_query::Timeframe::NOW: {
             pipeline.match(
                 bsoncxx::builder::basic::make_document(
                     bsoncxx::builder::basic::kvp("_id._id", id)
@@ -151,7 +159,7 @@ mongocxx::pipeline Broker::create_date_pipeline(
             pipeline.limit(count);
             break;
         }
-        case Timeframe::BEFORE: {
+        case temporal_query::Timeframe::BEFORE: {
             pipeline.match(
                 bsoncxx::builder::basic::make_document(
                     bsoncxx::builder::basic::kvp("_id._id", id)
@@ -174,7 +182,7 @@ mongocxx::pipeline Broker::create_date_pipeline(
             pipeline.limit(count);
             break;
         }
-        case Timeframe::AFTER: {
+        case temporal_query::Timeframe::AFTER: {
             pipeline.match(
                 bsoncxx::builder::basic::make_document(
                     bsoncxx::builder::basic::kvp("_id._id", id)
@@ -230,7 +238,7 @@ void Broker::filter_to_only_id(mongocxx::v_noabi::pipeline& pipeline){
     );
 }
 
-std::string Broker::get_from_database(const Timeframe& frame, bsoncxx::v_noabi::document::view json_data){
+std::string Broker::get_from_database(const temporal_query::Timeframe& frame, bsoncxx::v_noabi::document::view json_data){
 
     //type and ID are always specified by the get handler
     std::string_view type = json_data["type"].get_value().get_string().value;

@@ -47,14 +47,14 @@ int main()
     std::cout << "SNDS Node Scope Name for id 'exampleID': " << scopeName << std::endl;
 
     // ---------------------------------------------------
-    // Test inline functions: isSubscriptionRequest and getURLfromSubscription
+    // Test inline functions: is_subscription_request and get_url_of_subscription
     // ---------------------------------------------------
     // Create a GET request string that includes subscription parameters.
     std::string subRequest = "/isSub=true&suburl=http://example.com";
-    bool isSub = isSubscriptionRequest(subRequest);
+    bool isSub = is_subscription_request(subRequest, "isSub");
     std::cout << "Is subscription request: " << std::boolalpha << isSub << std::endl;
 
-    std::string_view subURL = getURLfromSubscription(subRequest);
+    std::string_view subURL = get_url_of_subscription(subRequest, "subUrl");
     std::cout << "Subscription URL: " << subURL << std::endl;
 
     // ========================
@@ -75,7 +75,7 @@ int main()
             0x00, 0x03, 'c', 'a', 'r',// First ID length = 3, then "car"
             0x00, 0x03, 'b', 'u', 's' // Second ID length = 3, then "bus"
         };
-        auto extractedIDs = parseIDsFromRegistryFilePayload(std::span<const uint8_t>(testPayload));
+        auto extractedIDs = parse_ids_from_registry_file_payload(std::span<const uint8_t>(testPayload));
 
         std::cout << "Extracted IDs from payload:" << std::endl;
         for (const auto &id : extractedIDs)
@@ -99,7 +99,7 @@ int main()
         std::unordered_set<std::string> idSet = {"car", "bus", "bike"};
 
         // Serialize the IDs into a binary payload.
-        std::vector<std::byte> serializedPayload = serializeRegistryFilePayload(idSet);
+        std::vector<std::byte> serializedPayload = serialize_registry_file_payload(idSet);
 
         // Print the complete payload in hexadecimal.
         std::cout << "Serialized payload (" << serializedPayload.size() << " bytes):" << std::endl;

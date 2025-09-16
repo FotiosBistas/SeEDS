@@ -1,11 +1,5 @@
-#ifndef SERVICE_BASE_H
-#define SERVICE_BASE_H
+#pragma once
 
-#include <ndn-cxx/face.hpp>
-#include <ndn-cxx/security/validator-config.hpp>
-#include <spdlog/spdlog.h>
-#include <spdlog/sinks/stdout_color_sinks.h>
-#include <spdlog/sinks/basic_file_sink.h>
 #include <atomic>
 #include <thread>
 #include <memory>
@@ -13,9 +7,18 @@
 #include <exception>
 #include <vector>
 #include <string>
-#include "snds_message.h"
-#include "message_queue.h"
+
+#include <ndn-cxx/face.hpp>
+#include <ndn-cxx/security/validator-config.hpp>
+
+#include <spdlog/spdlog.h>
+#include <spdlog/sinks/stdout_color_sinks.h>
+#include <spdlog/sinks/basic_file_sink.h>
+
 #include "snds_utils.h"
+
+#include "snds_message.hpp"
+#include "message_queue.hpp"
 
 class ServiceBase {
 public:
@@ -26,10 +29,10 @@ public:
    *
    * @param logLevel The desired spdlog log level (default: info).
    * @param logFile The file to which log output should be written (default: "ServiceBase.log").
-   * @param numberOfSndsSrvs The number of SNDS servers (default: 1).
-   * @param sndsPrefix The SNDS prefix (default: "/SNDS").
-   * @param mySndsId The local SNDS service ID (default: "0").
-   * @param idScopePrefix The prefix used for the ID scope (default: "/SNDS_ID_scope_").
+   * @param number_of_snds_services The number of SNDS servers (default: 1).
+   * @param snds_prefix The SNDS prefix (default: "SNDS").
+   * @param snds_id The local SNDS service ID (default: "0").
+   * @param id_scope_prefix The prefix used for the ID scope (default: "SNDS_ID_scope_").
    * @param registryFilePostfix The postfix used for registry file names (default: "_registry").
    * @param ackTag The ack tag for acking data
    */
@@ -37,34 +40,34 @@ public:
    (
         spdlog::level::level_enum logLevel = spdlog::level::info,
         std::string logFile = "ServiceBase.log",
-        uint8_t numberOfSndsSrvs = 1,
-        std::string sndsPrefix = "/SNDS",
-        std::string mySndsId = "0",
-        std::string idScopePrefix = "/SNDS_ID_scope_",
-        std::string registryFilePostfix = "_registry",
-        std::string ackTag = "THIS_IS_AN_SNDS_ACK",
+        size_t number_of_snds_services = 1,
+        std::string snds_prefix = "SNDS",
+        std::string snds_state_prefix = "state",
+        std::string snds_is_alive_prefix = "is_alive",
+        std::string snds_id = "0",
+        std::string id_scope_prefix = "SNDS_ID_scope_",
+        std::string registry_file_postfix = "_registry",
         std::string serviceName = "ServiceBase",
         std::string broker_ip   = "0.0.0.0",
-        int broker_port = 10000,
-		std::string temporalQueryPrefix = "date%3D",
-        std::string metafilePrefix = "metafile%3Dtrue"
+        size_t      broker_port = 10000
     ):m_face(),
     m_keyChain(),
     m_validator(m_face), // m_validator must be initialized after m_face
     m_logger(nullptr), // Will be initialized below
-    m_numberOfSndsSrvs(numberOfSndsSrvs),
-    m_sndsPrefix(std::move(sndsPrefix)),
-    m_mySndsId(std::move(mySndsId)),
-    m_idScopePrefix(std::move(idScopePrefix)),
-    m_registryFilePostfix(std::move(registryFilePostfix)),
-    m_ackTag(std::move(ackTag)),
+    number_of_snds_services(number_of_snds_services),
+    snds_prefix(std::move(snds_prefix)),
+    snds_state_prefix(std::move(snds_state_prefix)),
+    snds_is_alive_prefix(std::move(snds_is_alive_prefix)),
+    snds_id(std::move(snds_id)),
+    id_scope_prefix(std::move(id_scope_prefix)),
+    registry_file_postfix(std::move(registry_file_postfix)),
     serviceName(std::move(serviceName)),
-    m_mySndsIdName(m_sndsPrefix + "_" + m_mySndsId), // Now initialized correctly
-    m_mySndsIdScopeName(m_sndsPrefix + m_idScopePrefix + m_mySndsId), // Correct order
+    snds_state_with_id(this->snds_state_prefix + "_" + this->snds_id),
+    snds_is_alive_with_id(this->snds_is_alive_prefix + "_" + this->snds_id),
+    snds_id_name(this->snds_prefix + "_" + this->snds_id),
+    snds_id_scope_name(this->id_scope_prefix + this->snds_id),
     broker_ip(broker_ip),
-    broker_port(broker_port),
-	temporalQueryPrefix(temporalQueryPrefix),
-	metafilePrefix(metafilePrefix)
+    broker_port(broker_port)
     {
         // Logger initialization
         auto console_sink = std::make_shared<spdlog::sinks::stdout_color_sink_mt>();
@@ -90,16 +93,16 @@ public:
         m_logger->info("========== {} Configuration ==========", this->serviceName);
         m_logger->info("Log Level: {}", spdlog::level::to_string_view(logLevel));
         m_logger->info("Log File: {}", logFile);
-        m_logger->info("Number of SNDS Services: {}", m_numberOfSndsSrvs);
-        m_logger->info("SNDS Prefix: {}", m_sndsPrefix);
-        m_logger->info("My SNDS ID: {}", m_mySndsId);
-        m_logger->info("ID Scope Prefix: {}", m_idScopePrefix);
-        m_logger->info("Registry File Postfix: {}", m_registryFilePostfix);
-        m_logger->info("ACK Tag: {}", m_ackTag);
+        m_logger->info("Number of SNDS Services: {}", number_of_snds_services);
+        m_logger->info("SNDS Prefix: {}", this->snds_prefix);
+        m_logger->info("My SNDS ID: {}", this->snds_id);
+        m_logger->info("ID Scope Prefix: {}", this->id_scope_prefix);
+        m_logger->info("SNDS state with ID: {}", this->snds_state_with_id);
+        m_logger->info("SNDS is alive with ID: {}", this->snds_is_alive_with_id);
+        m_logger->info("Registry File Postfix: {}", this->registry_file_postfix);
         m_logger->info("Service Name: {}", this->serviceName);
-        m_logger->info("Computed m_mySndsIdName: {}", m_mySndsIdName);
-        m_logger->info("Computed m_mySndsIdScopeName: {}", m_mySndsIdScopeName);
-        m_logger->info("Temporal Query Prefix: {}", temporalQueryPrefix);
+        m_logger->info("Computed SNDS ID name: {}", this->snds_id_name);
+        m_logger->info("Computed SNDS ID Scope Name: {}", this->snds_id_scope_name);
         m_logger->info("===============================================");
     }
 
@@ -123,6 +126,18 @@ virtual void onNack(const ndn::Interest& interest, const ndn::lp::Nack& nack) {
 
 virtual void onTimeout(const ndn::Interest& interest) {
     m_logger->info("Timeout for Interest: {}", interest.getName().toUri());
+    auto nack_message = snds_intra_message::to_string(snds_intra_message::SNDS_CONTROL_MESSAGE_TYPE::TIMEOUT);
+
+    auto message = std::make_unique<snds_intra_message::SNDS_INTRA_MESSAGE>
+    (
+        std::move(nack_message),
+        snds_intra_message::SNDS_INTRA_MESSAGE_TYPE::CONTROL_MESSAGE,
+        snds_intra_message::SNDS_CLIENT_TYPES::CONSUMER,
+        "",
+        snds_intra_message::HTTP_MESSAGE_TYPE::HTTP_EMPTY
+    );
+
+    v_to_worker->writeMessage(std::move(message));
 }
 
 virtual void onRegisterFailed(const ndn::Name& prefix, const std::string& reason){
@@ -155,9 +170,11 @@ virtual void stop() {
 /**
  * @brief Utility method to send a Data packet with the specified name and payload.
  */
-virtual bool sendData(const ndn::Name& name, std::string payload) {
+virtual bool sendData(const ndn::Name& name, std::string payload) 
+{
     m_logger->debug("Sending data to the NDN…");
-    try {
+    try 
+    {
         auto data = std::make_shared<ndn::Data>();
         data->setName(name);
         data->setFreshnessPeriod(ndn::time::seconds(60));
@@ -168,11 +185,13 @@ virtual bool sendData(const ndn::Name& name, std::string payload) {
         m_face.put(*data);
         return true;
     }
-    catch (const std::exception& e) {
+    catch (const std::exception& e) 
+    {
         m_logger->error("Failed to send Data {}: {}", name.toUri(), e.what());
         return false;
     }
-    catch (...) {
+    catch (...) 
+    {
         m_logger->error("Unknown error while sending Data {}", name.toUri());
         return false;
     }
@@ -200,23 +219,19 @@ protected:
   	friend class SNDSDaemon;
 
   	// Configurable protocol parameters:
-  	uint8_t m_numberOfSndsSrvs;           // Number of SNDS services.
-  	std::string m_sndsPrefix;             // e.g., "/SNDS"
-  	std::string m_mySndsId;               // e.g., "0"
-  	std::string m_mySndsIdName;           // Computed as m_sndsPrefix + "_" + m_mySndsId.
-  	std::string m_idScopePrefix;          // e.g., "/SNDS_ID_scope_"
-  	std::string m_mySndsIdScopeName;      // Computed as m_sndsPrefix + m_idScopePrefix + m_mySndsId.
-  	std::string m_registryFilePostfix;    // e.g., "_registry"
-	std::string temporalQueryPrefix;      //e.g. "date%3D"
-    std::string metafilePrefix;           //e.g. "metafile%3D"
+  	size_t number_of_snds_services;       // Number of SNDS services.
+  	std::string snds_prefix;              // e.g., "SNDS"
+    std::string snds_state_prefix;        // e.g., "state"
+    std::string snds_is_alive_prefix;     // e.g., "is_alive"
+  	std::string snds_id;                  // e.g., "0"
+    std::string snds_state_with_id;       // e.g., "state_0"
+    std::string snds_is_alive_with_id;    // e.g., "is_alive_0"
+  	std::string snds_id_name;             // Computed as snds_prefix + "_" + snds_id.
+  	std::string id_scope_prefix;          // e.g., "SNDS_ID_scope_"
+  	std::string snds_id_scope_name;       // Computed as snds_prefix + id_scope_prefix + snds_id.
+  	std::string registry_file_postfix;    // e.g., "_registry"
   	std::string serviceName;
+
   	std::string broker_ip;
-  	int broker_port;
-
-	std::string m_ackTag = "THIS_IS_AN_SNDS_ACK\r\n";
-  	std::string WARNING_ALREADY_REGISTERED = "WARNING_ALREADY_REGISTERED";
-  	static constexpr const char* ERASE_PREFIX="erase=";
-
+  	size_t      broker_port;
 };
-
-#endif // SERVICE_BASE_H
