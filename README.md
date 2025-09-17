@@ -125,12 +125,90 @@ curl -G http://localhost:8080/ \
   -H "Accept: application/json"
 ```
 
-# Broker
 
+# Components
 
+## Service 
+
+## Broker
 You can run test the broker as a standalone binary. No need to run through the snds_broker_bin.
 
-## Compile 
+### Summary 
+
+The Broker is a small HTTP service in front of MongoDB that stores, retrieves,fingerprints, and bulk-copies JSON documents. It supports both latest (unversioned) and historical (versioned) views of the same data and exposes a handful of endpoints for SNDS components (producers/consumers, resilience tools).
+
+#### Key ideas
+Two collections per type:
+- Unversioned: <TYPE> — contains only the latest record for each id (upserted).
+- Versioned: <TYPE>_VERSIONED — append-only history: _id is a document { _id: "<id>", timestamp: <date> }.
+- For mirroring, a secondary suffix may be used: *_SECONDARY.
+
+Deterministic fingerprints:
+- Each document is canonicalized (keys sorted) and MD5’d.
+- A collection fingerprint is SHA-256 over the per-doc MD5s, iterating in _id order.
+- GET /state?type=<TYPE> returns { algo, hash, count }. Secondary collections are skipped.
+
+Timestamps always present
+- Every record gets a server-side timestamp (BSON date). Versioned _id also embeds the timestamp.
+
+Graceful runtime:
+- Single binary HTTP server (cpp-httplib), structured logs (spdlog), SIGINT-aware shutdown.
+
+#### Endpoints (quick reference)
+
+- POST /add: Insert/Upsert a document into both stores. Body must include at least id; type defaults to "GENERIC" if missing. 
+  1. Unversioned: replace_one(..., upsert=true) on <TYPE>.
+  2. Versioned: insert_one on <TYPE>_VERSIONED (or *_VERSIONED_SECONDARY if the incoming type name already carries _SECONDARY).
+- GET /get?id=<ID>&type=<TYPE>: Returns the latest document for that id from <TYPE>.
+- GET /temporal-query?id=<ID>&type=<TYPE>&date=<ISO>&timeframe=<NOW|BEFORE|AFTER[+...]>&count=<N>. Reads from <TYPE>_VERSIONED using MongoDB pipelines. This returns an array with one element per timeframe token:
+  1. NOW: nearest entries to date
+  2. BEFORE: entries <= date (ascending)
+  3. AFTER: entries >= date (ascending)
+
+- GET /state?type=<TYPE> Returns a fingerprint of <TYPE>:
+  1. ``{ "collection": "TYPE", "algo": "SHA-256", "hash": "<hex>", "count": <n> }``
+  2. For *_SECONDARY types, returns an empty fingerprint and secondary: true.
+
+- GET /dump[?type=<TYPE>]: Export all (or one) non-secondary collections as Extended JSON.
+
+- POST /copy: Bulk (re)hydrate collections from a JSON dump. Body shape:
+```json
+{
+  "mirror_to_secondary": true,
+  "secondary_suffix": "_SECONDARY",
+  "collections": {
+    "CAR": [ /* docs */ ],
+    "CAR_VERSIONED": [ /* docs */ ]
+  }
+}
+```
+1. Unversioned docs → upsert by string _id.
+2. Versioned docs → insert by composite _id {_id, timestamp}.
+3. When mirror_to_secondary=true, data is written to <NAME>_SECONDARY.
+
+
+### Example CURL
+
+```bash
+# Add or update a record
+curl -sX POST localhost:8080/add \
+  -H 'content-type: application/json' \
+  -d '{"type":"CAR","id":"X123","speed":42}'
+
+# Latest read
+curl -s 'localhost:8080/get?id=X123&type=CAR'
+
+# Temporal query (5 items before a date)
+curl -s 'localhost:8080/temporal-query?id=X123&type=CAR&date=2025-06-26T14:30:00Z&timeframe=BEFORE&count=5'
+
+# Collection fingerprint
+curl -s 'localhost:8080/state?type=CAR'
+
+# Dump all non-secondary collections
+curl -s 'localhost:8080/dump'
+```
+
+### Compile 
 
 Compile everything along with the broker:
 
@@ -143,10 +221,7 @@ Compile only the broker target:
 ```
 sudo cmake --build . --target snds_broker_bin (-j)
 ```
-
-## Run
-
-
+### Run
 Note you need to provide the arguments like port,ip inside the main function.
 
 ```cpp
@@ -189,9 +264,7 @@ The only thing you need to provide through the command line is the password, use
 ```
 Usage: ./app <username> <password> <database>
 ```
-
-## Requests
-
+### Requests
 Currently the HTTP API supports: 
 
 - (POST) add-one. The type parameter does not have to be filled. If its not filled or doesn't exist the system will default to the `GENERIC` type:
@@ -223,3 +296,5 @@ curl -G http://localhost:10000/state \
   --data-urlencode "type=sensor" \
   -H "Accept: application/json"
 ```
+
+## Resilience 
