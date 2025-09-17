@@ -298,3 +298,104 @@ curl -G http://localhost:10000/state \
 ```
 
 ## Resilience 
+
+The resilience layer keeps a SECONDARY node in sync with a PRIMARY by exchanging tiny JSON envelopes over NDN. It prefers JSON Patch deltas for speed and falls back to full snapshots when needed. Everything is content-addressed with a deterministic hash so both sides can prove they agree.
+
+### Store (PRIMARY)
+Canonical, versioned JSON store with a bounded history. Each change bumps a version, recomputes a canonical hash, and keeps a snapshot for patch generation. Exposes:
+
+- Meta → {version, hash}: a lightweight head descriptor for quick “are we in sync?” checks.
+- Patch → {base_version, target_version, target_hash, ops} where ops is RFC6902 JSON Patch ``(nlohmann::json::diff(base,target))``. Apply with ``json.patch(ops)``.
+- Snapshot → {version, hash, state}: full state transfer for cold start or when a patch isn’t possible.
+
+### Mirror (SECONDARY)
+Local follower that applies Snapshot or Patch. Validates via canonical hash; on mismatch it logs and normalizes locally (the goal is convergence, not crypto).
+
+### ResiliencePoller (SECONDARY)
+A tiny scheduler that probes the PRIMARY and pulls updates. It runs two periodic loops and posts all I/O onto the NDN Face’s io_context:
+
+- Alive loop: proves reachability with a nonce echo.
+- Meta loop: reads {version, hash, ts} and decides whether to fetch a patch or snapshot.
+
+### Wire protocol (NDN interest)
+
+Names are built under your SNDS prefix with per-peer components:
+
+#### Liveness probe
+
+- Purpose: “Are you up, and did you see my nonce?”
+- Interest name: /<SNDS-prefix>/<peer_is_alive_name>/GET_RESILIENCE_IS_ALIVE/<nonce>
+- Example: /SNDS/is_alive_2/GET_RESILIENCE_IS_ALIVE/123456789
+- Data (JSON):
+
+```json
+{ "ack": true, "nonce": "123456789", "ts": "2025-06-26T14:30:00Z" }
+```
+- Client behavior: Accept only if ack == true and the echoed nonce matches.
+
+#### Head metadata
+
+- Purpose: “What version and hash is your current state?”
+- Interest name: /<SNDS-prefix>/<peer_state_name>/GET_RESILIENCE_META
+- Example: /SNDS/state_2/GET_RESILIENCE_META
+- Data (JSON):
+```json
+{ "version": 42, "hash": "7c4ff521...md5...", "ts": "2025-06-26T14:31:00Z" }
+```
+- Client behavior: Compare version to your local version to decide whether you need a patch or a snapshot.
+
+#### Patch (delta) request
+
+- Purpose: “Give me the JSON Patch from my version → your version.”
+- Interest name:/<SNDS-prefix>/<peer_state_name>/GET_RESILIENCE_PATCH/<from_version>/<to_version>
+- Example: /SNDS/state_2/GET_RESILIENCE_PATCH/40/42
+- Success Data (JSON):
+```json
+{
+  "kind": "patch",
+  "base_version": 40,
+  "target_version": 42,
+  "target_hash": "7c4ff521...md5...",
+  "ops": [ /* RFC6902 JSON Patch ops */ ]
+}
+```
+- Possible error Data (JSON): (producer guides you to fall back)
+```json
+{ "error": "patch_unavailable", "advice": "fetch_snapshot", "latest": 42 }
+```
+- Other error values you might see: ``missing_parameters, invalid_parameters, non_increasing_version, unknown_target_version, store_advanced``.
+- Client behavior: Try applying ops to your local state. If apply fails or you get an error, fetch a snapshot of target_version (or of latest).
+
+#### Snapshot (full state) request
+- Purpose: “Give me the full state at your head (or at the specified version).”
+- Interest name:/<SNDS-prefix>/<peer_state_name>/GET_RESILIENCE_SNAPSHOT/<to_version>
+- Example: /SNDS/state_2/GET_RESILIENCE_SNAPSHOT/42
+- Success Data (JSON):
+```json
+{
+  "kind": "snapshot",
+  "version": 42,
+  "hash": "7c4ff521...md5...",
+  "state": { /* entire canonical JSON state */ }
+}
+```
+- Possible error Data (JSON):
+```json
+{ "error": "store_advanced", "advice": "fetch_snapshot", "latest": 43 }
+```
+
+(You asked for 42, but the head moved to 43; ask again for 43.)
+
+
+#### Determinism & hashing
+
+Canonicalization uses nlohmann::ordered_json + compact .dump() so the same logical object hashes identically everywhere.
+
+Hashing is MD5 over the canonical dump. It’s a fast, stable fingerprint for identity checks—not a security guarantee.
+
+#### Client behavior (SECONDARY)
+
+- Boot → send META. With no local version, fetch SNAPSHOT at the advertised version and apply.
+- Steady state → on META showing a higher version, request PATCH {local→remote}.
+- If PATCH NACKs/times out/fails to apply, fetch SNAPSHOT {remote}.
+- Liveness & promotion → on 3 consecutive is_alive misses, the example app self-promotes to PRIMARY, emits an IPC "role":"primary" envelope, and stops the poller.
