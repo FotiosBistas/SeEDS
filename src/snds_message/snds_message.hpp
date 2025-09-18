@@ -1,35 +1,39 @@
 #pragma once
-//=============================================================================
-// snds_intra_message.hpp — Intra-service message taxonomy + helper container
-//
-// What this file gives you:
-//  1) A *single source of truth* for all intra-service message kinds,
-//     HTTP verbs, control/ACK types, and client roles — defined with
-//     X-macros so names and their string forms never drift.
-//  2) A tiny, value-type container (SNDS_INTRA_MESSAGE) that carries:
-//        • message (primary body) + payload (secondary body)
-//        • strongly-typed enums (message type, sender role, HTTP verb)
-//        • a generated set of optional query parameters (via QUERY_PARAM_LIST)
-//     …plus utilities to:
-//        • infer message type from HTTP verb + present parameters
-//        • pack/unpack parameters into a compact “{k=v,k2=v2}” wire blob
-//        • pretty-print the message for debugging/logging
-//
-// Why X-macros?
-//  - You only edit the lists below to add/remove types; enums, string tables,
-//    and to_string()/from_string() stay correct automatically.
-//  - It’s easy to expose the same taxonomy in other components by reusing
-//    these lists.
-//
-// Thread-safety & lifetime:
-//  - SNDS_INTRA_MESSAGE is a simple, non-thread-safe value type; pass/own it
-//    per thread or protect externally.
-//  - All strings are owned (std::string). Move APIs are provided for zero-copy.
-//
-// Parameter packing format (human-readable, robust to missing keys):
-//    "{key=value,key2=value2}"   // no escaping; intended for simple tokens
-//                                  (use JSON if you need structured values)
-//=============================================================================
+/**
+ * @file snds_intra_message.hpp
+ * @brief Intra-service message taxonomy and helper container for SNDS.
+ *
+ * @details
+ * What this file gives you:
+ *  1) A *single source of truth* for all intra-service message kinds,
+ *     HTTP verbs, control/ACK types, and client roles — defined with
+ *     X-macros so names and their string forms never drift.
+ *  2) A tiny, value-type container (#snds_intra_message::SNDS_INTRA_MESSAGE) that carries:
+ *        - message (primary body) + payload (secondary body)
+ *        - strongly-typed enums (message type, sender role, HTTP verb)
+ *        - a generated set of optional query parameters (via QUERY_PARAM_LIST)
+ *     …plus utilities to:
+ *        - infer message type from HTTP verb + present parameters
+ *        - pack/unpack parameters into a compact “{k=v,k2=v2}” wire blob
+ *        - pretty-print the message for debugging/logging
+ *
+ * ### Why X-macros?
+ * - You only edit the lists below to add/remove types; enums, string tables,
+ *   and to_string()/from_string() stay correct automatically.
+ * - It’s easy to expose the same taxonomy in other components by reusing
+ *   these lists.
+ *
+ * ### Thread-safety & lifetime
+ * - SNDS_INTRA_MESSAGE is a simple, non-thread-safe value type; pass/own it
+ *   per thread or protect externally.
+ * - All strings are owned (std::string). Move APIs are provided for zero-copy.
+ *
+ * ### Parameter packing format
+ * - Human-readable and robust to missing keys:
+ *   `"{key=value,key2=value2}"` — no escaping; intended for simple tokens.
+ *   Use JSON in `payload` if you need structured values.
+ */
+
 #include <sstream>
 #include <cstring>
 #include <iostream>
@@ -111,57 +115,75 @@ namespace snds_intra_message
     // 2) Enums + string tables (auto-generated from the lists)
     //-------------------------------------------------------------------------
 
-    /// @brief HTTP verbs used to interpret queries/ads.
+    /**
+     * @enum HTTP_MESSAGE_TYPE
+     * @brief HTTP verbs used to interpret queries/ads.
+     */
     enum class HTTP_MESSAGE_TYPE 
     {
-
         #define X(name, str) name, 
             HTTP_MESSAGE_TYPE_LIST
         #undef X
     };
-    /// @brief Parallel string table for HTTP_MESSAGE_TYPE.
+
+    /** @brief Parallel string table for #HTTP_MESSAGE_TYPE. */
     static constexpr const char* HTTP_MESSAGE_TYPE_STRINGS[] = 
     {
         #define X(name, str) str,
             HTTP_MESSAGE_TYPE_LIST
         #undef X
     };
-    /// @brief Primary intra-service message kinds (requests/responses/ads/etc).
+
+    /**
+     * @enum SNDS_INTRA_MESSAGE_TYPE
+     * @brief Primary intra-service message kinds (requests/responses/ads/etc).
+     */
     enum class SNDS_INTRA_MESSAGE_TYPE 
     {
         #define X(name, str) name,
             SNDS_MESSAGE_TYPE_LIST
         #undef X
     };
-    /// @brief Parallel string table for SNDS_INTRA_MESSAGE_TYPE.
+
+    /** @brief Parallel string table for #SNDS_INTRA_MESSAGE_TYPE. */
     static constexpr const char* SNDS_MESSAGE_TYPE_STRINGS[] = 
     {
         #define X(name, str) str,
             SNDS_MESSAGE_TYPE_LIST
         #undef X
     };
-    /// @brief Control/acknowledgement messages (ACK/NACK, warnings).
+
+    /**
+     * @enum SNDS_CONTROL_MESSAGE_TYPE
+     * @brief Control/acknowledgement messages (ACK/NACK, warnings).
+     */
     enum class SNDS_CONTROL_MESSAGE_TYPE
     {
         #define X(name, str) name,
             SNDS_CONTROL_MESSAGE_TYPE_LIST
         #undef X
     };
-    /// @brief Parallel string table for SNDS_CONTROL_MESSAGE_TYPE.
+
+    /** @brief Parallel string table for #SNDS_CONTROL_MESSAGE_TYPE. */
     static constexpr const char* SNDS_CONTROL_MESSAGE_TYPE_STRINGS[] = 
     {
         #define X(name, str) str,
             SNDS_CONTROL_MESSAGE_TYPE_LIST
         #undef X
     };
-    /// @brief Logical client roles participating in the bus.
+
+    /**
+     * @enum SNDS_CLIENT_TYPES
+     * @brief Logical client roles participating in the bus.
+     */
     enum class SNDS_CLIENT_TYPES 
     {
         #define X(name, str) name,
             SNDS_CLIENT_TYPE_LIST
         #undef X
     };
-    /// @brief Parallel string table for SNDS_CLIENT_TYPES.
+
+    /** @brief Parallel string table for #SNDS_CLIENT_TYPES. */
     static constexpr const char* SNDS_CLIENT_TYPE_STRINGS[] = 
     {
         #define X(name, str) str,
@@ -169,25 +191,32 @@ namespace snds_intra_message
         #undef X
     };
 
-    // typename E gets replaced when enum_traits<SNDS_INTRA...> is called
-     //-------------------------------------------------------------------------
+    //-------------------------------------------------------------------------
     // 3) enum_traits<E> — compile-time mapping enum → string table
     //-------------------------------------------------------------------------
 
+    /**
+     * @brief Primary template for enum → string-table traits.
+     * @tparam E Enum type.
+     */
     template<typename E> struct enum_traits;
 
+    /** @brief Traits for #SNDS_INTRA_MESSAGE_TYPE. */
     template<> struct enum_traits<SNDS_INTRA_MESSAGE_TYPE> 
     {
+        /// @return pointer to the string table for #SNDS_INTRA_MESSAGE_TYPE.
         static constexpr const char* const* data() noexcept 
         { 
             return SNDS_MESSAGE_TYPE_STRINGS; 
         }
+        /// @return number of entries in the string table.
         static constexpr std::size_t size() noexcept 
         {
             return sizeof(SNDS_MESSAGE_TYPE_STRINGS) / sizeof(*SNDS_MESSAGE_TYPE_STRINGS);
         }
     };
 
+    /** @brief Traits for #SNDS_CONTROL_MESSAGE_TYPE. */
     template<> struct enum_traits<SNDS_CONTROL_MESSAGE_TYPE> 
     {
         static constexpr const char* const* data() noexcept 
@@ -200,6 +229,7 @@ namespace snds_intra_message
         }
     };
 
+    /** @brief Traits for #SNDS_CLIENT_TYPES. */
     template<> struct enum_traits<SNDS_CLIENT_TYPES> 
     {
         static constexpr const char* const* data() noexcept 
@@ -212,6 +242,7 @@ namespace snds_intra_message
         }
     };
 
+    /** @brief Traits for #HTTP_MESSAGE_TYPE. */
     template<> struct enum_traits<HTTP_MESSAGE_TYPE> 
     {
         static constexpr const char* const* data() noexcept 
@@ -228,7 +259,12 @@ namespace snds_intra_message
     // 4) Enum <-> string helpers (generic for any E with enum_traits<E>)
     //-------------------------------------------------------------------------
 
-    /// @return string view for the enum value, or "UNKNOWN" if out-of-range.
+    /**
+     * @brief Convert an enum value to its string representation.
+     * @tparam E Enum type with a matching enum_traits<E>.
+     * @param e Enum value.
+     * @return String view for the enum value, or `"UNKNOWN"` if out-of-range.
+     */
     template<typename E>
     constexpr const char* to_string(E e) noexcept
     {
@@ -238,7 +274,13 @@ namespace snds_intra_message
         constexpr auto N = enum_traits<E>::size();
         return idx < N ? enum_traits<E>::data()[idx] : "UNKNOWN";
     }
-    /// @return parsed enum wrapped in std::optional; std::nullopt if no match.
+
+    /**
+     * @brief Parse a string into an enum value.
+     * @tparam E Enum type with a matching enum_traits<E>.
+     * @param s Input string.
+     * @return Parsed enum wrapped in std::optional; std::nullopt if no match.
+     */
     template<typename E>
     std::optional<E> from_string(std::string_view s) noexcept 
     {
@@ -251,7 +293,6 @@ namespace snds_intra_message
             {
                 return static_cast<E>(i);
             }
-
         }
         return std::nullopt;
     }
@@ -260,7 +301,11 @@ namespace snds_intra_message
     // 5) Small token helpers used by ACK/NACK sniffing
     //-------------------------------------------------------------------------
 
-    /// @brief Extract the first non-whitespace word; strips any NUL suffix.
+    /**
+     * @brief Extract the first non-whitespace word; strips any NUL suffix.
+     * @param s Raw input text (may contain embedded NULs).
+     * @return First token (as a string_view into @p s) or empty if none.
+     */
     static std::string_view extract_token(std::string_view s) noexcept 
     {
         // If there’s a '\0' anywhere, lose it and everything after.
@@ -285,7 +330,12 @@ namespace snds_intra_message
 
         return s.substr(start, end - start);
     }
-    /// @brief Quick check: does a raw line start with a known control message?
+
+    /**
+     * @brief Quick check: does a raw line start with a known control message?
+     * @param raw Raw line to test.
+     * @return true if the first token maps to a #SNDS_CONTROL_MESSAGE_TYPE.
+     */
     inline bool is_ack_message(std::string_view raw) noexcept 
     {
         auto tok = extract_token(raw);
@@ -315,14 +365,22 @@ namespace snds_intra_message
     //   m.infer_type_from_params(); // → BY_ID_AND_TYPE_ADVERTISEMENT
     //-------------------------------------------------------------------------
 
-    /// @brief Represents an intra-service message with content, type, sender, and an optional name.
+    /**
+     * @brief Represents an intra-service message with content, type, sender, and optional parameters.
+     *
+     * @details
+     * Carries two bodies (`message` and `payload`), three enums (message kind,
+     * sender role, HTTP verb), and a generated set of optional parameters defined
+     * by `QUERY_PARAM_LIST`. Includes helpers to infer message kind, pack/unpack
+     * parameters, and pretty-print for debugging.
+     */
     struct SNDS_INTRA_MESSAGE {
     private:
         std::string message;                 ///< Message content (owned by the object).
         std::string payload;                 ///< Optional extra payload for the message.
         SNDS_INTRA_MESSAGE_TYPE type;        ///< Type of the message (e.g., GENERIC, BY_ID_RESPONSE).
         SNDS_CLIENT_TYPES sender_component;  ///< Sender component responsible for this message.
-        HTTP_MESSAGE_TYPE http_type;         ///< HTTP type of them message.
+        HTTP_MESSAGE_TYPE http_type;         ///< HTTP method associated with this message.
 
         // For each (var,"tag",dec,type) in QUERY_PARAM_LIST we create:
         //    std::optional<type> var_;
@@ -332,21 +390,19 @@ namespace snds_intra_message
             QUERY_PARAM_LIST(DECLARE_FIELD)
         #undef DECLARE_FIELD
 
-
-        // ---- Inference rules (choose a message type from HTTP verb + params) ----
-
-        /// @brief GET: treat as a query or subscription depending on flags.
+        /**
+         * @brief Inference rules for HTTP GET requests.
+         * @return Derived #SNDS_INTRA_MESSAGE_TYPE based on current parameters.
+         */
         SNDS_INTRA_MESSAGE_TYPE infer_from_get() const
         {
-
-
             if (id_.has_value() && is_subscription_.has_value() && is_subscription_.value())
             {
-                //TODO we don't take account URLs
+                // NOTE: subscription_url is currently not considered in inference.
                 return SNDS_INTRA_MESSAGE_TYPE::BY_ID_SUBSCRIPTION;
             }
 
-            if(type_.has_value() && is_subscription_.has_value() && is_subscription_.value())
+            if (type_.has_value() && is_subscription_.has_value() && is_subscription_.value())
             {
                 return SNDS_INTRA_MESSAGE_TYPE::BY_TYPE_SUBSCRIPTION;
             }
@@ -354,8 +410,8 @@ namespace snds_intra_message
             if (date_.has_value() && timeframe_.has_value())
                 return SNDS_INTRA_MESSAGE_TYPE::TEMPORAL_QUERY_REQUEST;
 
-            //if (id_.has_value() && type_.has_value())
-            //    return SNDS_INTRA_MESSAGE_TYPE::GET_BY_ID_AND_TYPE_REQUEST;
+            // if (id_.has_value() && type_.has_value())
+            //     return SNDS_INTRA_MESSAGE_TYPE::GET_BY_ID_AND_TYPE_REQUEST;
 
             if (type_.has_value())
                 return SNDS_INTRA_MESSAGE_TYPE::GET_BY_TYPE_REQUEST;
@@ -363,11 +419,13 @@ namespace snds_intra_message
             if (id_.has_value())
                 return SNDS_INTRA_MESSAGE_TYPE::GET_BY_ID_REQUEST;
 
-
-
             return SNDS_INTRA_MESSAGE_TYPE::GENERIC;
         }
-        /// @brief POST: treat as “advertise/announce/publish” style operations.
+
+        /**
+         * @brief Inference rules for HTTP POST requests.
+         * @return Derived #SNDS_INTRA_MESSAGE_TYPE based on current parameters.
+         */
         SNDS_INTRA_MESSAGE_TYPE infer_from_post() const
         {
             if (date_.has_value())
@@ -382,26 +440,30 @@ namespace snds_intra_message
             if (type_.has_value())
                 return SNDS_INTRA_MESSAGE_TYPE::BY_TYPE_ADVERTISEMENT;
 
-
             return SNDS_INTRA_MESSAGE_TYPE::GENERIC;
         }
-        // Delimiters for the compact param blob: "{k=v,k2=v2}"
+
+        /// Delimiter used between `k=v` pairs in packed params.
         static constexpr const char parameter_packing_delimeter    = ',';
+        /// Leading brace in packed params.
         static constexpr const char parameter_prefix_delimeter     = '{';
+        /// Trailing brace in packed params.
         static constexpr const char parameter_postfix_delimeter    = '}';
+        /// Assignment character between key and value in packed params.
         static constexpr const char parameter_assignment_delimeter = '=';
 
     public:
         //-------------------------------------------------------------------------
         // Constructors / basic metadata mutators
         //-------------------------------------------------------------------------
+
         /**
-         * @brief Constructs a new SNDS_INTRA_MESSAGE with specified content, type, sender, and payload (rvalues only).
-         * @param message The content of the message (rvalue).
-         * @param message_type The type of the message (e.g., GENERIC, BY_ID_RESPONSE).
-         * @param sender The sender component of the message (e.g., PROXY, SERVICE).
-         * @param payload Extra payload for the message.
-         * @param http_type The HTTP method that the message was received from
+         * @brief Construct a new message with explicit fields (rvalue-friendly).
+         * @param message      Primary message content.
+         * @param message_type Intra message type.
+         * @param sender       Sender component role.
+         * @param payload      Secondary payload body.
+         * @param http_type    HTTP verb associated with this message.
          */
         SNDS_INTRA_MESSAGE
         (
@@ -419,14 +481,19 @@ namespace snds_intra_message
         {}
 
         /**
-         * @brief Constructs a default SNDS_INTRA_MESSAGE with empty content and payload,
-         * a type of GENERIC, and sender set to PROXY.
+         * @brief Construct a default message (empty bodies, GENERIC type, PROXY sender).
          */
-        SNDS_INTRA_MESSAGE(): message(""), type(SNDS_INTRA_MESSAGE_TYPE::GENERIC), sender_component(SNDS_CLIENT_TYPES::PROXY), payload(""), http_type(HTTP_MESSAGE_TYPE::HTTP_EMPTY){}
+        SNDS_INTRA_MESSAGE()
+            : message(""),
+              payload(""),
+              type(SNDS_INTRA_MESSAGE_TYPE::GENERIC),
+              sender_component(SNDS_CLIENT_TYPES::PROXY),
+              http_type(HTTP_MESSAGE_TYPE::HTTP_EMPTY)
+        {}
 
         /**
-         * @brief Sets the payload for the message (rvalue only).
-         * @param payload The new payload or identifier (can be empty).
+         * @brief Set the payload (move-only).
+         * @param payload New payload string to move in.
          */
         void set_payload(std::string&& payload) 
         {
@@ -434,8 +501,8 @@ namespace snds_intra_message
         }
 
         /**
-         * @brief Sets the sender component for the message.
-         * @param sender The sender component (e.g., PROXY, SERVICE).
+         * @brief Set the sender role.
+         * @param sender Sender component (e.g., PROXY, SERVICE).
          */
         void set_sender(SNDS_CLIENT_TYPES sender) 
         {
@@ -443,21 +510,22 @@ namespace snds_intra_message
         }
 
         /**
-         * @brief Sets the HTTP message type for the message.
-         * @param http_type The HTTP message type.
+         * @brief Set the HTTP message type.
+         * @param http_type HTTP verb.
          */
         void set_http_type(HTTP_MESSAGE_TYPE http_type) 
         {
             this->http_type = http_type;
         }
 
-        // Deleted constructors and setters for lvalues (forces explicit move)
+        /// @note Deleted to enforce move-only construction for `message`/`payload`.
         SNDS_INTRA_MESSAGE(const std::string& message, SNDS_INTRA_MESSAGE_TYPE message_type, SNDS_CLIENT_TYPES sender, const std::string& message_name, HTTP_MESSAGE_TYPE http_type) = delete;
+        /// @note Deleted to avoid accidental copies into payload.
         void set_payload(const std::string& message) = delete;
 
         /**
-         * @brief Gets the length of the message content.
-         * @return The number of characters in the message content.
+         * @brief Get the length of the #message content.
+         * @return Number of characters in #message.
          */
         size_t get_message_length() const 
         {
@@ -465,7 +533,8 @@ namespace snds_intra_message
         }
 
         /**
-         * @brief Gets the length of payload.
+         * @brief Get the length of the #payload content.
+         * @return Number of characters in #payload.
          */
         size_t get_payload_length() const 
         {
@@ -473,8 +542,8 @@ namespace snds_intra_message
         }
 
         /**
-         * @brief Gets the message content of the class.
-         * @return The reference to the string of the message class.
+         * @brief Access the #message content.
+         * @return Reference to the message string.
          */
         const std::string& get_message() const 
         {
@@ -482,8 +551,8 @@ namespace snds_intra_message
         }
 
         /**
-         * @brief Moves out the message content of the class.
-         * @return The string that was stored in the message (message is left empty).
+         * @brief Move the #message content out, leaving it empty.
+         * @return Rvalue string previously stored in #message.
          */
         std::string&& move_message()
         {
@@ -491,8 +560,8 @@ namespace snds_intra_message
         }
 
         /**
-         * @brief Moves out the payload content of the class.
-         * @return The string that was stored in the payload (payload is left empty).
+         * @brief Move the #payload content out, leaving it empty.
+         * @return Rvalue string previously stored in #payload.
          */
         std::string&& move_payload()
         {
@@ -500,8 +569,8 @@ namespace snds_intra_message
         }
 
         /**
-         * @brief Gets the payload content of the class.
-         * @return The reference to the string of the message class.
+         * @brief Access the #payload content.
+         * @return Reference to the payload string.
          */
         const std::string& get_payload() const 
         {
@@ -509,8 +578,8 @@ namespace snds_intra_message
         }
 
         /**
-         * @brief Get the message type of the class.
-         * @return Returns the enum value of the message type.
+         * @brief Get the current intra message type.
+         * @return #SNDS_INTRA_MESSAGE_TYPE value.
          */
         const SNDS_INTRA_MESSAGE_TYPE get_message_type() const 
         {
@@ -518,8 +587,8 @@ namespace snds_intra_message
         }
 
         /**
-         * @brief Gets the sender component of the message.
-         * @return The sender component (e.g., PROXY, SERVICE).
+         * @brief Get the sender component role.
+         * @return #SNDS_CLIENT_TYPES value.
          */
         SNDS_CLIENT_TYPES get_sender() const 
         {
@@ -527,8 +596,8 @@ namespace snds_intra_message
         }
 
         /**
-         * @brief Prints the current message and its details (for debugging),
-         *        and also returns the same information as a string.
+         * @brief Pretty-print message fields and present parameters, and return the same text.
+         * @return A string with all fields and present parameters.
          */
         std::string print_details() const
         {
@@ -559,22 +628,23 @@ namespace snds_intra_message
         // Generated setters/getters for every QUERY_PARAM_LIST entry
         //
         // For each (var,"tag",dec,type):
-        //   set_var_(type)                   — stores value into std::optional<type>
-        //   get_var_() -> optional<type>     — returns copy if set
-        //   get_param_name_var_()            — returns "tag" (compile-time constant)
+        //   set_var_(type)               — stores value into std::optional<type>
+        //   get_var_() -> optional<type> — returns copy if set
+        //   get_param_name_var_()        — returns "tag" (compile-time constant)
         //-------------------------------------------------------------------------
 
-        //CARE CARE CARE Adding new content (query params) fields
-        //adds a setter for it
+        /** @name Generated setters for optional parameters */
+        ///@{
         #define DECLARE_SETTER(var, tag, dec, type)    \
         void set_##var##_(type v) {                    \
             var##_ = std::move(v);                     \
         } 
         QUERY_PARAM_LIST(DECLARE_SETTER) 
         #undef DECLARE_SETTER
+        ///@}
 
-        //CARE CARE CARE Adding new content (query params) fields
-        //adds a getter for it
+        /** @name Generated getters for optional parameters */
+        ///@{
         #define DECLARE_GETTER(var, tag, dec, type)    \
         std::optional<type> get_##var##_() const {     \
             if(!var##_.has_value()){                   \
@@ -584,10 +654,10 @@ namespace snds_intra_message
         } 
         QUERY_PARAM_LIST(DECLARE_GETTER) 
         #undef DECLARE_GETTER
+        ///@}
 
-        //CARE CARE CARE Adding new content (query params) fields
-        //adds a name getter for it
-        // Getter for parameter name
+        /** @name Generated name-accessors for parameter tags */
+        ///@{
         #define DECLARE_NAME_GETTER(var, tag, dec, type)           \
         constexpr std::string_view get_param_name_##var##_() const \
         {                                                          \
@@ -595,16 +665,17 @@ namespace snds_intra_message
         }                                                                      
         QUERY_PARAM_LIST(DECLARE_NAME_GETTER)
         #undef DECLARE_NAME_GETTER
+        ///@}
 
         //-------------------------------------------------------------------------
         // Parameter packing/unpacking: compact, human-readable blob
         //-------------------------------------------------------------------------
 
         /**
-         * @brief Serialize all present parameters into @ref message as "{k=v,k2=v2}".
+         * @brief Serialize all present parameters into #message as "{k=v,k2=v2}".
          * @warning Values are not escaped — keep them simple (no commas/equals/braces).
-         *          For complex payloads, use JSON in @ref payload instead.
-        */
+         *          For complex payloads, use JSON in #payload instead.
+         */
         void pack_query_params_into_message() 
         {
             std::ostringstream oss;
@@ -623,14 +694,14 @@ namespace snds_intra_message
             #undef APPEND_FIELD
 
             oss << parameter_postfix_delimeter;
-            // Store it in the message payload
+            // Store it in the message body
             this->message = oss.str();
         }
 
-         /**
-         * @brief Interpret @ref message as "{k=v,k2=v2}" and return a map view.
-         * @return unordered_map of parameter key→value; missing '=' yields empty value.
-        */
+        /**
+         * @brief Interpret #message as "{k=v,k2=v2}" and return a key/value map.
+         * @return Unordered map of parameter key→value; missing '=' yields empty value.
+         */
         std::unordered_map<std::string, std::string> unpack_query_params_from_message() const
         {
             std::unordered_map<std::string, std::string> params;
@@ -684,23 +755,24 @@ namespace snds_intra_message
         //-------------------------------------------------------------------------
 
         /**
-         * @brief Decide @ref type based on current @ref http_type and set parameters.
-         * @details
-         *  GET rules:
-         *    - id + is_subscription=true  → BY_ID_SUBSCRIPTION
-         *    - type + is_subscription     → BY_TYPE_SUBSCRIPTION
-         *    - date + timeframe           → TEMPORAL_QUERY_REQUEST
-         *    - type                       → GET_BY_TYPE_REQUEST
-         *    - id                         → GET_BY_ID_REQUEST
-         *    - (else)                     → GENERIC
+         * @brief Decide #type based on current #http_type and present parameters.
          *
-         *  POST rules:
-         *    - date                       → TEMPORAL_QUERY_ADVERTISEMENT
-         *    - id + type                  → BY_ID_AND_TYPE_ADVERTISEMENT
-         *    - id                         → BY_ID_ADVERTISEMENT
-         *    - type                       → BY_TYPE_ADVERTISEMENT
-         *    - (else)                     → GENERIC
-        */
+         * @details
+         * **GET rules**
+         *  - id + is_subscription=true  → BY_ID_SUBSCRIPTION
+         *  - type + is_subscription     → BY_TYPE_SUBSCRIPTION
+         *  - date + timeframe           → TEMPORAL_QUERY_REQUEST
+         *  - type                       → GET_BY_TYPE_REQUEST
+         *  - id                         → GET_BY_ID_REQUEST
+         *  - (else)                     → GENERIC
+         *
+         * **POST rules**
+         *  - date                       → TEMPORAL_QUERY_ADVERTISEMENT
+         *  - id + type                  → BY_ID_AND_TYPE_ADVERTISEMENT
+         *  - id                         → BY_ID_ADVERTISEMENT
+         *  - type                       → BY_TYPE_ADVERTISEMENT
+         *  - (else)                     → GENERIC
+         */
         void infer_type_from_params() 
         {
             using Fn = SNDS_INTRA_MESSAGE_TYPE (SNDS_INTRA_MESSAGE::*)() const;
@@ -712,11 +784,7 @@ namespace snds_intra_message
                 &SNDS_INTRA_MESSAGE::infer_from_post,   // HTTP_POST
             };
 
-            // Compile-time guard in case HTTP_MESSAGE_TYPE grows
-            //Assumes:
-            //the enum is 0-based and contiguous, and
-            //HTTP_EMPTY is the last enumerator.
-            //If both are true, then its underlying value is “last index".
+            // Compile-time guard in case HTTP_MESSAGE_TYPE grows.
             static_assert
             (
                 sizeof(DISPATCH)/sizeof(DISPATCH[0]) ==
@@ -735,18 +803,16 @@ namespace snds_intra_message
             type = (this->*DISPATCH[index])();
         }
 
-
         //-------------------------------------------------------------------------
-        // Raw URI query parsing (k=v&k2=v2); tolerant of missing '=' tokens.
+        // Raw URI query parsing (k=v&k2=v2); tolerant of missing '=' tokens
         //-------------------------------------------------------------------------
 
         /**
          * @brief Convert a URI (or raw query string) into a key/value map.
          * @param uri Either a full URI ("...?...") or just the query string.
-         * @return unordered_map with all pairs; items without '=' map to empty value.
-         *
+         * @return Unordered map with all pairs; items without '=' map to empty value.
          * @note This function does not URL-decode; use upstream parsing for that.
-        */
+         */
         std::unordered_map<std::string, std::string> parse_uri_query_to_map_raw(std::string_view uri)
         {
             std::unordered_map<std::string, std::string> out;
@@ -783,6 +849,5 @@ namespace snds_intra_message
             return out;
         }
 
-
     };
-};
+}; // namespace snds_intra_message
