@@ -1,5 +1,26 @@
 #pragma once
-
+/**
+ * @file snds_daemon.hpp
+ * @brief Process orchestrator for SNDS services.
+ *
+ * @details
+ * The **SNDSDaemon** owns a set of ServiceBase-derived components (producer,
+ * consumer, HTTP server, worker, etc.), takes care of logger setup, and
+ * coordinates lifecycle:
+ *  - **addService()** to register components,
+ *  - **start()** to spawn each service’s `init()` loop on its own thread,
+ *  - **stop()** to signal shutdown, close queues, and join threads.
+ *
+ * Typical usage:
+ * @code{.cpp}
+ * SNDSDaemon daemon(spdlog::level::debug, "daemon.log");
+ * daemon.addService(std::make_unique<SNDSProducer>(...));
+ * daemon.addService(std::make_unique<SNDSConsumer>(...));
+ * daemon.start();
+ * // ...
+ * daemon.stop();
+ * @endcode
+*/
 #include <iostream>
 #include <vector>
 #include <thread>
@@ -7,12 +28,27 @@
 #include <spdlog/spdlog.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
 #include <spdlog/sinks/basic_file_sink.h>
-
 #include "snds_service_base.hpp"
-
-
+/**
+ * @class SNDSDaemon
+ * @brief Owns and runs multiple ServiceBase-derived services in parallel threads.
+ *
+ * @note Logging is initialized with both a colored console sink and a file sink.
+ *       The daemon does **not** own OS process lifetime; callers should create a
+ *       main loop (e.g., wait on a signal) and invoke @ref stop() for a
+ *       graceful shutdown.
+*/
 class SNDSDaemon {
 public:
+    /**
+     * @brief Construct the daemon and initialize logging.
+     *
+     * @param logLevel Minimum log level for the daemon logger.
+     * @param logFile  Path to the daemon log file (created/append mode).
+     *
+     * @post A named logger "SNDSDaemon" is registered in spdlog and used by
+     *       the daemon for lifecycle messages.
+    */
     SNDSDaemon
     (
         spdlog::level::level_enum logLevel = spdlog::level::info,
@@ -31,24 +67,30 @@ public:
         spdlog::register_logger(logger);
         logger->set_level(logLevel);
     }
-
     /**
-     * @brief Registers a new service.
+     * @brief Register a service to be managed by the daemon.
      *
-     * @param service Pointer to a ServiceBase‑derived service.
-     */
+     * @param service Owning pointer to a @ref ServiceBase implementation.
+     *
+     * @note The service is stored and later started on its own thread by @ref start().
+     *       Ownership is transferred to the daemon.
+    */
     void addService(std::unique_ptr<ServiceBase> service) 
     {
         services.push_back(std::move(service));
     }
-
-
     /**
-     * @brief Starts all registered service components by calling their init functions in separate threads.
+     * @brief Start all registered services concurrently.
      *
-     * Since service's init (e.g. func_proxy) runs a perpetual loop,
-     * this launches each service concurrently.
-     */
+     * @details
+     * Spawns one thread per service and invokes `init()` on each. Since service
+     * loops are typically blocking (reactors), this method returns immediately
+     * after threads are created.
+     *
+     * @warning Ensure services were added via @ref addService() before calling.
+     *          Subsequent calls without stopping first may create duplicate
+     *          threads for the same services.
+    */
     void start() 
     {
         logger->info("SNDSDaemon: Starting all services...");
@@ -98,8 +140,15 @@ public:
     //}
 
     /**
-     * @brief Stops the daemon by joining all service threads.
-     */
+     * @brief Stop all services and join their threads.
+     *
+     * @details
+     * Calls `stop()` on each registered service (cooperative shutdown), then
+     * shuts down all shared queues exposed by @ref ServiceBase, and finally
+     * joins every service thread.
+     *
+     * @post No service threads remain joinable.
+    */
     void stop() 
     {
         logger->info("SNDSDaemon: Stopping all services...");
@@ -130,7 +179,20 @@ public:
     }
 
 private:
+    /**
+     * @brief Owned service instances managed by the daemon.
+     *
+     * @invariant Elements are unique_ptrs; ownership is exclusive to the daemon.
+    */
     std::vector<std::unique_ptr<ServiceBase>> services;
+    /**
+     * @brief Threads running each service’s `init()` loop.
+     *
+     * @note Lifetimes are managed in @ref start() / @ref stop().
+    */
     std::vector<std::thread> threads;
+    /**
+     * @brief Daemon-scoped logger (console + file sinks).
+    */
     std::shared_ptr<spdlog::logger> logger;
 };
