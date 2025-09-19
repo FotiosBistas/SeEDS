@@ -1,5 +1,0 @@
-<map id="temporal_query::hash_combine" name="temporal_query::hash_combine">
-<area shape="rect" id="node1" title="Combine a hash seed with a hash value (similar to boost::hash_combine)." alt="" coords="264,39,427,80"/>
-<area shape="rect" id="node2" href="$structtemporal__query_1_1FilterHasher.html#af11ca0c248955682375f7bbb97f5722f" title=" " alt="" coords="5,5,216,47"/>
-<area shape="rect" id="node3" href="$structtemporal__query_1_1TemporalQueryHasher.html#ae5508e4970ef14d76bbe7deececd4973" title=" " alt="" coords="15,71,207,112"/>
-</map>

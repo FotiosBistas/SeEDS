@@ -1,5 +1,0 @@
-<map id="temporal_query::serialize_kv" name="temporal_query::serialize_kv">
-<area shape="rect" id="node1" title="Serialize as a canonical query&#45;string (stable key ordering for extras)." alt="" coords="5,46,216,73"/>
-<area shape="rect" id="node2" href="$namespacetemporal__query.html#a96ebf4a97c71c9c332241a302b184c22" title="Join filters back into a CSV string (keys only)." alt="" coords="280,5,449,47"/>
-<area shape="rect" id="node3" href="$namespacetemporal__query.html#a451a43aa70fb01028bbed7d2a67482af" title="Convert a Timeframe bitmask back to string (order: now,before,after)." alt="" coords="264,71,465,112"/>
-</map>

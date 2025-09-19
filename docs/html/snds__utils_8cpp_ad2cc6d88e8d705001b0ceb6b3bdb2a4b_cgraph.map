@@ -1,5 +1,0 @@
-<map id="getSNDSNodeScopeNameForSubscription" name="getSNDSNodeScopeNameForSubscription">
-<area shape="rect" id="node1" title="Computes and returns the scope name for the responsible SNDS node based on the given subscription ide..." alt="" coords="5,39,296,65"/>
-<area shape="rect" id="node2" href="$snds__utils_8cpp.html#a38157994048ee1e99a2a86298b33a0c9" title="Computes the responsible SNDS node ID for a given subscription name." alt="" coords="344,5,557,32"/>
-<area shape="rect" id="node3" href="$namespaceparsed__interest__name_1_1interest__message__type.html#a88695a924e4c7d4287c7b4d7a6e9e594" title="Convert an INTEREST_MESSAGE_TYPE to its canonical string." alt="" coords="359,56,542,112"/>
-</map>

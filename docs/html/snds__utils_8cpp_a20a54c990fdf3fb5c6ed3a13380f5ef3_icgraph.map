@@ -1,6 +1,0 @@
-<map id="url_decode" name="url_decode">
-<area shape="rect" id="node1" title="Decodes a URL&#45;encoded string." alt="" coords="212,56,305,83"/>
-<area shape="rect" id="node2" href="$snds__utils_8cpp.html#a1ccc89b07a7118f1db981e0763a99f42" title="Checks whether the command contains a &#39;date=&#39; version tag (URL&#45;decoded)." alt="" coords="35,5,134,32"/>
-<area shape="rect" id="node3" href="$snds__utils_8cpp.html#ae52abd484971433bfba8e549eb06f6c6" title=" " alt="" coords="27,56,143,83"/>
-<area shape="rect" id="node4" href="$snds__utils_8cpp.html#ac51b03f1cf7461caa5c1628d812cff3e" title=" " alt="" coords="5,107,164,133"/>
-</map>

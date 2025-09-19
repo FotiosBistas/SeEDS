@@ -1,4 +1,0 @@
-<map id="parsed_interest_name::ParsedInterestName::to_string" name="parsed_interest_name::ParsedInterestName::to_string">
-<area shape="rect" id="node1" title="Convert the parsed structure to a human&#45;readable string." alt="" coords="5,5,172,61"/>
-<area shape="rect" id="node2" href="$namespaceparsed__interest__name_1_1interest__message__type.html#a88695a924e4c7d4287c7b4d7a6e9e594" title="Convert an INTEREST_MESSAGE_TYPE to its canonical string." alt="" coords="220,5,403,61"/>
-</map>

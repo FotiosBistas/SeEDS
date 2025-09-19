@@ -1,5 +1,0 @@
-<map id="SNDSProducer::seed_secondary_from_broker_dump_" name="SNDSProducer::seed_secondary_from_broker_dump_">
-<area shape="rect" id="node1" title="Seed (copy/mirror) collections from Broker’s /dump into primary/secondary." alt="" coords="5,5,239,47"/>
-<area shape="rect" id="node2" href="$classSNDSProducer.html#a52aba174a33caf311d07b1126d0762fc" title="Issue an HTTP GET to the Broker and parse JSON." alt="" coords="287,5,443,47"/>
-<area shape="rect" id="node3" href="$namespaceparsed__interest__name.html#a466f9a026ebb3e3321d358c1cd0a98ce" title="URL&#45;encode a value for query contexts." alt="" coords="491,5,657,47"/>
-</map>

@@ -1,4 +1,0 @@
-<map id="parsed_interest_name::make_interest_name_from_metafile" name="parsed_interest_name::make_interest_name_from_metafile">
-<area shape="rect" id="node1" title="Build a ParsedInterestName from string command and timestamp." alt="" coords="5,5,172,61"/>
-<area shape="rect" id="node2" href="$namespaceparsed__interest__name_1_1interest__message__type.html#ad18e0b4abe9d7cf57ae98731764f3abe" title="Parse the command from a component of the form &quot;token:rest&quot;." alt="" coords="220,5,403,61"/>
-</map>

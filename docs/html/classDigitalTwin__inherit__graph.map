@@ -1,4 +1,0 @@
-<map id="DigitalTwin" name="DigitalTwin">
-<area shape="rect" id="node1" title="Service that translates intra&#45;messages into NDN advertisements and scope notifications." alt="" coords="9,80,104,107"/>
-<area shape="rect" id="node2" href="$classServiceBase.html" title="Base class implementing shared infrastructure for SNDS services." alt="" coords="5,5,108,32"/>
-</map>

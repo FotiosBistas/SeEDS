@@ -1,4 +1,0 @@
-<map id="DigitalTwin::process_by_id_advertisement" name="DigitalTwin::process_by_id_advertisement">
-<area shape="rect" id="node1" title="Handle a BY_ID_ADVERTISEMENT request." alt="" coords="176,5,343,47"/>
-<area shape="rect" id="node2" href="$classDigitalTwin.html#aa92b7f6f260fc0a67ea0d8705b62b230" title="Run the service loop." alt="" coords="5,13,128,39"/>
-</map>

@@ -1,4 +1,0 @@
-<map id="SNDSProducer::_http_get_json" name="SNDSProducer::_http_get_json">
-<area shape="rect" id="node1" title="Issue an HTTP GET to the Broker and parse JSON." alt="" coords="5,5,161,47"/>
-<area shape="rect" id="node2" href="$namespaceparsed__interest__name.html#a466f9a026ebb3e3321d358c1cd0a98ce" title="URL&#45;encode a value for query contexts." alt="" coords="209,5,376,47"/>
-</map>

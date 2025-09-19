@@ -1,4 +1,0 @@
-<map id="Graphical Class Hierarchy" name="Graphical Class Hierarchy">
-<area shape="rect" id="node1" href="$structtemporal__query_1_1TemporalQueryHasher.html" title="Hasher for TemporalQuery (stable mixing over all fields)." alt="" coords="5,5,197,47"/>
-<area shape="rect" id="node2" href="$structstd_1_1hash_3_01temporal__query_1_1TemporalQuery_01_4.html" title="std::hash specialization for temporal_query::TemporalQuery." alt="" coords="245,5,432,47"/>
-</map>

@@ -1,4 +1,0 @@
-<map id="SNDSHTTPService" name="SNDSHTTPService">
-<area shape="rect" id="node1" title="HTTP entry point for SNDS, converting HTTP requests to intra&#45;messages." alt="" coords="5,80,145,107"/>
-<area shape="rect" id="node2" href="$classServiceBase.html" title="Base class implementing shared infrastructure for SNDS services." alt="" coords="24,5,127,32"/>
-</map>

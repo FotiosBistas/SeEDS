@@ -1,8 +1,0 @@
-<map id="main" name="main">
-<area shape="rect" id="node1" title=" " alt="" coords="5,45,60,72"/>
-<area shape="rect" id="node2" href="$message__queue__example_8cpp.html#ac2cdf7c45956eab130c80cd2d8375c94" title=" " alt="" coords="108,13,195,40"/>
-<area shape="rect" id="node4" href="$message__queue__example_8cpp.html#a1c8ca72756bfe9a4da06e51355b836a7" title=" " alt="" coords="112,71,191,97"/>
-<area shape="rect" id="node3" href="$classMessageQueue.html#a8aef398e538b8e4ee61ef6d7194ce338" title="Reads a message from the queue." alt="" coords="245,5,462,32"/>
-<area shape="rect" id="node5" href="$namespaceparsed__interest__name_1_1interest__message__type.html#a88695a924e4c7d4287c7b4d7a6e9e594" title="Convert an INTEREST_MESSAGE_TYPE to its canonical string." alt="" coords="262,56,445,112"/>
-<area shape="rect" id="node6" href="$classMessageQueue.html#a2729c50967a9801ee0b162ae6ccc1e2d" title="Writes a message to the queue." alt="" coords="243,136,464,163"/>
-</map>

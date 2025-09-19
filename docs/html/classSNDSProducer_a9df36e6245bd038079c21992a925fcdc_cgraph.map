@@ -1,9 +1,0 @@
-<map id="SNDSProducer::process_temporal_query_interest" name="SNDSProducer::process_temporal_query_interest">
-<area shape="rect" id="node1" title="Serve a temporal&#45;query Interest." alt="" coords="5,86,195,127"/>
-<area shape="rect" id="node2" href="$classServiceBase.html#a4cad2999841e0281a85add76452ad7ca" title="Convenience API to sign and send a Data packet." alt="" coords="243,5,415,32"/>
-<area shape="rect" id="node3" href="$namespaceparsed__interest__name.html#aea653b4993da4fac583d8a3ed5ac9ac6" title="Reconstruct a custom NDN name string from a #ParsedInterestName." alt="" coords="243,57,416,98"/>
-<area shape="rect" id="node5" href="$namespaceparsed__interest__name.html#a466f9a026ebb3e3321d358c1cd0a98ce" title="URL&#45;encode a value for query contexts." alt="" coords="472,113,639,154"/>
-<area shape="rect" id="node6" href="$namespaceparsed__interest__name.html#a02a0b6ee3eb06f5dc5907587ce9fc0f1" title="URL&#45;decode a string (percent&#45;escapes only)." alt="" coords="246,175,413,217"/>
-<area shape="rect" id="node4" href="$namespaceparsed__interest__name_1_1interest__message__type.html#a88695a924e4c7d4287c7b4d7a6e9e594" title="Convert an INTEREST_MESSAGE_TYPE to its canonical string." alt="" coords="464,32,647,88"/>
-<area shape="rect" id="node7" href="$namespaceparsed__interest__name.html#a8b20216448202580bfe87c35ac4b9961" title="Convert a single hex digit to its numeric value." alt="" coords="472,178,639,219"/>
-</map>

@@ -1,4 +1,0 @@
-<map id="Worker::_handle_consumer_intra_message" name="Worker::_handle_consumer_intra_message">
-<area shape="rect" id="node1" title="Handle a message coming from the Consumer." alt="" coords="149,5,347,47"/>
-<area shape="rect" id="node2" href="$classWorker.html#a413dfbae742152a0c27f713ead6f5c22" title="Main service loop." alt="" coords="5,13,101,39"/>
-</map>

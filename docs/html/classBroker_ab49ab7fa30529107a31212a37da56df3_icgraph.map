@@ -1,7 +1,0 @@
-<map id="Broker::create_date_pipeline" name="Broker::create_date_pipeline">
-<area shape="rect" id="node1" title="Build an aggregation pipeline for versioned date&#45;window queries." alt="" coords="652,5,801,47"/>
-<area shape="rect" id="node2" href="$classBroker.html#ac411740e605aae470269301206d10588" title="Internal read helper for temporal/latest queries." alt="" coords="405,13,604,39"/>
-<area shape="rect" id="node3" href="$classBroker.html#a77b4976921430423cddfc93b40dd6659" title="GET /temporal&#45;query handler: slice TYPE_VERSIONED around a date." alt="" coords="264,13,357,39"/>
-<area shape="rect" id="node4" href="$classBroker.html#a854a6365bc9411b0f77b2410a6b93515" title="Start the HTTP server and register all endpoints." alt="" coords="108,13,216,39"/>
-<area shape="rect" id="node5" href="$broker__main_8cpp.html#a0ddf1224851353fc92bfbff6f499fa97" title=" " alt="" coords="5,13,60,39"/>
-</map>

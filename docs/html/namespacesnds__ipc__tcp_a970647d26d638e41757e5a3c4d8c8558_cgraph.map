@@ -1,4 +1,0 @@
-<map id="snds_ipc_tcp::send_json" name="snds_ipc_tcp::send_json">
-<area shape="rect" id="node1" title="Serialize JSON into a length&#45;prefixed frame and send it over a Boost.Asio stream." alt="" coords="5,5,184,32"/>
-<area shape="rect" id="node2" href="$namespacesnds__ipc__tcp.html#a4545604eaff6e0307867b93f5f82a44c" title="Write a 32&#45;bit unsigned integer into a 4&#45;byte buffer in big&#45;endian order." alt="" coords="232,5,417,32"/>
-</map>

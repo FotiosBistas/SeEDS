@@ -1,4 +1,0 @@
-<map id="snds_intra_message::is_ack_message" name="snds_intra_message::is_ack_message">
-<area shape="rect" id="node1" title="Quick check: does a raw line start with a known control message?" alt="" coords="5,5,160,47"/>
-<area shape="rect" id="node2" href="$namespacesnds__intra__message.html#a1aa069042bd4677b922e1649e7171aa0" title="Extract the first non&#45;whitespace word; strips any NUL suffix." alt="" coords="208,5,363,47"/>
-</map>

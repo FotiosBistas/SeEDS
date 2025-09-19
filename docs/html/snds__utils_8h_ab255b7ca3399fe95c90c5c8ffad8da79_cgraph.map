@@ -1,4 +1,0 @@
-<map id="get_url_of_subscription" name="get_url_of_subscription">
-<area shape="rect" id="node1" title="Extracts the subscription URL from a GET request." alt="" coords="5,5,179,32"/>
-<area shape="rect" id="node2" href="$snds__utils_8h.html#a8dd44070e35de07722f7fda5f0e8e100" title="Extracts the value associated with a specific tag from a GET request URL." alt="" coords="227,5,392,32"/>
-</map>

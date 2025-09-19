@@ -1,6 +1,0 @@
-<map id="src/snds_interest/parsed_interest_to_temporal_query.hpp" name="src/snds_interest/parsed_interest_to_temporal_query.hpp">
-<area shape="rect" id="node1" title=" " alt="" coords="86,5,321,47"/>
-<area shape="rect" id="node2" href="$snds__consumer_8hpp.html" title="Consumer&#45;side service that translates intra&#45;service messages into NDN Interests and forwards received..." alt="" coords="122,95,285,136"/>
-<area shape="rect" id="node3" href="$snds__service_2main_8cpp.html" title=" " alt="" coords="5,191,199,218"/>
-<area shape="rect" id="node4" href="$snds__consumer_8cpp.html" title=" " alt="" coords="223,184,386,225"/>
-</map>

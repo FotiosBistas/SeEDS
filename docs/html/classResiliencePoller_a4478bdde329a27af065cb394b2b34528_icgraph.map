@@ -1,7 +1,0 @@
-<map id="ResiliencePoller::handle_is_alive_timeout_" name="ResiliencePoller::handle_is_alive_timeout_">
-<area shape="rect" id="node1" title="Handle is_alive timeout, from the NDN." alt="" coords="748,5,927,47"/>
-<area shape="rect" id="node2" href="$classResiliencePoller.html#a5d433e2ca8095c01e6a2660adebc464a" title="Express an is_alive Interest with a nonce." alt="" coords="535,5,700,47"/>
-<area shape="rect" id="node3" href="$classResiliencePoller.html#a65b2b84904500725f54250a8ccb9e6a4" title="Periodically schedule an is&#45;alive probe." alt="" coords="320,5,487,47"/>
-<area shape="rect" id="node4" href="$classResiliencePoller.html#a6883347b6b8b9bd1322501e9b5211e1f" title="Start periodic liveness and meta polling." alt="" coords="108,13,272,39"/>
-<area shape="rect" id="node5" href="$snds__resilience_2main_8cpp.html#a3c04138a5bfe5d72780bb7e82a18e627" title=" " alt="" coords="5,13,60,39"/>
-</map>

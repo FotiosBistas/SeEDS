@@ -1,8 +1,0 @@
-<map id="SNDSProducer::j_get_string_or" name="SNDSProducer::j_get_string_or">
-<area shape="rect" id="node1" title="Get a string value by key or a default; stringifies non&#45;string JSON values." alt="" coords="1188,5,1343,47"/>
-<area shape="rect" id="node2" href="$classSNDSProducer.html#a96418987150b58ddcdd42ad6fed0a94b" title="Append a successful /add payload to the in&#45;memory broker journal." alt="" coords="969,5,1140,47"/>
-<area shape="rect" id="node3" href="$classSNDSProducer.html#abcaf8d5728a430605cc6f143557f31e3" title="Publish a JSON document to the Broker (/add)." alt="" coords="744,5,921,47"/>
-<area shape="rect" id="node4" href="$classSNDSProducer.html#ab3ac1f7ce8d0c923ead7be83316889d0" title="Advertise a temporal&#45;query name and publish its descriptor to the broker." alt="" coords="461,5,696,47"/>
-<area shape="rect" id="node5" href="$classSNDSProducer.html#a78040b177b67ab54589938418a20976a" title="Initialize and run the SNDSProducer main loop." alt="" coords="269,13,413,39"/>
-<area shape="rect" id="node6" href="$classSNDSProducer.html#a1326241b6016c6d37a71c1de37839e9d" title="Construct a producer with logging, naming, broker, and resilience configuration." alt="" coords="5,13,221,39"/>
-</map>

@@ -1,5 +1,0 @@
-<map id="hasDateTag" name="hasDateTag">
-<area shape="rect" id="node1" title="Checks whether the command contains a &#39;date=&#39; version tag (URL&#45;decoded)." alt="" coords="5,5,104,32"/>
-<area shape="rect" id="node2" href="$snds__utils_8cpp.html#a20a54c990fdf3fb5c6ed3a13380f5ef3" title="Decodes a URL&#45;encoded string." alt="" coords="152,5,245,32"/>
-<area shape="rect" id="node3" href="$snds__utils_8cpp.html#aea3961f33fd6857a88168a6642aac852" title=" " alt="" coords="293,5,367,32"/>
-</map>

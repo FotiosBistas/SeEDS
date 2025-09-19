@@ -1,8 +1,0 @@
-<map id="ServiceBase" name="ServiceBase">
-<area shape="rect" id="node1" title="Base class implementing shared infrastructure for SNDS services." alt="" coords="291,5,393,32"/>
-<area shape="rect" id="node2" href="$classDigitalTwin.html" title="Service that translates intra&#45;messages into NDN advertisements and scope notifications." alt="" coords="5,80,100,107"/>
-<area shape="rect" id="node3" href="$classSNDSConsumer.html" title="Concrete consumer service that bridges SNDS intra&#45;messages to NDN Interests." alt="" coords="124,80,248,107"/>
-<area shape="rect" id="node4" href="$classSNDSHTTPService.html" title="HTTP entry point for SNDS, converting HTTP requests to intra&#45;messages." alt="" coords="272,80,412,107"/>
-<area shape="rect" id="node5" href="$classSNDSProducer.html" title="NDN producer that advertises names, serves Interests, proxies to an HTTP broker, and maintains a resi..." alt="" coords="437,80,551,107"/>
-<area shape="rect" id="node6" href="$classWorker.html" title="Central coordinator and state machine for SNDS intra&#45;messages." alt="" coords="575,80,642,107"/>
-</map>

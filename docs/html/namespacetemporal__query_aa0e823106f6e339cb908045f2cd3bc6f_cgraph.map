@@ -1,5 +1,0 @@
-<map id="temporal_query::from_params" name="temporal_query::from_params">
-<area shape="rect" id="node1" title="Build a TemporalQuery from a key→value map (unknown keys → extras)." alt="" coords="5,39,168,80"/>
-<area shape="rect" id="node2" href="$namespacetemporal__query.html#a2409574f736c7fa9948518b22e8abd97" title="Parse filters CSV into vectors of Filter (values set empty)." alt="" coords="217,5,385,47"/>
-<area shape="rect" id="node3" href="$namespacetemporal__query.html#a0b9343598c4307f64eba9c6560430db0" title="Parse a &quot;+&quot;&quot;&#45;joined timeframe (e.g., &quot;before+after&quot;) into a bitmask." alt="" coords="216,71,385,112"/>
-</map>

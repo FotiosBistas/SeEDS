@@ -1,4 +1,0 @@
-<map id="Worker" name="Worker">
-<area shape="rect" id="node1" title="Central coordinator and state machine for SNDS intra&#45;messages." alt="" coords="23,80,90,107"/>
-<area shape="rect" id="node2" href="$classServiceBase.html" title="Base class implementing shared infrastructure for SNDS services." alt="" coords="5,5,108,32"/>
-</map>

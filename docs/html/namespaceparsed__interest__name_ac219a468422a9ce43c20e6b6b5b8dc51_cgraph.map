@@ -1,4 +1,0 @@
-<map id="parsed_interest_name::build_query_uri" name="parsed_interest_name::build_query_uri">
-<area shape="rect" id="node1" title="Build a query URI string from base path and k=v tokens." alt="" coords="5,5,172,47"/>
-<area shape="rect" id="node2" href="$namespaceparsed__interest__name.html#a885a30342ae677fc624175d60e257308" title="Split a &quot;key=value&quot; view, keeping empty values and values containing &#39;=&#39;." alt="" coords="220,5,387,47"/>
-</map>

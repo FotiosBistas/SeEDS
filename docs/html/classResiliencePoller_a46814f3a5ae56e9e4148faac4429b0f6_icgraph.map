@@ -1,5 +1,0 @@
-<map id="ResiliencePoller::meta_loop_" name="ResiliencePoller::meta_loop_">
-<area shape="rect" id="node1" title="Periodically schedule a meta fetch." alt="" coords="320,5,488,47"/>
-<area shape="rect" id="node2" href="$classResiliencePoller.html#a6883347b6b8b9bd1322501e9b5211e1f" title="Start periodic liveness and meta polling." alt="" coords="108,13,272,39"/>
-<area shape="rect" id="node3" href="$snds__resilience_2main_8cpp.html#a3c04138a5bfe5d72780bb7e82a18e627" title=" " alt="" coords="5,13,60,39"/>
-</map>

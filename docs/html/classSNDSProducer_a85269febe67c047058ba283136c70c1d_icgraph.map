@@ -1,8 +1,0 @@
-<map id="SNDSProducer::to_secondary_collection_" name="SNDSProducer::to_secondary_collection_">
-<area shape="rect" id="node1" title="Build the secondary collection name." alt="" coords="940,39,1151,80"/>
-<area shape="rect" id="node2" href="$classSNDSProducer.html#a3059fbd0884422e1b6abc2fca29aa4ef" title="Full broker rehydration from the stored journal." alt="" coords="691,5,878,47"/>
-<area shape="rect" id="node6" href="$classSNDSProducer.html#ae073de8db1c32345a4aae5a30c461f08" title="Incrementally replay broker journal entries since the last known cursor." alt="" coords="677,71,892,112"/>
-<area shape="rect" id="node3" href="$classSNDSProducer.html#a449430c3ef459e7a7126a250e66c3212" title="Decide whether and how to rehydrate the Broker at startup." alt="" coords="461,12,629,53"/>
-<area shape="rect" id="node4" href="$classSNDSProducer.html#a78040b177b67ab54589938418a20976a" title="Initialize and run the SNDSProducer main loop." alt="" coords="269,49,413,75"/>
-<area shape="rect" id="node5" href="$classSNDSProducer.html#a1326241b6016c6d37a71c1de37839e9d" title="Construct a producer with logging, naming, broker, and resilience configuration." alt="" coords="5,49,221,75"/>
-</map>

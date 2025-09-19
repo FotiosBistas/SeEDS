@@ -1,5 +1,0 @@
-<map id="snds_intra_message::SNDS_INTRA_MESSAGE::unpack_query_params_from_message" name="snds_intra_message::SNDS_INTRA_MESSAGE::unpack_query_params_from_message">
-<area shape="rect" id="node1" title="Interpret message as &quot;{k=v,k2=v2}&quot; and return a key/value map." alt="" coords="371,5,555,76"/>
-<area shape="rect" id="node2" href="$classWorker.html#a70b5e6aece0d46e97777448983552c52" title="Handle a message coming from the HTTP server." alt="" coords="149,20,323,61"/>
-<area shape="rect" id="node3" href="$classWorker.html#a413dfbae742152a0c27f713ead6f5c22" title="Main service loop." alt="" coords="5,27,101,54"/>
-</map>

@@ -1,4 +1,0 @@
-<map id="SNDSConsumer" name="SNDSConsumer">
-<area shape="rect" id="node1" title="Concrete consumer service that bridges SNDS intra&#45;messages to NDN Interests." alt="" coords="5,80,129,107"/>
-<area shape="rect" id="node2" href="$classServiceBase.html" title="Base class implementing shared infrastructure for SNDS services." alt="" coords="16,5,119,32"/>
-</map>

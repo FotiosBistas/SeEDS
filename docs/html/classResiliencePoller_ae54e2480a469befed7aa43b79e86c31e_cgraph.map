@@ -1,4 +1,0 @@
-<map id="ResiliencePoller::~ResiliencePoller" name="ResiliencePoller::~ResiliencePoller">
-<area shape="rect" id="node1" title="Destructor." alt="" coords="5,5,143,47"/>
-<area shape="rect" id="node2" href="$classResiliencePoller.html#a047db9f87712d5e556c904bbb056720d" title="Stop periodic polling and join scheduler threads." alt="" coords="191,13,353,39"/>
-</map>

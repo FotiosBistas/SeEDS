@@ -1,6 +1,0 @@
-<map id="ndn::examples::SNDS_SERVICE::getSNDSNodeForSubscription" name="ndn::examples::SNDS_SERVICE::getSNDSNodeForSubscription">
-<area shape="rect" id="node1" title=" " alt="" coords="527,39,809,80"/>
-<area shape="rect" id="node2" href="$classndn_1_1examples_1_1SNDS__SERVICE.html#a3f43f2d1c975a49677f348ad8ccfe8a1" title=" " alt="" coords="256,31,479,87"/>
-<area shape="rect" id="node3" href="$classndn_1_1examples_1_1SNDS__SERVICE.html#aa581a5d12b5ebcaacbc6a51436d7b3cd" title=" " alt="" coords="5,5,208,47"/>
-<area shape="rect" id="node4" href="$classndn_1_1examples_1_1SNDS__SERVICE.html#adb062df397e81a3f2793e2483be56461" title="Manages IP end&#45;user getByTYPE and getByID requests." alt="" coords="19,71,194,112"/>
-</map>

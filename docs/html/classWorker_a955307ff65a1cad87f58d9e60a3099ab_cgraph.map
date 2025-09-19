@@ -1,9 +1,0 @@
-<map id="Worker::_handle_producer_intra_message" name="Worker::_handle_producer_intra_message">
-<area shape="rect" id="node1" title="Handle a message coming from a Producer (e.g., control/ACK)." alt="" coords="5,159,196,201"/>
-<area shape="rect" id="node2" href="$structsnds__intra__message_1_1SNDS__INTRA__MESSAGE.html#a63fbe52493294d81e4a27b8c085eae2c" title="Access the payload content." alt="" coords="244,5,428,61"/>
-<area shape="rect" id="node3" href="$namespacesnds__intra__message.html#a25793e1cf987744e898f6a191f627c86" title="Quick check: does a raw line start with a known control message?" alt="" coords="259,86,413,127"/>
-<area shape="rect" id="node5" href="$structsnds__intra__message_1_1SNDS__INTRA__MESSAGE.html#a180e56ea187e7c568f38a32b2750ac57" title="Move the message content out, leaving it empty." alt="" coords="244,152,428,208"/>
-<area shape="rect" id="node6" href="$structsnds__intra__message_1_1SNDS__INTRA__MESSAGE.html#a1f3d740fc595f0add9c545df41068c61" title="Move the payload content out, leaving it empty." alt="" coords="244,232,428,288"/>
-<area shape="rect" id="node7" href="$classWorker.html#a6de67eefee8d0f93dc92509563d3ca67" title="Forward a control/ACK message to the HTTP service for visibility." alt="" coords="259,313,413,354"/>
-<area shape="rect" id="node4" href="$namespacesnds__intra__message.html#a1aa069042bd4677b922e1649e7171aa0" title="Extract the first non&#45;whitespace word; strips any NUL suffix." alt="" coords="476,86,631,127"/>
-</map>

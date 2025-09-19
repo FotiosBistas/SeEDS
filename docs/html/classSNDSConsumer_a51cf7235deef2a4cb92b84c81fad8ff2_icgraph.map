@@ -1,4 +1,0 @@
-<map id="SNDSConsumer::express_get_by_id_from_node_interest" name="SNDSConsumer::express_get_by_id_from_node_interest">
-<area shape="rect" id="node1" title="Express a getByIDFromNode Interest (target a specific SNDS node)." alt="" coords="207,5,389,61"/>
-<area shape="rect" id="node2" href="$classSNDSConsumer.html#a29695d4c0e4aa8445731fb90fd374c0d" title="Start the consumer loop." alt="" coords="5,20,159,47"/>
-</map>

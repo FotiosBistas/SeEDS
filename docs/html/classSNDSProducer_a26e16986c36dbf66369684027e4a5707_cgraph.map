@@ -1,8 +1,0 @@
-<map id="SNDSProducer::upsert_sub_by_type_" name="SNDSProducer::upsert_sub_by_type_">
-<area shape="rect" id="node1" title="Add/overwrite a subscriber node for a specific type in the store." alt="" coords="5,27,169,69"/>
-<area shape="rect" id="node2" href="$classSNDSProducer.html#a568e52352182d16c02f28a5b419a1537" title="Ensure that j[key] exists and is an object; create it if needed." alt="" coords="217,5,412,32"/>
-<area shape="rect" id="node3" href="$classsnds__resilience_1_1Store.html#a071673c53898dc82802935f307592984" title="Mutate the canonical state via functor, bump version, recompute hash, snapshot history." alt="" coords="233,57,397,98"/>
-<area shape="rect" id="node4" href="$namespacesnds__resilience.html#a38b0df7cb4d50d83a3d6f00bf73bd78e" title="Compute a canonical content hash for a JSON object." alt="" coords="460,64,691,91"/>
-<area shape="rect" id="node5" href="$namespacesnds__resilience.html#a2a6647e82140da6e42a5826b3d861a15" title="Produce a deterministic, canonical JSON string." alt="" coords="739,39,975,65"/>
-<area shape="rect" id="node6" href="$snds__utils_8cpp.html#a890a2f48824cd98683799441da7d0177" title="Computes the MD5 hash of a data buffer and returns it as a hexadecimal string." alt="" coords="815,89,898,116"/>
-</map>

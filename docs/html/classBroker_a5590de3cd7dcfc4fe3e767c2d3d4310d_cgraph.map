@@ -1,4 +1,0 @@
-<map id="Broker::handleSigint" name="Broker::handleSigint">
-<area shape="rect" id="node1" title="SIGINT handler that triggers graceful shutdown." alt="" coords="5,5,159,32"/>
-<area shape="rect" id="node2" href="$classBroker.html#af594311f275ae0c6170c4d947300e839" title="Programmatic shutdown request; polled in listen() loop." alt="" coords="207,5,389,32"/>
-</map>
