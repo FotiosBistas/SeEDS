@@ -1,0 +1,5 @@
+<map id="parsed_interest_name::to_custom_ndn_name" name="parsed_interest_name::to_custom_ndn_name">
+<area shape="rect" id="node1" title="Reconstruct a custom NDN name string from a #ParsedInterestName." alt="" coords="5,50,179,91"/>
+<area shape="rect" id="node2" href="$namespaceparsed__interest__name_1_1interest__message__type.html#a88695a924e4c7d4287c7b4d7a6e9e594" title="Convert an INTEREST_MESSAGE_TYPE to its canonical string." alt="" coords="227,5,409,61"/>
+<area shape="rect" id="node3" href="$namespaceparsed__interest__name.html#a466f9a026ebb3e3321d358c1cd0a98ce" title="URL&#45;encode a value for query contexts." alt="" coords="235,86,401,127"/>
+</map>

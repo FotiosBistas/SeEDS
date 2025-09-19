@@ -1,0 +1,4 @@
+<map id="snds_ipc_tcp::send_json" name="snds_ipc_tcp::send_json">
+<area shape="rect" id="node1" title="Serialize JSON into a length&#45;prefixed frame and send it over a Boost.Asio stream." alt="" coords="108,5,287,32"/>
+<area shape="rect" id="node2" href="$snds__resilience_2main_8cpp.html#a3c04138a5bfe5d72780bb7e82a18e627" title=" " alt="" coords="5,5,60,32"/>
+</map>

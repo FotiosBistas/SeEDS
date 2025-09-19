@@ -1,0 +1,6 @@
+<map id="get_from_get_request" name="get_from_get_request">
+<area shape="rect" id="node1" title="Extracts the value associated with a specific tag from a GET request URL." alt="" coords="331,56,496,83"/>
+<area shape="rect" id="node2" href="$snds__utils_8h.html#ab255b7ca3399fe95c90c5c8ffad8da79" title="Extracts the subscription URL from a GET request." alt="" coords="109,5,282,32"/>
+<area shape="rect" id="node3" href="$test__snds__utils_8cpp.html#ae66f6b31b5ad750f1fe042a706a4e3d4" title=" " alt="" coords="5,56,60,83"/>
+<area shape="rect" id="node4" href="$snds__utils_8h.html#aa2cdc01b1ceccb6ea2244c851498fa50" title="Determines if the GET request URL indicates a subscription request." alt="" coords="108,107,283,133"/>
+</map>

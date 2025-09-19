@@ -1,0 +1,41 @@
+<map id="SNDSConsumer::express_scope_interest" name="SNDSConsumer::express_scope_interest">
+<area shape="rect" id="node1" title="Express a scope&#45;notification Interest (scope ownership/assignment)." alt="" coords="5,1067,188,1108"/>
+<area shape="rect" id="node2" href="$namespaceparsed__interest__name.html#a5ad35a6d5a4ce43a6f46281ba41acebd" title="Construct a #ParsedInterestName from individual parts." alt="" coords="463,87,681,128"/>
+<area shape="rect" id="node3" href="$classSNDSConsumer.html#a0a352aca40afc5705ff283443c5b4d5f" title="Data callback for expressed Interests." alt="" coords="236,649,415,675"/>
+<area shape="rect" id="node15" href="$namespaceparsed__interest__name.html#a5882a141d8f330ce296d96f2c16a826d" title="Parse a string representation of a name into #ParsedInterestName." alt="" coords="489,1151,655,1192"/>
+<area shape="rect" id="node25" href="$classServiceBase.html#a2b978f7569b9a1b7fb8aa521cedafa9f" title="Nack handler (override as needed)." alt="" coords="751,1071,909,1098"/>
+<area shape="rect" id="node26" href="$classServiceBase.html#a1543b08fe1396dc0843aade5d23d9992" title="Timeout handler (override to retry/backoff if needed)." alt="" coords="740,1173,920,1199"/>
+<area shape="rect" id="node29" href="$namespaceparsed__interest__name.html#aea653b4993da4fac583d8a3ed5ac9ac6" title="Reconstruct a custom NDN name string from a #ParsedInterestName." alt="" coords="743,1005,917,1047"/>
+<area shape="rect" id="node4" href="$classSNDSConsumer.html#a436dbbb586a061e1a09c5946e3f7ae87" title="Extract the first item from a direct temporal&#45;query payload." alt="" coords="479,452,665,493"/>
+<area shape="rect" id="node5" href="$namespaceparsed__interest__name.html#a9f0148012760c3313e19f521d6ec2e0a" title="Append a key=value pair to a ParsedInterestName’s parameter list." alt="" coords="747,608,913,649"/>
+<area shape="rect" id="node6" href="$namespaceparsed__interest__name.html#ac219a468422a9ce43c20e6b6b5b8dc51" title="Build a query URI string from base path and k=v tokens." alt="" coords="489,321,655,363"/>
+<area shape="rect" id="node8" href="$snds__utils_8cpp.html#a2665baab9262ee5ace28c09b91afb441" title=" " alt="" coords="503,649,641,675"/>
+<area shape="rect" id="node9" href="$snds__utils_8cpp.html#a2a7c9cb8e1b2ed2df38185073e2544f6" title=" " alt="" coords="486,699,658,726"/>
+<area shape="rect" id="node10" href="$structparsed__interest__name_1_1ParsedInterestName.html#afeecb404fe631ea3db1f9e1ea475580c" title="Safely retrieves the parameter at the given index." alt="" coords="481,750,663,806"/>
+<area shape="rect" id="node11" href="$snds__utils_8cpp.html#a80f4a7cd1c6de28c62ef5efbf7aa271c" title=" " alt="" coords="509,830,635,857"/>
+<area shape="rect" id="node12" href="$namespacesnds__intra__message.html#a25793e1cf987744e898f6a191f627c86" title="Quick check: does a raw line start with a known control message?" alt="" coords="495,387,649,428"/>
+<area shape="rect" id="node14" href="$snds__utils_8cpp.html#af6765d6ff053be5081977880ed3e66bf" title=" " alt="" coords="517,947,627,974"/>
+<area shape="rect" id="node19" href="$classSNDSConsumer.html#a798c8cf0925aa28f62fa14d67e4bc626" title="Expand a temporal&#45;query manifest payload into individual metafile Interests." alt="" coords="491,881,653,923"/>
+<area shape="rect" id="node31" href="$namespacetemporal__query.html#ae968fdb5e5f64f139ab0cf0133bdb272" title="Serialize as a canonical query&#45;string (stable key ordering for extras)." alt="" coords="467,153,677,179"/>
+<area shape="rect" id="node34" href="$parsed__interest__to__temporal__query_8hpp.html#a049f4de8ddb1e31598324b7ba60a9202" title="Construct a TemporalQuery object from a parsed NDN Interest." alt="" coords="491,204,653,245"/>
+<area shape="rect" id="node37" href="$namespaceparsed__interest__name.html#a02a0b6ee3eb06f5dc5907587ce9fc0f1" title="URL&#45;decode a string (percent&#45;escapes only)." alt="" coords="747,267,913,308"/>
+<area shape="rect" id="node39" href="$structparsed__interest__name_1_1ParsedInterestName.html#a7b65ea44a1b05b83c76569378207b9b3" title="Convert the parsed structure to a human&#45;readable string." alt="" coords="489,518,655,574"/>
+<area shape="rect" id="node7" href="$namespaceparsed__interest__name.html#a885a30342ae677fc624175d60e257308" title="Split a &quot;key=value&quot; view, keeping empty values and values containing &#39;=&#39;." alt="" coords="747,332,913,373"/>
+<area shape="rect" id="node13" href="$namespacesnds__intra__message.html#a1aa069042bd4677b922e1649e7171aa0" title="Extract the first non&#45;whitespace word; strips any NUL suffix." alt="" coords="753,397,907,439"/>
+<area shape="rect" id="node16" href="$namespaceparsed__interest__name_1_1interest__message__type.html#ad18e0b4abe9d7cf57ae98731764f3abe" title="Parse the command from a component of the form &quot;token:rest&quot;." alt="" coords="979,925,1161,981"/>
+<area shape="rect" id="node17" href="$namespaceparsed__interest__name.html#a3b017d0372cca172d837024d8263a353" title="Split a view on a delimiter (drops empties)." alt="" coords="747,1224,913,1265"/>
+<area shape="rect" id="node18" href="$namespaceparsed__interest__name.html#abf6f6606540254b5a1ed729ffeac75a9" title="Split a string on a delimiter, preserving empty segments." alt="" coords="747,1289,913,1331"/>
+<area shape="rect" id="node20" href="$snds__utils_8cpp.html#a33af5eccaae578834a3eba604dcc1cce" title=" " alt="" coords="745,823,915,850"/>
+<area shape="rect" id="node21" href="$snds__utils_8cpp.html#a3ba01a61a61c12f0360d9bc7809c4a75" title=" " alt="" coords="759,874,901,901"/>
+<area shape="rect" id="node22" href="$snds__utils_8cpp.html#a170bcbd0c0eb48166ed8bf4d1f6dc766" title=" " alt="" coords="773,773,887,799"/>
+<area shape="rect" id="node24" href="$namespaceparsed__interest__name.html#acc576d4c5522deab463ef492d9189740" title="Build a ParsedInterestName from string command and timestamp." alt="" coords="747,925,913,981"/>
+<area shape="rect" id="node28" href="$namespacetemporal__query.html#a0e202ca6c5253d9c7dbe69cdd4cb5d3c" title="Convenience: stringify the hash of a TemporalQuery." alt="" coords="735,707,925,748"/>
+<area shape="rect" id="node23" href="$namespaceparsed__interest__name_1_1interest__message__type.html#a88695a924e4c7d4287c7b4d7a6e9e594" title="Convert an INTEREST_MESSAGE_TYPE to its canonical string." alt="" coords="979,729,1161,785"/>
+<area shape="rect" id="node27" href="$namespacesnds__intra__message.html#a6247eda9f2d6db3d16fb17687d53caca" title="Convert an enum value to its string representation." alt="" coords="993,1165,1147,1207"/>
+<area shape="rect" id="node30" href="$namespaceparsed__interest__name.html#a466f9a026ebb3e3321d358c1cd0a98ce" title="URL&#45;encode a value for query contexts." alt="" coords="987,1005,1153,1047"/>
+<area shape="rect" id="node32" href="$namespacetemporal__query.html#a96ebf4a97c71c9c332241a302b184c22" title="Join filters back into a CSV string (keys only)." alt="" coords="745,5,915,47"/>
+<area shape="rect" id="node33" href="$namespacetemporal__query.html#a451a43aa70fb01028bbed7d2a67482af" title="Convert a Timeframe bitmask back to string (order: now,before,after)." alt="" coords="729,71,931,112"/>
+<area shape="rect" id="node35" href="$namespacetemporal__query.html#a2409574f736c7fa9948518b22e8abd97" title="Parse filters CSV into vectors of Filter (values set empty)." alt="" coords="746,136,914,177"/>
+<area shape="rect" id="node36" href="$namespacetemporal__query.html#a0b9343598c4307f64eba9c6560430db0" title="Parse a &quot;+&quot;&quot;&#45;joined timeframe (e.g., &quot;before+after&quot;) into a bitmask." alt="" coords="745,201,915,243"/>
+<area shape="rect" id="node38" href="$namespaceparsed__interest__name.html#a8b20216448202580bfe87c35ac4b9961" title="Convert a single hex digit to its numeric value." alt="" coords="987,267,1153,308"/>
+</map>

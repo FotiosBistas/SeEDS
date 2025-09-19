@@ -1,0 +1,4 @@
+<map id="SNDSProducer::onRegisterSuccess" name="SNDSProducer::onRegisterSuccess">
+<area shape="rect" id="node1" title="Callback fired after a prefix is registered with the NDN forwarder." alt="" coords="5,5,199,47"/>
+<area shape="rect" id="node2" href="$classSNDSProducer.html#a08aa91775ccf31cadaa8ebd44b0fbe14" title="Mark an NDN name as announced (idempotent insert)." alt="" coords="247,13,433,39"/>
+</map>

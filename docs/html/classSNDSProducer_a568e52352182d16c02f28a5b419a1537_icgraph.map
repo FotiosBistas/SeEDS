@@ -1,0 +1,21 @@
+<map id="SNDSProducer::ensure_obj" name="SNDSProducer::ensure_obj">
+<area shape="rect" id="node1" title="Ensure that j[key] exists and is an object; create it if needed." alt="" coords="1247,314,1441,341"/>
+<area shape="rect" id="node2" href="$classSNDSProducer.html#a96418987150b58ddcdd42ad6fed0a94b" title="Append a successful /add payload to the in&#45;memory broker journal." alt="" coords="1017,366,1188,407"/>
+<area shape="rect" id="node7" href="$classSNDSProducer.html#af3296f670fff4a7f21fe20176fad9c98" title="Remove a subscriber node for a specific ID in the store." alt="" coords="499,15,658,56"/>
+<area shape="rect" id="node8" href="$classSNDSProducer.html#a55e47f0b1094bcf80bffe6e9a886e4b3" title="Remove a subscriber node for a specific type in the store." alt="" coords="772,72,931,114"/>
+<area shape="rect" id="node9" href="$classSNDSProducer.html#a315f0e2c6fc498ce0487ba449ab76be8" title="Remove an ID from a type in the in&#45;memory store." alt="" coords="499,132,658,174"/>
+<area shape="rect" id="node10" href="$classSNDSProducer.html#aceb5953e0aac5d2546c84ddd4be1f75c" title="Start the resilience IPC TCP listener thread." alt="" coords="775,190,928,231"/>
+<area shape="rect" id="node11" href="$classSNDSProducer.html#a7f20a50e9e045351b7589dcfe8c3dfd6" title="Record an announcement name in the store." alt="" coords="501,251,657,292"/>
+<area shape="rect" id="node12" href="$classSNDSProducer.html#a5cbfe0df1e165d20bf9bcf34a5ca2d57" title="Remove an announcement name from the store." alt="" coords="773,307,929,348"/>
+<area shape="rect" id="node13" href="$classSNDSProducer.html#a3851e529ff8e124a4c61fb9b9cc4bbfb" title="Refresh per&#45;collection broker metadata in the store." alt="" coords="1007,431,1199,472"/>
+<area shape="rect" id="node17" href="$classSNDSProducer.html#a238f0bda037f8435a466410d50190ca4" title="Add/overwrite a subscriber node for a specific ID in the store." alt="" coords="1021,507,1185,548"/>
+<area shape="rect" id="node18" href="$classSNDSProducer.html#a26e16986c36dbf66369684027e4a5707" title="Add/overwrite a subscriber node for a specific type in the store." alt="" coords="1021,594,1185,635"/>
+<area shape="rect" id="node19" href="$classSNDSProducer.html#a3e6d36be8e5ce135fb91974c7307bb4a" title="Ensure an ID exists under a type in the in&#45;memory store." alt="" coords="1021,703,1185,744"/>
+<area shape="rect" id="node3" href="$classSNDSProducer.html#abcaf8d5728a430605cc6f143557f31e3" title="Publish a JSON document to the Broker (/add)." alt="" coords="763,372,940,414"/>
+<area shape="rect" id="node4" href="$classSNDSProducer.html#ab3ac1f7ce8d0c923ead7be83316889d0" title="Advertise a temporal&#45;query name and publish its descriptor to the broker." alt="" coords="461,372,696,414"/>
+<area shape="rect" id="node5" href="$classSNDSProducer.html#a78040b177b67ab54589938418a20976a" title="Initialize and run the SNDSProducer main loop." alt="" coords="269,380,413,406"/>
+<area shape="rect" id="node6" href="$classSNDSProducer.html#a1326241b6016c6d37a71c1de37839e9d" title="Construct a producer with logging, naming, broker, and resilience configuration." alt="" coords="5,380,221,406"/>
+<area shape="rect" id="node14" href="$classSNDSProducer.html#a3059fbd0884422e1b6abc2fca29aa4ef" title="Full broker rehydration from the stored journal." alt="" coords="758,490,945,531"/>
+<area shape="rect" id="node16" href="$classSNDSProducer.html#ae073de8db1c32345a4aae5a30c461f08" title="Incrementally replay broker journal entries since the last known cursor." alt="" coords="744,555,959,596"/>
+<area shape="rect" id="node15" href="$classSNDSProducer.html#a449430c3ef459e7a7126a250e66c3212" title="Decide whether and how to rehydrate the Broker at startup." alt="" coords="495,490,663,531"/>
+</map>

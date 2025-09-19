@@ -273,6 +273,16 @@ void SNDSProducer::process_temporal_query_advertisement(const std::string& conte
         {
             m_logger->warn("ID already registered for type {}. Skipping...", type);
             auto warn_message = snds_intra_message::to_string(snds_intra_message::SNDS_CONTROL_MESSAGE_TYPE::WARNING_ALREADY_REGISTERED);
+            auto message = std::make_unique<snds_intra_message::SNDS_INTRA_MESSAGE>
+            (
+                "", 
+                snds_intra_message::SNDS_INTRA_MESSAGE_TYPE::TEMPORAL_QUERY_ADVERTISEMENT,
+                snds_intra_message::SNDS_CLIENT_TYPES::PRODUCER,
+                std::move(warn_message),
+                snds_intra_message::HTTP_MESSAGE_TYPE::HTTP_EMPTY
+            );
+
+            v_to_worker->writeMessage(std::move(message));
             return;
         }
         m_logger->info("Inserted: {} to: {} registry", id, type);

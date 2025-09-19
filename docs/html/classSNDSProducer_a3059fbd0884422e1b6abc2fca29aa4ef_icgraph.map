@@ -1,0 +1,6 @@
+<map id="SNDSProducer::rehydrate_broker_from_journal_" name="SNDSProducer::rehydrate_broker_from_journal_">
+<area shape="rect" id="node1" title="Full broker rehydration from the stored journal." alt="" coords="677,5,864,47"/>
+<area shape="rect" id="node2" href="$classSNDSProducer.html#a449430c3ef459e7a7126a250e66c3212" title="Decide whether and how to rehydrate the Broker at startup." alt="" coords="461,5,629,47"/>
+<area shape="rect" id="node3" href="$classSNDSProducer.html#a78040b177b67ab54589938418a20976a" title="Initialize and run the SNDSProducer main loop." alt="" coords="269,13,413,39"/>
+<area shape="rect" id="node4" href="$classSNDSProducer.html#a1326241b6016c6d37a71c1de37839e9d" title="Construct a producer with logging, naming, broker, and resilience configuration." alt="" coords="5,13,221,39"/>
+</map>

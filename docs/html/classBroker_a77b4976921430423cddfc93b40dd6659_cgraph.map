@@ -1,0 +1,10 @@
+<map id="Broker::get" name="Broker::get">
+<area shape="rect" id="node1" title="GET /temporal&#45;query handler: slice TYPE_VERSIONED around a date." alt="" coords="5,151,99,178"/>
+<area shape="rect" id="node2" href="$classBroker.html#ac411740e605aae470269301206d10588" title="Internal read helper for temporal/latest queries." alt="" coords="148,71,347,98"/>
+<area shape="rect" id="node6" href="$classBroker.html#a5d4f8a15e18216133d19e91dcd806291" title="Split a string_view by a multi&#45;character delimiter." alt="" coords="197,122,297,149"/>
+<area shape="rect" id="node7" href="$namespacetemporal__query.html#a0b9343598c4307f64eba9c6560430db0" title="Parse a &quot;+&quot;&quot;&#45;joined timeframe (e.g., &quot;before+after&quot;) into a bitmask." alt="" coords="163,173,332,215"/>
+<area shape="rect" id="node8" href="$namespacetemporal__query.html#a451a43aa70fb01028bbed7d2a67482af" title="Convert a Timeframe bitmask back to string (order: now,before,after)." alt="" coords="147,239,348,280"/>
+<area shape="rect" id="node3" href="$classBroker.html#ab49ab7fa30529107a31212a37da56df3" title="Build an aggregation pipeline for versioned date&#45;window queries." alt="" coords="415,5,564,47"/>
+<area shape="rect" id="node4" href="$classBroker.html#acdbfe98694602548349f373cbedd31db" title="Project only the _id field in a pipeline result." alt="" coords="401,71,577,98"/>
+<area shape="rect" id="node5" href="$classBroker.html#a4bafd27134e93d138038f961f0403163" title="Parse a human&#45;readable date into chrono + BSON date." alt="" coords="396,122,583,149"/>
+</map>

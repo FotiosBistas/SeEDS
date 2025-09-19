@@ -1,0 +1,33 @@
+<map id="temporal_query::timeframe_to_string" name="temporal_query::timeframe_to_string">
+<area shape="rect" id="node1" title="Convert a Timeframe bitmask back to string (order: now,before,after)." alt="" coords="1092,606,1293,647"/>
+<area shape="rect" id="node2" href="$classBroker.html#a77b4976921430423cddfc93b40dd6659" title="GET /temporal&#45;query handler: slice TYPE_VERSIONED around a date." alt="" coords="892,488,985,515"/>
+<area shape="rect" id="node5" href="$namespacetemporal__query.html#ae968fdb5e5f64f139ab0cf0133bdb272" title="Serialize as a canonical query&#45;string (stable key ordering for extras)." alt="" coords="833,544,1044,571"/>
+<area shape="rect" id="node18" href="$namespacetemporal__query.html#a572462e22e3657ebecbc8ebd8e1dc4de" title="Serialize to compact JSON (unknown keys inlined alongside known keys)." alt="" coords="845,813,1032,854"/>
+<area shape="rect" id="node30" href="$namespacetemporal__query.html#a91920a677d5d8866b07fff1512983691" title="Convert TemporalQuery to &quot;key=value&quot; fields (URL&#45;encoded by default)." alt="" coords="866,606,1011,647"/>
+<area shape="rect" id="node31" href="$namespacetemporal__query.html#a6a824accb199e1c2d3d4e0cc176a6fbd" title="Format a TemporalQuery as a path of the form /[type]/[id]/params(date=&quot;…&quot;&amp;count=&quot;…&quot;&amp;timeframe=&quot;…&quot;) If..." alt="" coords="848,697,1029,724"/>
+<area shape="rect" id="node3" href="$classBroker.html#a854a6365bc9411b0f77b2410a6b93515" title="Start the HTTP server and register all endpoints." alt="" coords="614,188,722,215"/>
+<area shape="rect" id="node4" href="$broker__main_8cpp.html#a0ddf1224851353fc92bfbff6f499fa97" title=" " alt="" coords="359,5,413,32"/>
+<area shape="rect" id="node6" href="$classSNDSConsumer.html#a0a352aca40afc5705ff283443c5b4d5f" title="Data callback for expressed Interests." alt="" coords="579,453,757,480"/>
+<area shape="rect" id="node7" href="$classSNDSConsumer.html#a9baccc77e07a150e5ab4994d61d5b7bb" title="Express a by&#45;id&#45;and&#45;type advertisement Interest." alt="" coords="269,56,503,112"/>
+<area shape="rect" id="node9" href="$classSNDSConsumer.html#af4d3802ed500beaca951be6fb33dbaec" title="Express a getByIDForType Interest." alt="" coords="281,478,491,519"/>
+<area shape="rect" id="node10" href="$classSNDSConsumer.html#a51cf7235deef2a4cb92b84c81fad8ff2" title="Express a getByIDFromNode Interest (target a specific SNDS node)." alt="" coords="295,136,477,192"/>
+<area shape="rect" id="node11" href="$classSNDSConsumer.html#a23c5dd07c6313112d0fd7ee881b6d2cf" title="Express a getByID Interest." alt="" coords="295,543,477,585"/>
+<area shape="rect" id="node12" href="$classSNDSConsumer.html#a5f56d1032ea2083e92394257e0c2e19d" title="Express a getByType Interest." alt="" coords="295,217,477,258"/>
+<area shape="rect" id="node13" href="$classSNDSConsumer.html#a546a94861e7ef3697bbde44f2585606e" title="Express a scope&#45;notification Interest (scope ownership/assignment)." alt="" coords="295,282,477,323"/>
+<area shape="rect" id="node14" href="$classSNDSConsumer.html#ab9246f835d1722da4bf0cce4f7e38d66" title="Express a subscription Interest (either by ID or by TYPE)." alt="" coords="295,347,477,389"/>
+<area shape="rect" id="node15" href="$classSNDSConsumer.html#abb43d7bef684fe817efd58db7cac5524" title="Express a subscription&#45;notification Interest to a subscriber." alt="" coords="292,413,480,454"/>
+<area shape="rect" id="node16" href="$classSNDSConsumer.html#a5c0a58f230849d750e2b99142a5a365c" title="Express a temporal&#45;query Interest (direct or manifest&#45;based flows)." alt="" coords="291,674,481,715"/>
+<area shape="rect" id="node17" href="$classSNDSConsumer.html#a798c8cf0925aa28f62fa14d67e4bc626" title="Expand a temporal&#45;query manifest payload into individual metafile Interests." alt="" coords="305,609,467,650"/>
+<area shape="rect" id="node8" href="$classSNDSConsumer.html#a29695d4c0e4aa8445731fb90fd374c0d" title="Start the consumer loop." alt="" coords="37,289,190,316"/>
+<area shape="rect" id="node19" href="$classSNDSProducer.html#ab3ac1f7ce8d0c923ead7be83316889d0" title="Advertise a temporal&#45;query name and publish its descriptor to the broker." alt="" coords="551,715,785,757"/>
+<area shape="rect" id="node22" href="$classDigitalTwin.html#ad05df6a46969f350fa44cd5b2fc732ca" title="Handle a TEMPORAL_QUERY_ADVERTISEMENT request." alt="" coords="551,846,785,887"/>
+<area shape="rect" id="node24" href="$classSNDSProducer.html#a8ebf9ced62b6de42536af6899386138b" title="Request&#45;time temporal query (pull) and advertise its name for data follow&#45;ups." alt="" coords="574,781,762,822"/>
+<area shape="rect" id="node25" href="$classWorker.html#a4e2f8b7d46d7f9ac86d8a61bec908ea6" title="Begin a temporal query flow: record state and instruct Consumer to fan out." alt="" coords="573,911,763,953"/>
+<area shape="rect" id="node28" href="$classWorker.html#a7c99f973baefbcb4d819dfa026677a3d" title="Handle temporal query responses (direct or aggregated)." alt="" coords="573,977,763,1018"/>
+<area shape="rect" id="node20" href="$classSNDSProducer.html#a78040b177b67ab54589938418a20976a" title="Initialize and run the SNDSProducer main loop." alt="" coords="314,772,458,799"/>
+<area shape="rect" id="node21" href="$classSNDSProducer.html#a1326241b6016c6d37a71c1de37839e9d" title="Construct a producer with logging, naming, broker, and resilience configuration." alt="" coords="5,772,221,799"/>
+<area shape="rect" id="node23" href="$classDigitalTwin.html#aa92b7f6f260fc0a67ea0d8705b62b230" title="Run the service loop." alt="" coords="325,853,447,880"/>
+<area shape="rect" id="node26" href="$classWorker.html#a70b5e6aece0d46e97777448983552c52" title="Handle a message coming from the HTTP server." alt="" coords="299,911,473,953"/>
+<area shape="rect" id="node27" href="$classWorker.html#a413dfbae742152a0c27f713ead6f5c22" title="Main service loop." alt="" coords="65,951,161,977"/>
+<area shape="rect" id="node29" href="$classWorker.html#a355b7b98c0d79fafe17a6ac0c9a8de24" title="Handle a message coming from the Consumer." alt="" coords="287,977,485,1018"/>
+</map>

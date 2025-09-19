@@ -1,0 +1,12 @@
+<map id="main" name="main">
+<area shape="rect" id="node1" title=" " alt="" coords="5,132,60,159"/>
+<area shape="rect" id="node2" href="$classSNDSDaemon.html#a9e0383d872b40b20f47040f6664f865e" title="Register a service to be managed by the daemon." alt="" coords="108,5,301,32"/>
+<area shape="rect" id="node3" href="$message__queue__example_8cpp.html#ac2cdf7c45956eab130c80cd2d8375c94" title=" " alt="" coords="161,56,248,83"/>
+<area shape="rect" id="node5" href="$message__queue__example_8cpp.html#a1c8ca72756bfe9a4da06e51355b836a7" title=" " alt="" coords="165,107,244,133"/>
+<area shape="rect" id="node8" href="$snds__service_2main_8cpp.html#ad2e59c7203b3bddc1bc9a2224b52e8e7" title=" " alt="" coords="149,157,261,184"/>
+<area shape="rect" id="node9" href="$classSNDSDaemon.html#a18f44510d15e80ebb65efd4e0cddae79" title="Start all registered services concurrently." alt="" coords="129,208,280,235"/>
+<area shape="rect" id="node10" href="$classSNDSDaemon.html#a9e3ba7435ab59bbe99867f9da2a8b02f" title="Stop all services and join their threads." alt="" coords="130,259,279,285"/>
+<area shape="rect" id="node4" href="$classMessageQueue.html#a8aef398e538b8e4ee61ef6d7194ce338" title="Reads a message from the queue." alt="" coords="351,41,569,68"/>
+<area shape="rect" id="node6" href="$namespaceparsed__interest__name_1_1interest__message__type.html#a88695a924e4c7d4287c7b4d7a6e9e594" title="Convert an INTEREST_MESSAGE_TYPE to its canonical string." alt="" coords="369,92,551,148"/>
+<area shape="rect" id="node7" href="$classMessageQueue.html#a2729c50967a9801ee0b162ae6ccc1e2d" title="Writes a message to the queue." alt="" coords="349,172,571,199"/>
+</map>

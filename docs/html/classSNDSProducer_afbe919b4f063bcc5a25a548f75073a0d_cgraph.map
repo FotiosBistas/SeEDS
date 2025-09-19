@@ -1,0 +1,9 @@
+<map id="SNDSProducer::process_resilience_meta_interest" name="SNDSProducer::process_resilience_meta_interest">
+<area shape="rect" id="node1" title="Return lightweight metadata about the current store head." alt="" coords="5,100,196,141"/>
+<area shape="rect" id="node2" href="$classsnds__resilience_1_1Store.html#adb0af16484410dd27bd94f656139693c" title="Read&#45;only snapshot of the current head." alt="" coords="249,5,413,47"/>
+<area shape="rect" id="node3" href="$classSNDSProducer.html#af32f14e077b903568262796b53ffc208" title="Get current UTC time as ISO&#45;8601 string." alt="" coords="244,71,419,112"/>
+<area shape="rect" id="node4" href="$classServiceBase.html#a4cad2999841e0281a85add76452ad7ca" title="Convenience API to sign and send a Data packet." alt="" coords="245,137,417,163"/>
+<area shape="rect" id="node5" href="$namespaceparsed__interest__name.html#aea653b4993da4fac583d8a3ed5ac9ac6" title="Reconstruct a custom NDN name string from a #ParsedInterestName." alt="" coords="245,188,418,229"/>
+<area shape="rect" id="node6" href="$namespaceparsed__interest__name_1_1interest__message__type.html#a88695a924e4c7d4287c7b4d7a6e9e594" title="Convert an INTEREST_MESSAGE_TYPE to its canonical string." alt="" coords="467,143,649,199"/>
+<area shape="rect" id="node7" href="$namespaceparsed__interest__name.html#a466f9a026ebb3e3321d358c1cd0a98ce" title="URL&#45;encode a value for query contexts." alt="" coords="475,224,641,265"/>
+</map>

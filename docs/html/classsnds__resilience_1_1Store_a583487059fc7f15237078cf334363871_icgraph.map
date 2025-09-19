@@ -1,0 +1,11 @@
+<map id="snds_resilience::Store::make_patch_from" name="snds_resilience::Store::make_patch_from">
+<area shape="rect" id="node1" title="Build a patch from a known base version to the current head." alt="" coords="1221,41,1385,82"/>
+<area shape="rect" id="node2" href="$test__resilience_8cpp.html#ae66f6b31b5ad750f1fe042a706a4e3d4" title=" " alt="" coords="1050,19,1105,45"/>
+<area shape="rect" id="node3" href="$classSNDSProducer.html#a836623d276b428582715051c965bacec" title="Serve a resilience patch request (from_version → to_version) targeting the current head." alt="" coords="981,70,1173,111"/>
+<area shape="rect" id="node4" href="$classSNDSProducer.html#a9d2b31b6bb85e03e5238f8a7d140e039" title="Entry point for all incoming Interests on announced prefixes." alt="" coords="744,77,933,104"/>
+<area shape="rect" id="node5" href="$classSNDSProducer.html#a78040b177b67ab54589938418a20976a" title="Initialize and run the SNDSProducer main loop." alt="" coords="269,77,413,104"/>
+<area shape="rect" id="node7" href="$classSNDSProducer.html#a958a437d00540030bdc41567ebefe879" title="Advertise an object by ID (NDN announcement) from a string&#45;encoded interest path." alt="" coords="492,37,665,78"/>
+<area shape="rect" id="node8" href="$classSNDSProducer.html#ab3ac1f7ce8d0c923ead7be83316889d0" title="Advertise a temporal&#45;query name and publish its descriptor to the broker." alt="" coords="461,102,696,143"/>
+<area shape="rect" id="node9" href="$classSNDSProducer.html#a8ebf9ced62b6de42536af6899386138b" title="Request&#45;time temporal query (pull) and advertise its name for data follow&#45;ups." alt="" coords="485,167,673,209"/>
+<area shape="rect" id="node6" href="$classSNDSProducer.html#a1326241b6016c6d37a71c1de37839e9d" title="Construct a producer with logging, naming, broker, and resilience configuration." alt="" coords="5,77,221,104"/>
+</map>

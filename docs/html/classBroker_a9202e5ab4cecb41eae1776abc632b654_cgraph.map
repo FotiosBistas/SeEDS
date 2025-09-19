@@ -1,0 +1,5 @@
+<map id="Broker::hash_document" name="Broker::hash_document">
+<area shape="rect" id="node1" title="Stable per&#45;document hash (MD5 of canonicalized JSON)." alt="" coords="5,31,180,57"/>
+<area shape="rect" id="node2" href="$snds__utils_8cpp.html#a890a2f48824cd98683799441da7d0177" title="Computes the MD5 hash of a data buffer and returns it as a hexadecimal string." alt="" coords="272,5,355,32"/>
+<area shape="rect" id="node3" href="$classBroker.html#a11bf7bed9fd3b1abd72277e58d1abe39" title="Canonicalize JSON by sorting object keys recursively." alt="" coords="228,56,399,83"/>
+</map>

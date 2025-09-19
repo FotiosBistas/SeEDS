@@ -1,0 +1,15 @@
+<map id="json_to_string" name="json_to_string">
+<area shape="rect" id="node1" title=" " alt="" coords="925,305,1039,332"/>
+<area shape="rect" id="node2" href="$classSNDSConsumer.html#a798c8cf0925aa28f62fa14d67e4bc626" title="Expand a temporal&#45;query manifest payload into individual metafile Interests." alt="" coords="715,298,877,339"/>
+<area shape="rect" id="node3" href="$classSNDSConsumer.html#a0a352aca40afc5705ff283443c5b4d5f" title="Data callback for expressed Interests." alt="" coords="488,305,667,332"/>
+<area shape="rect" id="node4" href="$classSNDSConsumer.html#a9baccc77e07a150e5ab4994d61d5b7bb" title="Express a by&#45;id&#45;and&#45;type advertisement Interest." alt="" coords="207,5,440,61"/>
+<area shape="rect" id="node6" href="$classSNDSConsumer.html#af4d3802ed500beaca951be6fb33dbaec" title="Express a getByIDForType Interest." alt="" coords="218,86,429,127"/>
+<area shape="rect" id="node7" href="$classSNDSConsumer.html#a51cf7235deef2a4cb92b84c81fad8ff2" title="Express a getByIDFromNode Interest (target a specific SNDS node)." alt="" coords="232,152,415,208"/>
+<area shape="rect" id="node8" href="$classSNDSConsumer.html#a23c5dd07c6313112d0fd7ee881b6d2cf" title="Express a getByID Interest." alt="" coords="232,233,415,274"/>
+<area shape="rect" id="node9" href="$classSNDSConsumer.html#a5f56d1032ea2083e92394257e0c2e19d" title="Express a getByType Interest." alt="" coords="232,298,415,339"/>
+<area shape="rect" id="node10" href="$classSNDSConsumer.html#a546a94861e7ef3697bbde44f2585606e" title="Express a scope&#45;notification Interest (scope ownership/assignment)." alt="" coords="232,363,415,405"/>
+<area shape="rect" id="node11" href="$classSNDSConsumer.html#ab9246f835d1722da4bf0cce4f7e38d66" title="Express a subscription Interest (either by ID or by TYPE)." alt="" coords="232,429,415,470"/>
+<area shape="rect" id="node12" href="$classSNDSConsumer.html#abb43d7bef684fe817efd58db7cac5524" title="Express a subscription&#45;notification Interest to a subscriber." alt="" coords="229,494,417,535"/>
+<area shape="rect" id="node13" href="$classSNDSConsumer.html#a5c0a58f230849d750e2b99142a5a365c" title="Express a temporal&#45;query Interest (direct or manifest&#45;based flows)." alt="" coords="229,559,418,601"/>
+<area shape="rect" id="node5" href="$classSNDSConsumer.html#a29695d4c0e4aa8445731fb90fd374c0d" title="Start the consumer loop." alt="" coords="5,371,159,397"/>
+</map>

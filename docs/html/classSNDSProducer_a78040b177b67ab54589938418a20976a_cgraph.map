@@ -1,0 +1,52 @@
+<map id="SNDSProducer::init" name="SNDSProducer::init">
+<area shape="rect" id="node1" title="Initialize and run the SNDSProducer main loop." alt="" coords="5,624,149,650"/>
+<area shape="rect" id="node2" href="$classSNDSProducer.html#af3296f670fff4a7f21fe20176fad9c98" title="Remove a subscriber node for a specific ID in the store." alt="" coords="773,275,931,316"/>
+<area shape="rect" id="node5" href="$classSNDSProducer.html#a55e47f0b1094bcf80bffe6e9a886e4b3" title="Remove a subscriber node for a specific type in the store." alt="" coords="773,340,931,382"/>
+<area shape="rect" id="node6" href="$classSNDSProducer.html#a315f0e2c6fc498ce0487ba449ab76be8" title="Remove an ID from a type in the in&#45;memory store." alt="" coords="773,406,931,447"/>
+<area shape="rect" id="node7" href="$namespaceparsed__interest__name.html#a5ad35a6d5a4ce43a6f46281ba41acebd" title="Construct a #ParsedInterestName from individual parts." alt="" coords="1005,1056,1224,1098"/>
+<area shape="rect" id="node8" href="$classSNDSProducer.html#a449430c3ef459e7a7126a250e66c3212" title="Decide whether and how to rehydrate the Broker at startup." alt="" coords="231,646,399,687"/>
+<area shape="rect" id="node12" href="$classSNDSProducer.html#a3851e529ff8e124a4c61fb9b9cc4bbfb" title="Refresh per&#45;collection broker metadata in the store." alt="" coords="756,602,948,643"/>
+<area shape="rect" id="node13" href="$classSNDSProducer.html#ae073de8db1c32345a4aae5a30c461f08" title="Incrementally replay broker journal entries since the last known cursor." alt="" coords="482,587,697,628"/>
+<area shape="rect" id="node14" href="$classSNDSProducer.html#a9d2b31b6bb85e03e5238f8a7d140e039" title="Entry point for all incoming Interests on announced prefixes." alt="" coords="495,1701,684,1728"/>
+<area shape="rect" id="node18" href="$namespaceparsed__interest__name.html#aea653b4993da4fac583d8a3ed5ac9ac6" title="Reconstruct a custom NDN name string from a #ParsedInterestName." alt="" coords="1028,1890,1201,1931"/>
+<area shape="rect" id="node34" href="$classServiceBase.html#a955ba2a5ed023a175b3b92fca2919d42" title="Callback for prefix registration failure." alt="" coords="480,1853,699,1880"/>
+<area shape="rect" id="node35" href="$classSNDSProducer.html#afca0d687cf8ada17cac73199ec7e45fb" title="Callback fired after a prefix is registered with the NDN forwarder." alt="" coords="493,1955,686,1996"/>
+<area shape="rect" id="node37" href="$classSNDSProducer.html#a958a437d00540030bdc41567ebefe879" title="Advertise an object by ID (NDN announcement) from a string&#45;encoded interest path." alt="" coords="228,1712,401,1754"/>
+<area shape="rect" id="node38" href="$classSNDSProducer.html#ab3ac1f7ce8d0c923ead7be83316889d0" title="Advertise a temporal&#45;query name and publish its descriptor to the broker." alt="" coords="197,1090,432,1131"/>
+<area shape="rect" id="node42" href="$classSNDSProducer.html#a8ebf9ced62b6de42536af6899386138b" title="Request&#45;time temporal query (pull) and advertise its name for data follow&#45;ups." alt="" coords="221,1420,409,1462"/>
+<area shape="rect" id="node43" href="$classSNDSProducer.html#aa241b711b06505eada844ce375de8517" title="Seed (copy/mirror) collections from Broker’s /dump into primary/secondary." alt="" coords="198,2604,431,2646"/>
+<area shape="rect" id="node44" href="$classSNDSProducer.html#aceb5953e0aac5d2546c84ddd4be1f75c" title="Start the resilience IPC TCP listener thread." alt="" coords="775,536,929,578"/>
+<area shape="rect" id="node45" href="$classSNDSProducer.html#ac12a53f494c592df6d30f299279ec993" title="Stop the resilience IPC listener thread." alt="" coords="239,2670,390,2711"/>
+<area shape="rect" id="node46" href="$classSNDSProducer.html#a7f20a50e9e045351b7589dcfe8c3dfd6" title="Record an announcement name in the store." alt="" coords="774,471,930,512"/>
+<area shape="rect" id="node47" href="$classSNDSProducer.html#a5cbfe0df1e165d20bf9bcf34a5ca2d57" title="Remove an announcement name from the store." alt="" coords="774,14,930,55"/>
+<area shape="rect" id="node48" href="$classSNDSProducer.html#a238f0bda037f8435a466410d50190ca4" title="Add/overwrite a subscriber node for a specific ID in the store." alt="" coords="770,79,934,120"/>
+<area shape="rect" id="node49" href="$classSNDSProducer.html#a26e16986c36dbf66369684027e4a5707" title="Add/overwrite a subscriber node for a specific type in the store." alt="" coords="770,144,934,186"/>
+<area shape="rect" id="node50" href="$classSNDSProducer.html#a3e6d36be8e5ce135fb91974c7307bb4a" title="Ensure an ID exists under a type in the in&#45;memory store." alt="" coords="770,210,934,251"/>
+<area shape="rect" id="node3" href="$classSNDSProducer.html#a568e52352182d16c02f28a5b419a1537" title="Ensure that j[key] exists and is an object; create it if needed." alt="" coords="1017,285,1212,312"/>
+<area shape="rect" id="node4" href="$classsnds__resilience_1_1Store.html#a071673c53898dc82802935f307592984" title="Mutate the canonical state via functor, bump version, recompute hash, snapshot history." alt="" coords="1033,339,1197,380"/>
+<area shape="rect" id="node9" href="$classsnds__resilience_1_1Store.html#adb0af16484410dd27bd94f656139693c" title="Read&#45;only snapshot of the current head." alt="" coords="1033,803,1197,844"/>
+<area shape="rect" id="node10" href="$classSNDSProducer.html#a3059fbd0884422e1b6abc2fca29aa4ef" title="Full broker rehydration from the stored journal." alt="" coords="496,770,683,811"/>
+<area shape="rect" id="node11" href="$structsnds__resilience_1_1Snapshot.html#a5c450df3d6c707e371ca61a95d643c5a" title="Serialize to a self&#45;describing JSON envelope." alt="" coords="757,719,947,760"/>
+<area shape="rect" id="node15" href="$namespaceparsed__interest__name.html#a5882a141d8f330ce296d96f2c16a826d" title="Parse a string representation of a name into #ParsedInterestName." alt="" coords="769,2386,935,2427"/>
+<area shape="rect" id="node16" href="$classSNDSProducer.html#ac443e5056fe5fb215ea7ed7c8e4b1ad2" title="Handle an &quot;ID+TYPE advertisement&quot; interest (producer announces an ID belongs to a TYPE)." alt="" coords="761,1613,943,1669"/>
+<area shape="rect" id="node20" href="$classSNDSProducer.html#a2bc3031cdb18d3a158fcdfd0992899a6" title="Serve a &quot;get&#45;by&#45;id&#45;for&#45;type&quot; request (ID resolved in the context of a TYPE)." alt="" coords="747,1759,957,1800"/>
+<area shape="rect" id="node21" href="$classSNDSProducer.html#ace6ab1a9161918730b9939d04364a65e" title="Serve a &quot;get&#45;by&#45;id&quot; data request." alt="" coords="765,1890,939,1931"/>
+<area shape="rect" id="node22" href="$classSNDSProducer.html#ae5e9643cf753d6c82ac7aed6b0aa37ae" title="Serve a &quot;get&#45;by&#45;type&quot; registry file request." alt="" coords="765,1955,939,1996"/>
+<area shape="rect" id="node23" href="$classSNDSProducer.html#a3d818c502bb38ce87f1d566d7b9bc184" title="Handle a newly announced subscription (by ID or by TYPE) from a subscriber node." alt="" coords="753,1694,951,1735"/>
+<area shape="rect" id="node24" href="$classSNDSProducer.html#a4e2065b17b0d2db4e80125f3587784a1" title="Reply to a resilience liveness probe." alt="" coords="765,2021,939,2077"/>
+<area shape="rect" id="node25" href="$classSNDSProducer.html#afbe919b4f063bcc5a25a548f75073a0d" title="Return lightweight metadata about the current store head." alt="" coords="757,1322,947,1363"/>
+<area shape="rect" id="node26" href="$classSNDSProducer.html#a836623d276b428582715051c965bacec" title="Serve a resilience patch request (from_version → to_version) targeting the current head." alt="" coords="756,2102,948,2143"/>
+<area shape="rect" id="node27" href="$classSNDSProducer.html#a42e11175eeb6f934473978402d9bbdc1" title="Serve a resilience snapshot for a requested target version (must equal current head)." alt="" coords="765,1241,939,1297"/>
+<area shape="rect" id="node28" href="$classSNDSProducer.html#a6c506dfa48fb64d27b6d716c8ebcb3b0" title="Notify all current subscribers that the scope (ID/TYPE) has changed." alt="" coords="750,1387,954,1428"/>
+<area shape="rect" id="node29" href="$classSNDSProducer.html#a02a48a520e3ca721783384650f685666" title="Forward a subscription notification to interested parties (reverse direction)." alt="" coords="758,1453,946,1509"/>
+<area shape="rect" id="node30" href="$classSNDSProducer.html#a9df36e6245bd038079c21992a925fcdc" title="Serve a temporal&#45;query Interest." alt="" coords="757,2167,947,2208"/>
+<area shape="rect" id="node31" href="$namespaceparsed__interest__name.html#a02a0b6ee3eb06f5dc5907587ce9fc0f1" title="URL&#45;decode a string (percent&#45;escapes only)." alt="" coords="1031,2196,1198,2238"/>
+<area shape="rect" id="node32" href="$classSNDSProducer.html#a9a81ebb6d9b2d2e88885cf57efb48466" title="Serve a &quot;version metafile&quot; request for an ID (latest object metadata)." alt="" coords="755,1824,949,1866"/>
+<area shape="rect" id="node33" href="$structparsed__interest__name_1_1ParsedInterestName.html#a7b65ea44a1b05b83c76569378207b9b3" title="Convert the parsed structure to a human&#45;readable string." alt="" coords="769,1533,935,1589"/>
+<area shape="rect" id="node17" href="$classSNDSProducer.html#a00928ce9d5302715942efb1bfe88be73" title="Register an (type, id) pair in the type registry (idempotent insert)." alt="" coords="1028,1351,1201,1392"/>
+<area shape="rect" id="node19" href="$namespacesnds__intra__message.html#a6247eda9f2d6db3d16fb17687d53caca" title="Convert an enum value to its string representation." alt="" coords="1037,1620,1192,1662"/>
+<area shape="rect" id="node36" href="$classSNDSProducer.html#a08aa91775ccf31cadaa8ebd44b0fbe14" title="Mark an NDN name as announced (idempotent insert)." alt="" coords="759,2452,945,2478"/>
+<area shape="rect" id="node39" href="$classSNDSProducer.html#abcaf8d5728a430605cc6f143557f31e3" title="Publish a JSON document to the Broker (/add)." alt="" coords="501,704,678,746"/>
+<area shape="rect" id="node40" href="$namespacetemporal__query.html#aa99b80c7a53c6a441624729c0d905930" title="Deserialize from JSON, query&#45;string, or path&#45;like input." alt="" coords="488,1090,691,1131"/>
+<area shape="rect" id="node41" href="$namespacetemporal__query.html#a572462e22e3657ebecbc8ebd8e1dc4de" title="Serialize to compact JSON (unknown keys inlined alongside known keys)." alt="" coords="496,1155,683,1196"/>
+</map>

@@ -1,0 +1,6 @@
+<map id="SNDSProducer" name="SNDSProducer">
+<area shape="rect" id="node1" title="NDN producer that advertises names, serves Interests, proxies to an HTTP broker, and maintains a resi..." alt="" coords="135,95,250,121"/>
+<area shape="rect" id="node2" href="$classServiceBase.html" title="Base class implementing shared infrastructure for SNDS services." alt="" coords="5,5,108,32"/>
+<area shape="rect" id="node3" href="$structRegistryEvents.html" title="Event hooks for registry and subscription changes." alt="" coords="133,5,253,32"/>
+<area shape="rect" id="node4" href="$classsnds__resilience_1_1Store.html" title="Versioned, canonical JSON store with bounded history and patch generation." alt="" coords="277,5,441,32"/>
+</map>

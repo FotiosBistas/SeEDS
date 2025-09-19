@@ -1,0 +1,14 @@
+<map id="temporal_query::serialize_temporal_query" name="temporal_query::serialize_temporal_query">
+<area shape="rect" id="node1" title="Serialize to compact JSON (unknown keys inlined alongside known keys)." alt="" coords="797,136,984,177"/>
+<area shape="rect" id="node2" href="$classSNDSProducer.html#ab3ac1f7ce8d0c923ead7be83316889d0" title="Advertise a temporal&#45;query name and publish its descriptor to the broker." alt="" coords="515,5,749,47"/>
+<area shape="rect" id="node5" href="$classDigitalTwin.html#ad05df6a46969f350fa44cd5b2fc732ca" title="Handle a TEMPORAL_QUERY_ADVERTISEMENT request." alt="" coords="515,136,749,177"/>
+<area shape="rect" id="node7" href="$classSNDSProducer.html#a8ebf9ced62b6de42536af6899386138b" title="Request&#45;time temporal query (pull) and advertise its name for data follow&#45;ups." alt="" coords="538,71,726,112"/>
+<area shape="rect" id="node8" href="$classWorker.html#a4e2f8b7d46d7f9ac86d8a61bec908ea6" title="Begin a temporal query flow: record state and instruct Consumer to fan out." alt="" coords="537,201,727,243"/>
+<area shape="rect" id="node11" href="$classWorker.html#a7c99f973baefbcb4d819dfa026677a3d" title="Handle temporal query responses (direct or aggregated)." alt="" coords="537,267,727,308"/>
+<area shape="rect" id="node3" href="$classSNDSProducer.html#a78040b177b67ab54589938418a20976a" title="Initialize and run the SNDSProducer main loop." alt="" coords="296,46,440,73"/>
+<area shape="rect" id="node4" href="$classSNDSProducer.html#a1326241b6016c6d37a71c1de37839e9d" title="Construct a producer with logging, naming, broker, and resilience configuration." alt="" coords="5,46,221,73"/>
+<area shape="rect" id="node6" href="$classDigitalTwin.html#aa92b7f6f260fc0a67ea0d8705b62b230" title="Run the service loop." alt="" coords="307,143,429,170"/>
+<area shape="rect" id="node9" href="$classWorker.html#a70b5e6aece0d46e97777448983552c52" title="Handle a message coming from the HTTP server." alt="" coords="281,201,455,243"/>
+<area shape="rect" id="node10" href="$classWorker.html#a413dfbae742152a0c27f713ead6f5c22" title="Main service loop." alt="" coords="65,241,161,267"/>
+<area shape="rect" id="node12" href="$classWorker.html#a355b7b98c0d79fafe17a6ac0c9a8de24" title="Handle a message coming from the Consumer." alt="" coords="269,267,467,308"/>
+</map>
