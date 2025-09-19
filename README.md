@@ -317,6 +317,29 @@ A tiny scheduler that probes the PRIMARY and pulls updates. It runs two periodic
 - Alive loop: proves reachability with a nonce echo.
 - Meta loop: reads {version, hash, ts} and decides whether to fetch a patch or snapshot.
 
+### Run 
+
+| Arg index | Meaning                 | Default      | Example      |
+| --------- | ----------------------- | ------------ | ------------ |
+| 1         | NDN prefix              | `SNDS`       | `SNDS`       |
+| 2         | peer “is alive” name    | `is_alive_0` | `is_alive_2` |
+| 3         | peer “state” name       | `state_0`    | `state_2`    |
+| 4         | alive probe period (ms) | `2000`       | `1000`       |
+| 5         | meta poll period (ms)   | `2000`       | `3000`       |
+| 6         | IPC host                | `127.0.0.1`  | `0.0.0.0`    |
+| 7         | IPC port                | `47832`      | `49000`      |
+
+Example with all defaults:
+```
+./resilience_poller_bin
+```
+Example specifying everything:
+```
+./resilience_poller_bin SNDS is_alive_2 state_2 1000 3000 127.0.0.1 49000
+```
+
+
+
 ### Wire protocol (NDN interest)
 
 Names are built under your SNDS prefix with per-peer components:

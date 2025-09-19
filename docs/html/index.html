@@ -322,9 +322,31 @@ ResiliencePoller (SECONDARY)</h3>
 <li>Meta loop: reads {version, hash, ts} and decides whether to fetch a patch or snapshot.</li>
 </ul>
 <h3><a class="anchor" id="autotoc_md30"></a>
+Run</h3>
+<table class="markdownTable">
+<tr class="markdownTableHead">
+<th class="markdownTableHeadNone">Arg index   </th><th class="markdownTableHeadNone">Meaning   </th><th class="markdownTableHeadNone">Default   </th><th class="markdownTableHeadNone">Example    </th></tr>
+<tr class="markdownTableRowOdd">
+<td class="markdownTableBodyNone">1   </td><td class="markdownTableBodyNone">NDN prefix   </td><td class="markdownTableBodyNone"><code>SNDS</code>   </td><td class="markdownTableBodyNone"><code>SNDS</code>    </td></tr>
+<tr class="markdownTableRowEven">
+<td class="markdownTableBodyNone">2   </td><td class="markdownTableBodyNone">peer “is alive” name   </td><td class="markdownTableBodyNone"><code>is_alive_0</code>   </td><td class="markdownTableBodyNone"><code>is_alive_2</code>    </td></tr>
+<tr class="markdownTableRowOdd">
+<td class="markdownTableBodyNone">3   </td><td class="markdownTableBodyNone">peer “state” name   </td><td class="markdownTableBodyNone"><code>state_0</code>   </td><td class="markdownTableBodyNone"><code>state_2</code>    </td></tr>
+<tr class="markdownTableRowEven">
+<td class="markdownTableBodyNone">4   </td><td class="markdownTableBodyNone">alive probe period (ms)   </td><td class="markdownTableBodyNone"><code>2000</code>   </td><td class="markdownTableBodyNone"><code>1000</code>    </td></tr>
+<tr class="markdownTableRowOdd">
+<td class="markdownTableBodyNone">5   </td><td class="markdownTableBodyNone">meta poll period (ms)   </td><td class="markdownTableBodyNone"><code>2000</code>   </td><td class="markdownTableBodyNone"><code>3000</code>    </td></tr>
+<tr class="markdownTableRowEven">
+<td class="markdownTableBodyNone">6   </td><td class="markdownTableBodyNone">IPC host   </td><td class="markdownTableBodyNone"><code>127.0.0.1</code>   </td><td class="markdownTableBodyNone"><code>0.0.0.0</code>    </td></tr>
+<tr class="markdownTableRowOdd">
+<td class="markdownTableBodyNone">7   </td><td class="markdownTableBodyNone">IPC port   </td><td class="markdownTableBodyNone"><code>47832</code>   </td><td class="markdownTableBodyNone"><code>49000</code>   </td></tr>
+</table>
+<p>Example with all defaults: </p><div class="fragment"><div class="line">./resilience_poller_bin</div>
+</div><!-- fragment --><p> Example specifying everything: </p><div class="fragment"><div class="line">./resilience_poller_bin SNDS is_alive_2 state_2 1000 3000 127.0.0.1 49000</div>
+</div><!-- fragment --><h3><a class="anchor" id="autotoc_md31"></a>
 Wire protocol (NDN interest)</h3>
 <p>Names are built under your SNDS prefix with per-peer components:</p>
-<h4><a class="anchor" id="autotoc_md31"></a>
+<h4><a class="anchor" id="autotoc_md32"></a>
 Liveness probe</h4>
 <ul>
 <li>Purpose: “Are you up, and did you see my nonce?”</li>
@@ -336,7 +358,7 @@ Liveness probe</h4>
 </div><!-- fragment --><ul>
 <li>Client behavior: Accept only if ack == true and the echoed nonce matches.</li>
 </ul>
-<h4><a class="anchor" id="autotoc_md32"></a>
+<h4><a class="anchor" id="autotoc_md33"></a>
 Head metadata</h4>
 <ul>
 <li>Purpose: “What version and hash is your current state?”</li>
@@ -346,7 +368,7 @@ Head metadata</h4>
 </div><!-- fragment --></li>
 <li>Client behavior: Compare version to your local version to decide whether you need a patch or a snapshot.</li>
 </ul>
-<h4><a class="anchor" id="autotoc_md33"></a>
+<h4><a class="anchor" id="autotoc_md34"></a>
 Patch (delta) request</h4>
 <ul>
 <li>Purpose: “Give me the JSON Patch from my version → your version.”</li>
@@ -365,7 +387,7 @@ Patch (delta) request</h4>
 <li>Other error values you might see: <code>missing_parameters, invalid_parameters, non_increasing_version, unknown_target_version, store_advanced</code>.</li>
 <li>Client behavior: Try applying ops to your local state. If apply fails or you get an error, fetch a snapshot of target_version (or of latest).</li>
 </ul>
-<h4><a class="anchor" id="autotoc_md34"></a>
+<h4><a class="anchor" id="autotoc_md35"></a>
 Snapshot (full state) request</h4>
 <ul>
 <li>Purpose: “Give me the full state at your head (or at the specified version).”</li>
@@ -382,11 +404,11 @@ Snapshot (full state) request</h4>
 </div><!-- fragment --></li>
 </ul>
 <p>(You asked for 42, but the head moved to 43; ask again for 43.)</p>
-<h4><a class="anchor" id="autotoc_md35"></a>
+<h4><a class="anchor" id="autotoc_md36"></a>
 Determinism &amp; hashing</h4>
 <p>Canonicalization uses nlohmann::ordered_json + compact .dump() so the same logical object hashes identically everywhere.</p>
 <p>Hashing is MD5 over the canonical dump. It’s a fast, stable fingerprint for identity checks—not a security guarantee.</p>
-<h4><a class="anchor" id="autotoc_md36"></a>
+<h4><a class="anchor" id="autotoc_md37"></a>
 Client behavior (SECONDARY)</h4>
 <ul>
 <li>Boot → send META. With no local version, fetch SNAPSHOT at the advertised version and apply.</li>
