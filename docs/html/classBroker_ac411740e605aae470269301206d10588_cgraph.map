@@ -1,0 +1,6 @@
+<map id="Broker::get_from_database" name="Broker::get_from_database">
+<area shape="rect" id="node1" title="Internal read helper for temporal/latest queries." alt="" coords="5,71,204,98"/>
+<area shape="rect" id="node2" href="$classBroker.html#ab49ab7fa30529107a31212a37da56df3" title="Build an aggregation pipeline for versioned date&#45;window queries." alt="" coords="271,5,420,47"/>
+<area shape="rect" id="node3" href="$classBroker.html#acdbfe98694602548349f373cbedd31db" title="Project only the _id field in a pipeline result." alt="" coords="257,71,433,98"/>
+<area shape="rect" id="node4" href="$classBroker.html#a4bafd27134e93d138038f961f0403163" title="Parse a human&#45;readable date into chrono + BSON date." alt="" coords="252,122,439,149"/>
+</map>

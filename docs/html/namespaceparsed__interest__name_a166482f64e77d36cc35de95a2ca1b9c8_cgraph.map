@@ -1,0 +1,4 @@
+<map id="parsed_interest_name::parse_interest_name" name="parsed_interest_name::parse_interest_name">
+<area shape="rect" id="node1" title="Parse an NDN name into a #ParsedInterestName." alt="" coords="5,13,172,54"/>
+<area shape="rect" id="node2" href="$namespaceparsed__interest__name_1_1interest__message__type.html#ad18e0b4abe9d7cf57ae98731764f3abe" title="Parse the command from a component of the form &quot;token:rest&quot;." alt="" coords="220,5,403,61"/>
+</map>

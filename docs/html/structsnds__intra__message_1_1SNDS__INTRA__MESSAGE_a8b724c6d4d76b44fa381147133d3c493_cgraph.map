@@ -1,0 +1,5 @@
+<map id="snds_intra_message::SNDS_INTRA_MESSAGE::infer_type_from_params" name="snds_intra_message::SNDS_INTRA_MESSAGE::infer_type_from_params">
+<area shape="rect" id="node1" title="Decide type based on current http_type and present parameters." alt="" coords="5,45,196,101"/>
+<area shape="rect" id="node2" href="$structsnds__intra__message_1_1SNDS__INTRA__MESSAGE.html#a063cbc81269cc5adb65b57020c072532" title="Inference rules for HTTP GET requests." alt="" coords="244,5,428,61"/>
+<area shape="rect" id="node3" href="$structsnds__intra__message_1_1SNDS__INTRA__MESSAGE.html#a02f93e9abad38daf3e99c832d282ea91" title="Inference rules for HTTP POST requests." alt="" coords="244,85,428,141"/>
+</map>

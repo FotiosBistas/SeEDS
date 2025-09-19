@@ -1,0 +1,5 @@
+<map id="SNDSProducer::fetch_broker_state_json_" name="SNDSProducer::fetch_broker_state_json_">
+<area shape="rect" id="node1" title="Convenience: GET /state?type=… from the Broker." alt="" coords="5,5,161,47"/>
+<area shape="rect" id="node2" href="$classSNDSProducer.html#a52aba174a33caf311d07b1126d0762fc" title="Issue an HTTP GET to the Broker and parse JSON." alt="" coords="209,5,365,47"/>
+<area shape="rect" id="node3" href="$namespaceparsed__interest__name.html#a466f9a026ebb3e3321d358c1cd0a98ce" title="URL&#45;encode a value for query contexts." alt="" coords="413,5,580,47"/>
+</map>

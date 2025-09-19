@@ -1,0 +1,38 @@
+<map id="parsed_interest_name::split" name="parsed_interest_name::split">
+<area shape="rect" id="node1" title="Split a view on a delimiter (drops empties)." alt="" coords="2209,610,2376,651"/>
+<area shape="rect" id="node2" href="$namespaceparsed__interest__name.html#a5882a141d8f330ce296d96f2c16a826d" title="Parse a string representation of a name into #ParsedInterestName." alt="" coords="1995,610,2161,651"/>
+<area shape="rect" id="node3" href="$classWorker.html#a355b7b98c0d79fafe17a6ac0c9a8de24" title="Handle a message coming from the Consumer." alt="" coords="1749,6,1947,47"/>
+<area shape="rect" id="node5" href="$classSNDSConsumer.html#a9baccc77e07a150e5ab4994d61d5b7bb" title="Express a by&#45;id&#45;and&#45;type advertisement Interest." alt="" coords="1467,384,1701,440"/>
+<area shape="rect" id="node7" href="$classSNDSConsumer.html#af4d3802ed500beaca951be6fb33dbaec" title="Express a getByIDForType Interest." alt="" coords="1479,610,1689,651"/>
+<area shape="rect" id="node8" href="$classSNDSConsumer.html#a51cf7235deef2a4cb92b84c81fad8ff2" title="Express a getByIDFromNode Interest (target a specific SNDS node)." alt="" coords="1493,464,1675,520"/>
+<area shape="rect" id="node9" href="$classSNDSConsumer.html#a23c5dd07c6313112d0fd7ee881b6d2cf" title="Express a getByID Interest." alt="" coords="1493,675,1675,717"/>
+<area shape="rect" id="node10" href="$classSNDSConsumer.html#a5f56d1032ea2083e92394257e0c2e19d" title="Express a getByType Interest." alt="" coords="1493,545,1675,586"/>
+<area shape="rect" id="node11" href="$classSNDSConsumer.html#a546a94861e7ef3697bbde44f2585606e" title="Express a scope&#45;notification Interest (scope ownership/assignment)." alt="" coords="1493,57,1675,98"/>
+<area shape="rect" id="node12" href="$classSNDSConsumer.html#ab9246f835d1722da4bf0cce4f7e38d66" title="Express a subscription Interest (either by ID or by TYPE)." alt="" coords="1493,122,1675,163"/>
+<area shape="rect" id="node13" href="$classSNDSConsumer.html#abb43d7bef684fe817efd58db7cac5524" title="Express a subscription&#45;notification Interest to a subscriber." alt="" coords="1490,187,1678,229"/>
+<area shape="rect" id="node14" href="$classResiliencePoller.html#a0d1062c1360ba33aa01f42f25bb2db5f" title="Handle is_alive Data response from the NDN." alt="" coords="1759,735,1937,777"/>
+<area shape="rect" id="node19" href="$classResiliencePoller.html#a2c6da685b0b5f22b978a1bc5ab28a68b" title="Handle patch Data response, from the NDN." alt="" coords="1240,799,1419,841"/>
+<area shape="rect" id="node24" href="$classResiliencePoller.html#a08dc17707765016ceb7c0969a677da3b" title="Handle patch NACK, from the NDN." alt="" coords="1240,865,1419,906"/>
+<area shape="rect" id="node25" href="$classResiliencePoller.html#a9e7fd3f861d575bfda4b8ff59181ab9c" title="Handle snapshot Data response, from the NDN." alt="" coords="1240,930,1419,971"/>
+<area shape="rect" id="node26" href="$classResiliencePoller.html#a57df80e9531868ab30d40f49bf409652" title="Handle snapshot Data response, from the NDN." alt="" coords="1759,858,1937,899"/>
+<area shape="rect" id="node28" href="$classSNDSConsumer.html#a0a352aca40afc5705ff283443c5b4d5f" title="Data callback for expressed Interests." alt="" coords="1759,391,1937,417"/>
+<area shape="rect" id="node31" href="$classSNDSProducer.html#a9d2b31b6bb85e03e5238f8a7d140e039" title="Entry point for all incoming Interests on announced prefixes." alt="" coords="1753,1092,1943,1119"/>
+<area shape="rect" id="node34" href="$classSNDSProducer.html#a958a437d00540030bdc41567ebefe879" title="Advertise an object by ID (NDN announcement) from a string&#45;encoded interest path." alt="" coords="1497,1026,1671,1067"/>
+<area shape="rect" id="node4" href="$classWorker.html#a413dfbae742152a0c27f713ead6f5c22" title="Main service loop." alt="" coords="1536,5,1632,32"/>
+<area shape="rect" id="node6" href="$classSNDSConsumer.html#a29695d4c0e4aa8445731fb90fd374c0d" title="Start the consumer loop." alt="" coords="1253,260,1406,287"/>
+<area shape="rect" id="node15" href="$classResiliencePoller.html#a5d433e2ca8095c01e6a2660adebc464a" title="Express an is_alive Interest with a nonce." alt="" coords="1501,741,1667,782"/>
+<area shape="rect" id="node16" href="$classResiliencePoller.html#a65b2b84904500725f54250a8ccb9e6a4" title="Periodically schedule an is&#45;alive probe." alt="" coords="755,747,922,789"/>
+<area shape="rect" id="node17" href="$classResiliencePoller.html#a6883347b6b8b9bd1322501e9b5211e1f" title="Start periodic liveness and meta polling." alt="" coords="108,816,272,843"/>
+<area shape="rect" id="node18" href="$snds__resilience_2main_8cpp.html#a3c04138a5bfe5d72780bb7e82a18e627" title=" " alt="" coords="5,816,60,843"/>
+<area shape="rect" id="node20" href="$classResiliencePoller.html#aea027620cf2c12f7ec2a17600bbe6d03" title="Express a patch Interest for a version range." alt="" coords="1001,850,1167,891"/>
+<area shape="rect" id="node21" href="$classResiliencePoller.html#a65076ba9bf7ed1bba455c55abf963039" title="Handle meta Data response, from the NDN." alt="" coords="749,842,928,883"/>
+<area shape="rect" id="node22" href="$classResiliencePoller.html#a27a96b19c4586bd108454f3984521db0" title="Express a meta Interest." alt="" coords="536,839,701,881"/>
+<area shape="rect" id="node23" href="$classResiliencePoller.html#a46814f3a5ae56e9e4148faac4429b0f6" title="Periodically schedule a meta fetch." alt="" coords="320,838,488,879"/>
+<area shape="rect" id="node27" href="$classResiliencePoller.html#aee8dfa03db918fb2cedaccb5ba8f67fe" title="Express a snapshot Interest for a specific version." alt="" coords="1501,858,1667,899"/>
+<area shape="rect" id="node29" href="$classSNDSConsumer.html#a5c0a58f230849d750e2b99142a5a365c" title="Express a temporal&#45;query Interest (direct or manifest&#45;based flows)." alt="" coords="1489,253,1679,294"/>
+<area shape="rect" id="node30" href="$classSNDSConsumer.html#a798c8cf0925aa28f62fa14d67e4bc626" title="Expand a temporal&#45;query manifest payload into individual metafile Interests." alt="" coords="1503,318,1665,359"/>
+<area shape="rect" id="node32" href="$classSNDSProducer.html#a78040b177b67ab54589938418a20976a" title="Initialize and run the SNDSProducer main loop." alt="" coords="1257,1121,1401,1148"/>
+<area shape="rect" id="node35" href="$classSNDSProducer.html#ab3ac1f7ce8d0c923ead7be83316889d0" title="Advertise a temporal&#45;query name and publish its descriptor to the broker." alt="" coords="1467,1143,1701,1185"/>
+<area shape="rect" id="node36" href="$classSNDSProducer.html#a8ebf9ced62b6de42536af6899386138b" title="Request&#45;time temporal query (pull) and advertise its name for data follow&#45;ups." alt="" coords="1490,1209,1678,1250"/>
+<area shape="rect" id="node33" href="$classSNDSProducer.html#a1326241b6016c6d37a71c1de37839e9d" title="Construct a producer with logging, naming, broker, and resilience configuration." alt="" coords="976,1121,1192,1148"/>
+</map>

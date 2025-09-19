@@ -1,0 +1,5 @@
+<map id="temporal_query::to_fields" name="temporal_query::to_fields">
+<area shape="rect" id="node1" title="Convert TemporalQuery to &quot;key=value&quot; fields (URL&#45;encoded by default)." alt="" coords="444,5,589,47"/>
+<area shape="rect" id="node2" href="$classSNDSConsumer.html#a5c0a58f230849d750e2b99142a5a365c" title="Express a temporal&#45;query Interest (direct or manifest&#45;based flows)." alt="" coords="207,5,396,47"/>
+<area shape="rect" id="node3" href="$classSNDSConsumer.html#a29695d4c0e4aa8445731fb90fd374c0d" title="Start the consumer loop." alt="" coords="5,13,159,39"/>
+</map>

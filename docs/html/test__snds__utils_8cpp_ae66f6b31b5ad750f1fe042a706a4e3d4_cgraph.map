@@ -1,0 +1,13 @@
+<map id="main" name="main">
+<area shape="rect" id="node1" title=" " alt="" coords="5,183,60,209"/>
+<area shape="rect" id="node2" href="$snds__utils_8cpp.html#a77db51b07a1c58209fa4c161e0b56a76" title="Ensures that the given name starts with a forward slash (&#39;/&#39;)." alt="" coords="177,5,329,32"/>
+<area shape="rect" id="node3" href="$snds__utils_8cpp.html#a8dd44070e35de07722f7fda5f0e8e100" title="Extracts the value associated with a specific tag from a GET request URL." alt="" coords="171,56,336,83"/>
+<area shape="rect" id="node4" href="$snds__utils_8h.html#ab255b7ca3399fe95c90c5c8ffad8da79" title="Extracts the subscription URL from a GET request." alt="" coords="167,107,340,133"/>
+<area shape="rect" id="node6" href="$snds__utils_8cpp.html#a38157994048ee1e99a2a86298b33a0c9" title="Computes the responsible SNDS node ID for a given subscription name." alt="" coords="447,208,660,235"/>
+<area shape="rect" id="node7" href="$snds__utils_8cpp.html#ad2cc6d88e8d705001b0ceb6b3bdb2a4b" title="Computes and returns the scope name for the responsible SNDS node based on the given subscription ide..." alt="" coords="108,259,399,285"/>
+<area shape="rect" id="node9" href="$snds__utils_8h.html#aa2cdc01b1ceccb6ea2244c851498fa50" title="Determines if the GET request URL indicates a subscription request." alt="" coords="166,157,341,184"/>
+<area shape="rect" id="node10" href="$snds__utils_8cpp.html#a781f33a2cf27914ac80a864ee2c765af" title="TODO I have no clue how is this used originally I assume its something like (@yannisT):" alt="" coords="164,310,343,351"/>
+<area shape="rect" id="node11" href="$snds__utils_8cpp.html#a20f8bb481cc4c90dd1cba11dfaf564c1" title="Serializes a set of IDs into a binary payload." alt="" coords="186,375,321,417"/>
+<area shape="rect" id="node5" href="$snds__utils_8h.html#a8dd44070e35de07722f7fda5f0e8e100" title="Extracts the value associated with a specific tag from a GET request URL." alt="" coords="471,132,636,159"/>
+<area shape="rect" id="node8" href="$namespaceparsed__interest__name_1_1interest__message__type.html#a88695a924e4c7d4287c7b4d7a6e9e594" title="Convert an INTEREST_MESSAGE_TYPE to its canonical string." alt="" coords="462,259,645,315"/>
+</map>

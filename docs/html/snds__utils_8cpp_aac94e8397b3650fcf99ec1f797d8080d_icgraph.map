@@ -1,0 +1,6 @@
+<map id="extract_all_json_slices" name="extract_all_json_slices">
+<area shape="rect" id="node1" title=" " alt="" coords="633,13,803,39"/>
+<area shape="rect" id="node2" href="$classWorker.html#a7c99f973baefbcb4d819dfa026677a3d" title="Handle temporal query responses (direct or aggregated)." alt="" coords="395,5,585,47"/>
+<area shape="rect" id="node3" href="$classWorker.html#a355b7b98c0d79fafe17a6ac0c9a8de24" title="Handle a message coming from the Consumer." alt="" coords="149,5,347,47"/>
+<area shape="rect" id="node4" href="$classWorker.html#a413dfbae742152a0c27f713ead6f5c22" title="Main service loop." alt="" coords="5,13,101,39"/>
+</map>

@@ -1,0 +1,4 @@
+<map id="DigitalTwin::process_temporal_query_advertisement" name="DigitalTwin::process_temporal_query_advertisement">
+<area shape="rect" id="node1" title="Handle a TEMPORAL_QUERY_ADVERTISEMENT request." alt="" coords="176,5,411,47"/>
+<area shape="rect" id="node2" href="$classDigitalTwin.html#aa92b7f6f260fc0a67ea0d8705b62b230" title="Run the service loop." alt="" coords="5,13,128,39"/>
+</map>

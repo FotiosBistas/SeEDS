@@ -1,0 +1,4 @@
+<map id="SNDSConsumer::express_subscription_notification" name="SNDSConsumer::express_subscription_notification">
+<area shape="rect" id="node1" title="Express a subscription&#45;notification Interest to a subscriber." alt="" coords="207,5,395,47"/>
+<area shape="rect" id="node2" href="$classSNDSConsumer.html#a29695d4c0e4aa8445731fb90fd374c0d" title="Start the consumer loop." alt="" coords="5,13,159,39"/>
+</map>

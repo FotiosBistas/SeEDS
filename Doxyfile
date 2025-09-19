@@ -1,0 +1,34 @@
+# --- Identity ---
+PROJECT_NAME           = "SeEDS"
+
+# --- Inputs ---
+INPUT                  = src include README.md
+FILE_PATTERNS          = *.hpp *.h *.cpp *.md
+RECURSIVE              = YES
+USE_MDFILE_AS_MAINPAGE = README.md
+MARKDOWN_SUPPORT       = YES
+EXTRACT_ALL            = YES
+EXTRACT_PRIVATE        = YES
+EXTRACT_STATIC         = YES
+JAVADOC_AUTOBRIEF      = YES
+QT_AUTOBRIEF           = YES
+
+# --- Output ---
+OUTPUT_DIRECTORY       = docs
+GENERATE_HTML          = YES
+HTML_OUTPUT            = html
+GENERATE_LATEX         = NO
+
+# --- Diagrams (nice!)
+HAVE_DOT               = YES
+DOT_NUM_THREADS        = 4
+CALL_GRAPH             = YES
+CALLER_GRAPH           = YES
+CLASS_DIAGRAMS         = YES
+
+# --- Markdown / README as main page (optional)
+USE_MDFILE_AS_MAINPAGE = README.md
+
+# --- Warnings (helpful while tuning)
+WARN_IF_UNDOCUMENTED   = NO
+WARN_AS_ERROR          = NO

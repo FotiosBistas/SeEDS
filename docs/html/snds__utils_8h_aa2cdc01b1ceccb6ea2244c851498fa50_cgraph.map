@@ -1,0 +1,4 @@
+<map id="is_subscription_request" name="is_subscription_request">
+<area shape="rect" id="node1" title="Determines if the GET request URL indicates a subscription request." alt="" coords="5,5,180,32"/>
+<area shape="rect" id="node2" href="$snds__utils_8h.html#a8dd44070e35de07722f7fda5f0e8e100" title="Extracts the value associated with a specific tag from a GET request URL." alt="" coords="228,5,393,32"/>
+</map>

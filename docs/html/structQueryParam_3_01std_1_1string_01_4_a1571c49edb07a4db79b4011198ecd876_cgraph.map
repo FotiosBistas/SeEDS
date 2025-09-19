@@ -1,0 +1,5 @@
+<map id="QueryParam&lt; std::string &gt;::extract" name="QueryParam&lt; std::string &gt;::extract">
+<area shape="rect" id="node1" title="Extract a string query parameter from an HTTP request." alt="" coords="5,5,188,47"/>
+<area shape="rect" id="node2" href="$namespaceparsed__interest__name.html#a02a0b6ee3eb06f5dc5907587ce9fc0f1" title="URL&#45;decode a string (percent&#45;escapes only)." alt="" coords="236,5,403,47"/>
+<area shape="rect" id="node3" href="$namespaceparsed__interest__name.html#a8b20216448202580bfe87c35ac4b9961" title="Convert a single hex digit to its numeric value." alt="" coords="451,5,617,47"/>
+</map>

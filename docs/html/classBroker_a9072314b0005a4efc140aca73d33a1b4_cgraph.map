@@ -1,0 +1,7 @@
+<map id="Broker::state" name="Broker::state">
+<area shape="rect" id="node1" title="GET /state handler: fingerprint + count for a collection." alt="" coords="5,31,111,57"/>
+<area shape="rect" id="node2" href="$classBroker.html#a17cfeeebe360849ac5a45eb9cc3f2db9" title="Compute a collection fingerprint." alt="" coords="159,23,293,65"/>
+<area shape="rect" id="node3" href="$classBroker.html#a9202e5ab4cecb41eae1776abc632b654" title="Stable per&#45;document hash (MD5 of canonicalized JSON)." alt="" coords="341,31,516,57"/>
+<area shape="rect" id="node4" href="$snds__utils_8cpp.html#a890a2f48824cd98683799441da7d0177" title="Computes the MD5 hash of a data buffer and returns it as a hexadecimal string." alt="" coords="608,5,691,32"/>
+<area shape="rect" id="node5" href="$classBroker.html#a11bf7bed9fd3b1abd72277e58d1abe39" title="Canonicalize JSON by sorting object keys recursively." alt="" coords="564,56,735,83"/>
+</map>

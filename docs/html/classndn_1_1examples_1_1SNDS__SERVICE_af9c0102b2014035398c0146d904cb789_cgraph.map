@@ -1,0 +1,11 @@
+<map id="ndn::examples::SNDS_SERVICE::func_producer" name="ndn::examples::SNDS_SERVICE::func_producer">
+<area shape="rect" id="node1" title="Producer thread makes the initial advertisements for the SNDS service." alt="" coords="5,152,189,193"/>
+<area shape="rect" id="node2" href="$classndn_1_1examples_1_1SNDS__SERVICE.html#a0e9db71c3c297e6b31243e729735312c" title=" " alt="" coords="574,5,737,47"/>
+<area shape="rect" id="node3" href="$classndn_1_1examples_1_1SNDS__SERVICE.html#a6b33203a18b5e2a347e404f3a9ca3863" title="Callback for incoming Interests for the producer thread." alt="" coords="279,119,441,160"/>
+<area shape="rect" id="node8" href="$classndn_1_1examples_1_1SNDS__SERVICE.html#a87e90cf4b65f3d773645860f862ede3b" title=" " alt="" coords="260,184,460,225"/>
+<area shape="rect" id="node9" href="$classndn_1_1examples_1_1SNDS__SERVICE.html#a7b37ed5022d3766915c99b91578fbc43" title="Reads intra&#45;snds message from the specified queue (thread safe)" alt="" coords="237,249,483,291"/>
+<area shape="rect" id="node4" href="$classndn_1_1examples_1_1SNDS__SERVICE.html#af59baf0e0e845a6c2ee5acc202aa7fd6" title="Serializes the contents of vector to string format for responding to registry file requests." alt="" coords="535,71,776,112"/>
+<area shape="rect" id="node5" href="$classndn_1_1examples_1_1SNDS__SERVICE.html#a57dd3ef61138468c443a3bef550d3f0e" title=" " alt="" coords="565,136,746,177"/>
+<area shape="rect" id="node6" href="$classndn_1_1examples_1_1SNDS__SERVICE.html#a31b3ff9deae10e45215ee75b18b67626" title="Simply sends a Data packet with the specified _name and payload." alt="" coords="574,201,737,243"/>
+<area shape="rect" id="node7" href="$classndn_1_1examples_1_1SNDS__SERVICE.html#a91d5b8fccacafe2773bed9ddc9db8844" title="Writes intra&#45;snds message to the specified queue (thread safe)" alt="" coords="531,267,780,308"/>
+</map>

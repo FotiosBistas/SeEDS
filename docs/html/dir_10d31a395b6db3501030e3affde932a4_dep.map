@@ -1,0 +1,11 @@
+<map id="src/snds_resilience" name="src/snds_resilience">
+<area shape="rect" id="node1" href="dir_28a0d506cda6c33682dadf2008387726.html" title="snds_inter_process_communication" alt="" coords="27,148,282,196"/>
+<area shape="rect" id="node2" href="dir_2c983ecd376d62ecb7fd3585b6fa24d7.html" title="snds_interest" alt="" coords="307,148,416,196"/>
+<area shape="rect" id="node3" href="dir_82a4af0d77f815a8432df6808a3f4f4a.html" title="snds_utils" alt="" coords="337,244,423,292"/>
+<area shape="rect" id="edge1-headlabel" href="dir_000004_000011.html" title="1" alt="" coords="376,217,385,232"/>
+<area shape="rect" id="node4" href="dir_10d31a395b6db3501030e3affde932a4.html" title="snds_resilience" alt="" coords="300,52,423,100"/>
+<area shape="rect" id="edge2-headlabel" href="dir_000008_000003.html" title="1" alt="" coords="220,141,230,155"/>
+<area shape="rect" id="edge3-headlabel" href="dir_000008_000004.html" title="1" alt="" coords="365,122,374,137"/>
+<area shape="rect" id="edge4-headlabel" href="dir_000008_000011.html" title="2" alt="" coords="414,227,423,242"/>
+<area shape="rect" id="clust1" href="dir_68267d1309a1af8e8297ef4c3efbcdba.html" title="src" alt="" coords="16,16,453,303"/>
+</map>

@@ -1,0 +1,9 @@
+<map id="Worker::process_subscription_request" name="Worker::process_subscription_request">
+<area shape="rect" id="node1" title="Register a (by&#45;id or by&#45;type) subscription request; the first subscriber triggers a remote scope subs..." alt="" coords="5,65,216,106"/>
+<area shape="rect" id="node2" href="$snds__utils_8cpp.html#ad2cc6d88e8d705001b0ceb6b3bdb2a4b" title="Computes and returns the scope name for the responsible SNDS node based on the given subscription ide..." alt="" coords="264,13,555,40"/>
+<area shape="rect" id="node5" href="$namespaceparsed__interest__name.html#a5ad35a6d5a4ce43a6f46281ba41acebd" title="Construct a #ParsedInterestName from individual parts." alt="" coords="300,65,519,106"/>
+<area shape="rect" id="node6" href="$namespaceparsed__interest__name.html#aea653b4993da4fac583d8a3ed5ac9ac6" title="Reconstruct a custom NDN name string from a #ParsedInterestName." alt="" coords="323,130,496,171"/>
+<area shape="rect" id="node3" href="$snds__utils_8cpp.html#a38157994048ee1e99a2a86298b33a0c9" title="Computes the responsible SNDS node ID for a given subscription name." alt="" coords="603,5,816,32"/>
+<area shape="rect" id="node4" href="$namespaceparsed__interest__name_1_1interest__message__type.html#a88695a924e4c7d4287c7b4d7a6e9e594" title="Convert an INTEREST_MESSAGE_TYPE to its canonical string." alt="" coords="618,56,801,112"/>
+<area shape="rect" id="node7" href="$namespaceparsed__interest__name.html#a466f9a026ebb3e3321d358c1cd0a98ce" title="URL&#45;encode a value for query contexts." alt="" coords="626,137,793,178"/>
+</map>
