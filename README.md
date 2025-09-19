@@ -130,6 +130,141 @@ curl -G http://localhost:8080/ \
 
 ## Service 
 
+At runtime, SeEDS is a small distributed system composed of five cooperating services that run inside one process (each on its own thread) and talk over in-memory message queues. External I/O happens via NDN Interests/Data and a tiny HTTP API:
+
+- SNDSHTTPService: small HTTP server (cpp-httplib) that turns HTTP GET/POST into internal messages.
+- Worker: Parses requests, deduplicates, tracks state, aggregates results, and sends responses back to HTTP.
+- SNDSConsumer: emits NDN Interests constructed from Worker’s requests, receives Data packets, and forwards payloads back.
+- SNDSProducer: answers incoming NDN Interests (publishes Data) and also initiates outbound Interests when needed.
+- DigitalTwin: drives advertisements (by-ID / by-type / scope) and forwards “temporal query” announcements to Producer.
+
+
+### Main Requests 
+
+#### GET by ID ( Forwarded to the NDN through the temporal query API )
+
+HTTP receives ```GET /?id=<ID>``` (or POST body). It packs params into an intra-message and sends to Worker.
+
+Worker:
+- Deduplicates with pending_get_by_id_requests (set).
+- Builds an NDN name: ```/<snds_prefix>/<id>/getByID:<id>``` using parsed_interest_name helpers.
+- Sends a GET_BY_ID_REQUEST message to Consumer.
+
+Consumer:
+- Expresses the NDN Interest. Note that all the interests are forwarded through the temporal query API.
+- On Data: forwards payload to Worker as GET_BY_ID_RESPONSE.
+
+Worker:
+- Confirms the ID was pending; clears it; optionally tells DigitalTwin to erase pending state.
+- Writes the final response to the HTTP queue as TEMPORAL_QUERY_RESPONSE (used uniformly for JSON).
+
+HTTP:
+- Waits for one message from the service queue and returns 200 with the payload.
+
+#### GET by TYPE 
+
+HTTP receives ```GET /?type=<TYPE>```.
+
+Worker:
+- Deduplicates with pending_get_by_type_requests.
+- Computes <TYPE>_registry (configurable postfix).
+- Sends GET_BY_TYPE_REQUEST to Consumer with NDN name: ```/<snds_prefix>/<TYPE>_registry/getByType:<TYPE>``` or ```/<snds_prefix>/<TYPE>/getByType:<TYPE>``` which is equivalent.
+
+Consumer: 
+- fetches the registry file (a list of IDs) and sends it to Worker as REGISTRY_PAYLOAD.
+Worker ( TODO this should be changed when we optimize cache hits ):
+- Parses IDs with parse_ids_from_registry_file_payload(...).
+- For each ID, sends GET_BY_ID_FOR_TYPE_REQUEST to Consumer with name: ```/<snds_prefix>/<TYPE>/getByIDForType:<ID>&<TYPE>```
+- Tracks which IDs are outstanding in pending_ids_to_type_map[TYPE].
+- Consumer replies for each ID with GET_BY_ID_FOR_TYPE_RESPONSE.( Forwarded to the NDN through the temporal query API )
+
+Worker: 
+- accumulates (id,payload) in payloads_for_get_by_type[TYPE].
+
+When the last ID arrives, it assembles and sends it to HTTP as a single message:
+```json
+{ "type": "<TYPE>", "items": [ {"id": "...", "payload": "..."} ] }
+```
+
+#### Subscriptions & scope
+
+Users can subscribe to events by sending ```GET /?id=<ID>&isSub=true&suburl=<URL>``` (or by type in the place of id=).
+
+HTTP → Worker: BY_ID_SUBSCRIPTION or BY_TYPE_SUBSCRIPTION.
+
+Worker:
+- Stores the subscriber URL in subscribed_by_id_users or subscribed_by_type_users.
+- Only on the first subscription for a key, it computes the node scope name
+(getSNDSNodeScopeNameForSubscription) and asks Consumer to notify the appropriate scope:
+
+```
+/<snds_prefix>/<node_scope>/newIdSubscription:<ID>&<our_scope>
+```
+or: 
+```
+/<snds_prefix>/<node_scope>/newTypeSubscription:<type>&<our_scope>
+```
+
+#### Temporal queries (historical data)
+Temporal queries fetch historical “metafile” records around a date, optionally filtered.
+
+HTTP POST body or query string, e.g.:
+
+```
+id=car2&date=2025-06-28T15:41:50Z&timeframe=before+after&count=10
+```
+
+Worker: 
+- Worker parses to a TemporalQuery
+- frame: bitmask of NOW|BEFORE|AFTER (temporal_query::string_to_timeframe + to_fields)
+- date, id, optional type, count, optional filters and extras
+- Worker computes a stable hash (temporal_query_hash_string) and inserts the query into
+pending_temporal_queries[hash]. Then it forwards the serialized query to Consumer
+
+Consumer: 
+```
+/<snds_prefix>/<entity>/temporalQuery:id=...&date=...&timeframe=...&count=...[&filters=...]
+```
+where ```entity = (type.empty() ? id : type)```.
+
+Network returns one of two shapes:
+
+a) Direct mode (single item)
+
+  > Payload returns only one items back to the consumer.Consumer detects it (_is_direct_temporal_payload), extracts the item, converts it into a Version envelope (with is_metafile=false, mode="direct"), and sends one VERSION_RESPONSE back to Worker via a canonical query-URI (using build_query_uri).
+
+b) Manifest mode (metafile list)
+
+> Payload is an array of documents with _id containing { _id: "<id>", timestamp: {"$date": <ms>} }. Consumer fans out: for each doc, it constructs a metafile interest 
+```
+/<snds_prefix>/<id>/version?id=...&type=...&date=...&metafile=true&parentQueryHash=...
+```
+> It sends all but the last with lastInterest=false, and the last with lastInterest=true.(A duplicate filter with a canonicalized name avoids resending.)
+
+Worker aggregation
+
+a) Direct mode: Worker extracts the single item and immediately returns:
+
+```json
+{"mode":"direct","items":[{...}]}
+```
+b) Manifest mode:
+
+- Worker buffers every VERSION_RESPONSE per parentQueryHash in temporal_buffers[hash].
+- Each slice is sanitized (fix_mixed_utf8_cp1252) and optionally field-filtered (if filters present).
+- On the lastInterest it sends a single bundle back to HTTP:
+```json
+{
+  "mode": "manifest",
+  "parentQueryHash": "<hash>",
+  "query": "<serialized query>",
+  "items": [ <filtered JSON slices> ]
+}
+```
+- Then it clears pending_temporal_queries[hash] and the buffer.
+- Filtering: users can pass filters=a,b,c in the query; Worker will keep only those keys per item (object-wise).
+
+
 ## Broker
 You can run test the broker as a standalone binary. No need to run through the snds_broker_bin.
 

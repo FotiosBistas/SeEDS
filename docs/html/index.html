@@ -150,13 +150,114 @@ Temporal Query:</h2>
 Components</h1>
 <h2><a class="anchor" id="autotoc_md17"></a>
 Service</h2>
-<h2><a class="anchor" id="autotoc_md18"></a>
+<p>At runtime, SeEDS is a small distributed system composed of five cooperating services that run inside one process (each on its own thread) and talk over in-memory message queues. External I/O happens via NDN Interests/Data and a tiny HTTP API:</p>
+<ul>
+<li><a class="el" href="classSNDSHTTPService.html" title="HTTP entry point for SNDS, converting HTTP requests to intra-messages.">SNDSHTTPService</a>: small HTTP server (cpp-httplib) that turns HTTP GET/POST into internal messages.</li>
+<li><a class="el" href="classWorker.html" title="Central coordinator and state machine for SNDS intra-messages.">Worker</a>: Parses requests, deduplicates, tracks state, aggregates results, and sends responses back to HTTP.</li>
+<li><a class="el" href="classSNDSConsumer.html" title="Concrete consumer service that bridges SNDS intra-messages to NDN Interests.">SNDSConsumer</a>: emits NDN Interests constructed from Worker’s requests, receives Data packets, and forwards payloads back.</li>
+<li><a class="el" href="classSNDSProducer.html" title="NDN producer that advertises names, serves Interests, proxies to an HTTP broker, and maintains a resi...">SNDSProducer</a>: answers incoming NDN Interests (publishes Data) and also initiates outbound Interests when needed.</li>
+<li><a class="el" href="classDigitalTwin.html" title="Service that translates intra-messages into NDN advertisements and scope notifications.">DigitalTwin</a>: drives advertisements (by-ID / by-type / scope) and forwards “temporal query” announcements to Producer.</li>
+</ul>
+<h3><a class="anchor" id="autotoc_md18"></a>
+Main Requests</h3>
+<h4><a class="anchor" id="autotoc_md19"></a>
+GET by ID ( Forwarded to the NDN through the temporal query API )</h4>
+<p>HTTP receives <code>GET /?id=&lt;ID&gt;</code> (or POST body). It packs params into an intra-message and sends to <a class="el" href="classWorker.html" title="Central coordinator and state machine for SNDS intra-messages.">Worker</a>.</p>
+<p><a class="el" href="classWorker.html" title="Central coordinator and state machine for SNDS intra-messages.">Worker</a>:</p><ul>
+<li>Deduplicates with pending_get_by_id_requests (set).</li>
+<li>Builds an NDN name: <code>/&lt;snds_prefix&gt;/&lt;id&gt;/getByID:&lt;id&gt;</code> using <a class="el" href="namespaceparsed__interest__name.html">parsed_interest_name</a> helpers.</li>
+<li>Sends a GET_BY_ID_REQUEST message to Consumer.</li>
+</ul>
+<p>Consumer:</p><ul>
+<li>Expresses the NDN Interest. Note that all the interests are forwarded through the temporal query API.</li>
+<li>On Data: forwards payload to <a class="el" href="classWorker.html" title="Central coordinator and state machine for SNDS intra-messages.">Worker</a> as GET_BY_ID_RESPONSE.</li>
+</ul>
+<p><a class="el" href="classWorker.html" title="Central coordinator and state machine for SNDS intra-messages.">Worker</a>:</p><ul>
+<li>Confirms the ID was pending; clears it; optionally tells <a class="el" href="classDigitalTwin.html" title="Service that translates intra-messages into NDN advertisements and scope notifications.">DigitalTwin</a> to erase pending state.</li>
+<li>Writes the final response to the HTTP queue as TEMPORAL_QUERY_RESPONSE (used uniformly for JSON).</li>
+</ul>
+<p>HTTP:</p><ul>
+<li>Waits for one message from the service queue and returns 200 with the payload.</li>
+</ul>
+<h4><a class="anchor" id="autotoc_md20"></a>
+GET by TYPE</h4>
+<p>HTTP receives <code>GET /?type=&lt;TYPE&gt;</code>.</p>
+<p><a class="el" href="classWorker.html" title="Central coordinator and state machine for SNDS intra-messages.">Worker</a>:</p><ul>
+<li>Deduplicates with pending_get_by_type_requests.</li>
+<li>Computes &lt;TYPE&gt;_registry (configurable postfix).</li>
+<li>Sends GET_BY_TYPE_REQUEST to Consumer with NDN name: <code>/&lt;snds_prefix&gt;/&lt;TYPE&gt;_registry/getByType:&lt;TYPE&gt;</code> or <code>/&lt;snds_prefix&gt;/&lt;TYPE&gt;/getByType:&lt;TYPE&gt;</code> which is equivalent.</li>
+</ul>
+<p>Consumer:</p><ul>
+<li>fetches the registry file (a list of IDs) and sends it to <a class="el" href="classWorker.html" title="Central coordinator and state machine for SNDS intra-messages.">Worker</a> as REGISTRY_PAYLOAD. <a class="el" href="classWorker.html" title="Central coordinator and state machine for SNDS intra-messages.">Worker</a> ( TODO this should be changed when we optimize cache hits ):</li>
+<li>Parses IDs with parse_ids_from_registry_file_payload(...).</li>
+<li>For each ID, sends GET_BY_ID_FOR_TYPE_REQUEST to Consumer with name: <code>/&lt;snds_prefix&gt;/&lt;TYPE&gt;/getByIDForType:&lt;ID&gt;&amp;&lt;TYPE&gt;</code></li>
+<li>Tracks which IDs are outstanding in pending_ids_to_type_map[TYPE].</li>
+<li>Consumer replies for each ID with GET_BY_ID_FOR_TYPE_RESPONSE.( Forwarded to the NDN through the temporal query API )</li>
+</ul>
+<p><a class="el" href="classWorker.html" title="Central coordinator and state machine for SNDS intra-messages.">Worker</a>:</p><ul>
+<li>accumulates (id,payload) in payloads_for_get_by_type[TYPE].</li>
+</ul>
+<p>When the last ID arrives, it assembles and sends it to HTTP as a single message: </p><div class="fragment"><div class="line">{ &quot;type&quot;: &quot;&lt;TYPE&gt;&quot;, &quot;items&quot;: [ {&quot;id&quot;: &quot;...&quot;, &quot;payload&quot;: &quot;...&quot;} ] }</div>
+</div><!-- fragment --><h4><a class="anchor" id="autotoc_md21"></a>
+Subscriptions &amp; scope</h4>
+<p>Users can subscribe to events by sending <code>GET /?id=&lt;ID&gt;&amp;isSub=true&amp;suburl=&lt;URL&gt;</code> (or by type in the place of id=).</p>
+<p>HTTP → <a class="el" href="classWorker.html" title="Central coordinator and state machine for SNDS intra-messages.">Worker</a>: BY_ID_SUBSCRIPTION or BY_TYPE_SUBSCRIPTION.</p>
+<p><a class="el" href="classWorker.html" title="Central coordinator and state machine for SNDS intra-messages.">Worker</a>:</p><ul>
+<li>Stores the subscriber URL in subscribed_by_id_users or subscribed_by_type_users.</li>
+<li>Only on the first subscription for a key, it computes the node scope name (getSNDSNodeScopeNameForSubscription) and asks Consumer to notify the appropriate scope:</li>
+</ul>
+<div class="fragment"><div class="line">/&lt;snds_prefix&gt;/&lt;node_scope&gt;/newIdSubscription:&lt;ID&gt;&amp;&lt;our_scope&gt;</div>
+</div><!-- fragment --><p> or: </p><div class="fragment"><div class="line">/&lt;snds_prefix&gt;/&lt;node_scope&gt;/newTypeSubscription:&lt;type&gt;&amp;&lt;our_scope&gt;</div>
+</div><!-- fragment --><h4><a class="anchor" id="autotoc_md22"></a>
+Temporal queries (historical data)</h4>
+<p>Temporal queries fetch historical “metafile” records around a date, optionally filtered.</p>
+<p>HTTP POST body or query string, e.g.:</p>
+<div class="fragment"><div class="line">id=car2&amp;date=2025-06-28T15:41:50Z&amp;timeframe=before+after&amp;count=10</div>
+</div><!-- fragment --><p><a class="el" href="classWorker.html" title="Central coordinator and state machine for SNDS intra-messages.">Worker</a>:</p><ul>
+<li><a class="el" href="classWorker.html" title="Central coordinator and state machine for SNDS intra-messages.">Worker</a> parses to a TemporalQuery</li>
+<li>frame: bitmask of NOW|BEFORE|AFTER (<a class="el" href="namespacetemporal__query.html#a0b9343598c4307f64eba9c6560430db0" title="Parse a &quot;+&quot;&quot;-joined timeframe (e.g., &quot;before+after&quot;) into a bitmask.">temporal_query::string_to_timeframe</a> + to_fields)</li>
+<li>date, id, optional type, count, optional filters and extras</li>
+<li><a class="el" href="classWorker.html" title="Central coordinator and state machine for SNDS intra-messages.">Worker</a> computes a stable hash (temporal_query_hash_string) and inserts the query into pending_temporal_queries[hash]. Then it forwards the serialized query to Consumer</li>
+</ul>
+<p>Consumer: </p><div class="fragment"><div class="line">/&lt;snds_prefix&gt;/&lt;entity&gt;/temporalQuery:id=...&amp;date=...&amp;timeframe=...&amp;count=...[&amp;filters=...]</div>
+</div><!-- fragment --><p> where <code>entity = (type.empty() ? id : type)</code>.</p>
+<p>Network returns one of two shapes:</p>
+<p>a) Direct mode (single item)</p>
+<blockquote class="doxtable">
+<p>Payload returns only one items back to the consumer.Consumer detects it (_is_direct_temporal_payload), extracts the item, converts it into a Version envelope (with is_metafile=false, mode="direct"), and sends one VERSION_RESPONSE back to <a class="el" href="classWorker.html" title="Central coordinator and state machine for SNDS intra-messages.">Worker</a> via a canonical query-URI (using build_query_uri). </p>
+</blockquote>
+<p>b) Manifest mode (metafile list)</p>
+<blockquote class="doxtable">
+<p>Payload is an array of documents with _id containing { _id: "&lt;id&gt;", timestamp: {"$date": &lt;ms&gt;} }. Consumer fans out: for each doc, it constructs a metafile interest </p>
+</blockquote>
+<div class="fragment"><div class="line">/&lt;snds_prefix&gt;/&lt;id&gt;/version?id=...&amp;type=...&amp;date=...&amp;metafile=true&amp;parentQueryHash=...</div>
+</div><!-- fragment --> <blockquote class="doxtable">
+<p>It sends all but the last with lastInterest=false, and the last with lastInterest=true.(A duplicate filter with a canonicalized name avoids resending.) </p>
+</blockquote>
+<p><a class="el" href="classWorker.html" title="Central coordinator and state machine for SNDS intra-messages.">Worker</a> aggregation</p>
+<p>a) Direct mode: <a class="el" href="classWorker.html" title="Central coordinator and state machine for SNDS intra-messages.">Worker</a> extracts the single item and immediately returns:</p>
+<div class="fragment"><div class="line">{&quot;mode&quot;:&quot;direct&quot;,&quot;items&quot;:[{...}]}</div>
+</div><!-- fragment --><p> b) Manifest mode:</p>
+<ul>
+<li><a class="el" href="classWorker.html" title="Central coordinator and state machine for SNDS intra-messages.">Worker</a> buffers every VERSION_RESPONSE per parentQueryHash in temporal_buffers[hash].</li>
+<li>Each slice is sanitized (fix_mixed_utf8_cp1252) and optionally field-filtered (if filters present).</li>
+<li>On the lastInterest it sends a single bundle back to HTTP: <div class="fragment"><div class="line">{</div>
+<div class="line">  &quot;mode&quot;: &quot;manifest&quot;,</div>
+<div class="line">  &quot;parentQueryHash&quot;: &quot;&lt;hash&gt;&quot;,</div>
+<div class="line">  &quot;query&quot;: &quot;&lt;serialized query&gt;&quot;,</div>
+<div class="line">  &quot;items&quot;: [ &lt;filtered JSON slices&gt; ]</div>
+<div class="line">}</div>
+</div><!-- fragment --></li>
+<li>Then it clears pending_temporal_queries[hash] and the buffer.</li>
+<li>Filtering: users can pass filters=a,b,c in the query; <a class="el" href="classWorker.html" title="Central coordinator and state machine for SNDS intra-messages.">Worker</a> will keep only those keys per item (object-wise).</li>
+</ul>
+<h2><a class="anchor" id="autotoc_md23"></a>
 Broker</h2>
 <p>You can run test the broker as a standalone binary. No need to run through the snds_broker_bin.</p>
-<h3><a class="anchor" id="autotoc_md19"></a>
+<h3><a class="anchor" id="autotoc_md24"></a>
 Summary</h3>
 <p>The <a class="el" href="classBroker.html" title="Thin HTTP server backed by MongoDB for SNDS data.">Broker</a> is a small HTTP service in front of MongoDB that stores, retrieves,fingerprints, and bulk-copies JSON documents. It supports both latest (unversioned) and historical (versioned) views of the same data and exposes a handful of endpoints for SNDS components (producers/consumers, resilience tools).</p>
-<h4><a class="anchor" id="autotoc_md20"></a>
+<h4><a class="anchor" id="autotoc_md25"></a>
 Key ideas</h4>
 <p>Two collections per type:</p><ul>
 <li>Unversioned: &lt;TYPE&gt; — contains only the latest record for each id (upserted).</li>
@@ -174,7 +275,7 @@ Key ideas</h4>
 <p>Graceful runtime:</p><ul>
 <li>Single binary HTTP server (cpp-httplib), structured logs (spdlog), SIGINT-aware shutdown.</li>
 </ul>
-<h4><a class="anchor" id="autotoc_md21"></a>
+<h4><a class="anchor" id="autotoc_md26"></a>
 Endpoints (quick reference)</h4>
 <ul>
 <li>POST /add: Insert/Upsert a document into both stores. Body must include at least id; type defaults to "GENERIC" if missing.<ol type="1">
@@ -210,7 +311,7 @@ Endpoints (quick reference)</h4>
 <li>Versioned docs → insert by composite _id {_id, timestamp}.</li>
 <li>When mirror_to_secondary=true, data is written to &lt;NAME&gt;_SECONDARY.</li>
 </ol>
-<h3><a class="anchor" id="autotoc_md22"></a>
+<h3><a class="anchor" id="autotoc_md27"></a>
 Example CURL</h3>
 <div class="fragment"><div class="line"># Add or update a record</div>
 <div class="line">curl -sX POST localhost:8080/add \</div>
@@ -228,13 +329,13 @@ Example CURL</h3>
 <div class="line"> </div>
 <div class="line"># Dump all non-secondary collections</div>
 <div class="line">curl -s &#39;localhost:8080/dump&#39;</div>
-</div><!-- fragment --><h3><a class="anchor" id="autotoc_md23"></a>
+</div><!-- fragment --><h3><a class="anchor" id="autotoc_md28"></a>
 Compile</h3>
 <p>Compile everything along with the broker:</p>
 <div class="fragment"><div class="line">sudo make (-j) </div>
 </div><!-- fragment --><p>Compile only the broker target:</p>
 <div class="fragment"><div class="line">sudo cmake --build . --target snds_broker_bin (-j)</div>
-</div><!-- fragment --> <h3><a class="anchor" id="autotoc_md24"></a>
+</div><!-- fragment --> <h3><a class="anchor" id="autotoc_md29"></a>
 Run</h3>
 <p>Note you need to provide the arguments like port,ip inside the main function.</p>
 <div class="fragment"><div class="line"><span class="preprocessor">#include &lt;iostream&gt;</span></div>
@@ -273,7 +374,7 @@ Run</h3>
 <div class="ttc" id="aconsumer-with-timer_8cpp_html_a3c04138a5bfe5d72780bb7e82a18e627"><div class="ttname"><a href="consumer-with-timer_8cpp.html#a3c04138a5bfe5d72780bb7e82a18e627">main</a></div><div class="ttdeci">int main(int argc, char **argv)</div><div class="ttdef"><b>Definition:</b> consumer-with-timer.cpp:113</div></div>
 </div><!-- fragment --><p>The only thing you need to provide through the command line is the password, username and the database name of the MongoDB instance.</p>
 <div class="fragment"><div class="line">Usage: ./app &lt;username&gt; &lt;password&gt; &lt;database&gt;</div>
-</div><!-- fragment --> <h3><a class="anchor" id="autotoc_md25"></a>
+</div><!-- fragment --> <h3><a class="anchor" id="autotoc_md30"></a>
 Requests</h3>
 <p>Currently the HTTP API supports:</p>
 <ul>
@@ -300,10 +401,10 @@ Requests</h3>
 <div class="line">  -H &quot;Accept: application/json&quot;</div>
 </div><!-- fragment --></li>
 </ul>
-<h2><a class="anchor" id="autotoc_md26"></a>
+<h2><a class="anchor" id="autotoc_md31"></a>
 Resilience</h2>
 <p>The resilience layer keeps a SECONDARY node in sync with a PRIMARY by exchanging tiny JSON envelopes over NDN. It prefers JSON Patch deltas for speed and falls back to full snapshots when needed. Everything is content-addressed with a deterministic hash so both sides can prove they agree.</p>
-<h3><a class="anchor" id="autotoc_md27"></a>
+<h3><a class="anchor" id="autotoc_md32"></a>
 Store (PRIMARY)</h3>
 <p>Canonical, versioned JSON store with a bounded history. Each change bumps a version, recomputes a canonical hash, and keeps a snapshot for patch generation. Exposes:</p>
 <ul>
@@ -311,17 +412,17 @@ Store (PRIMARY)</h3>
 <li>Patch → {base_version, target_version, target_hash, ops} where ops is RFC6902 JSON Patch <code>(nlohmann::json::diff(base,target))</code>. Apply with <code>json.patch(ops)</code>.</li>
 <li>Snapshot → {version, hash, state}: full state transfer for cold start or when a patch isn’t possible.</li>
 </ul>
-<h3><a class="anchor" id="autotoc_md28"></a>
+<h3><a class="anchor" id="autotoc_md33"></a>
 Mirror (SECONDARY)</h3>
 <p>Local follower that applies Snapshot or Patch. Validates via canonical hash; on mismatch it logs and normalizes locally (the goal is convergence, not crypto).</p>
-<h3><a class="anchor" id="autotoc_md29"></a>
+<h3><a class="anchor" id="autotoc_md34"></a>
 ResiliencePoller (SECONDARY)</h3>
 <p>A tiny scheduler that probes the PRIMARY and pulls updates. It runs two periodic loops and posts all I/O onto the NDN Face’s io_context:</p>
 <ul>
 <li>Alive loop: proves reachability with a nonce echo.</li>
 <li>Meta loop: reads {version, hash, ts} and decides whether to fetch a patch or snapshot.</li>
 </ul>
-<h3><a class="anchor" id="autotoc_md30"></a>
+<h3><a class="anchor" id="autotoc_md35"></a>
 Run</h3>
 <table class="markdownTable">
 <tr class="markdownTableHead">
@@ -343,10 +444,10 @@ Run</h3>
 </table>
 <p>Example with all defaults: </p><div class="fragment"><div class="line">./resilience_poller_bin</div>
 </div><!-- fragment --><p> Example specifying everything: </p><div class="fragment"><div class="line">./resilience_poller_bin SNDS is_alive_2 state_2 1000 3000 127.0.0.1 49000</div>
-</div><!-- fragment --><h3><a class="anchor" id="autotoc_md31"></a>
+</div><!-- fragment --><h3><a class="anchor" id="autotoc_md36"></a>
 Wire protocol (NDN interest)</h3>
 <p>Names are built under your SNDS prefix with per-peer components:</p>
-<h4><a class="anchor" id="autotoc_md32"></a>
+<h4><a class="anchor" id="autotoc_md37"></a>
 Liveness probe</h4>
 <ul>
 <li>Purpose: “Are you up, and did you see my nonce?”</li>
@@ -358,7 +459,7 @@ Liveness probe</h4>
 </div><!-- fragment --><ul>
 <li>Client behavior: Accept only if ack == true and the echoed nonce matches.</li>
 </ul>
-<h4><a class="anchor" id="autotoc_md33"></a>
+<h4><a class="anchor" id="autotoc_md38"></a>
 Head metadata</h4>
 <ul>
 <li>Purpose: “What version and hash is your current state?”</li>
@@ -368,7 +469,7 @@ Head metadata</h4>
 </div><!-- fragment --></li>
 <li>Client behavior: Compare version to your local version to decide whether you need a patch or a snapshot.</li>
 </ul>
-<h4><a class="anchor" id="autotoc_md34"></a>
+<h4><a class="anchor" id="autotoc_md39"></a>
 Patch (delta) request</h4>
 <ul>
 <li>Purpose: “Give me the JSON Patch from my version → your version.”</li>
@@ -387,7 +488,7 @@ Patch (delta) request</h4>
 <li>Other error values you might see: <code>missing_parameters, invalid_parameters, non_increasing_version, unknown_target_version, store_advanced</code>.</li>
 <li>Client behavior: Try applying ops to your local state. If apply fails or you get an error, fetch a snapshot of target_version (or of latest).</li>
 </ul>
-<h4><a class="anchor" id="autotoc_md35"></a>
+<h4><a class="anchor" id="autotoc_md40"></a>
 Snapshot (full state) request</h4>
 <ul>
 <li>Purpose: “Give me the full state at your head (or at the specified version).”</li>
@@ -404,11 +505,11 @@ Snapshot (full state) request</h4>
 </div><!-- fragment --></li>
 </ul>
 <p>(You asked for 42, but the head moved to 43; ask again for 43.)</p>
-<h4><a class="anchor" id="autotoc_md36"></a>
+<h4><a class="anchor" id="autotoc_md41"></a>
 Determinism &amp; hashing</h4>
 <p>Canonicalization uses nlohmann::ordered_json + compact .dump() so the same logical object hashes identically everywhere.</p>
 <p>Hashing is MD5 over the canonical dump. It’s a fast, stable fingerprint for identity checks—not a security guarantee.</p>
-<h4><a class="anchor" id="autotoc_md37"></a>
+<h4><a class="anchor" id="autotoc_md42"></a>
 Client behavior (SECONDARY)</h4>
 <ul>
 <li>Boot → send META. With no local version, fetch SNAPSHOT at the advertised version and apply.</li>
