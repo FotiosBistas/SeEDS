@@ -30,7 +30,7 @@ int main(int argc, char* argv[]) {
         // MongoDB
         ("mongo.uri",  "Full MongoDB URI (overrides user/pass/db if set)",
         cxxopts::value<std::string>()
-            ->default_value("mongodb+srv://<user>:<pass>@cluster0.czndtc9.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0"))
+            ->default_value("mongodb://127.0.0.1:10000"))
         ("mongo.user", "MongoDB username",
             cxxopts::value<std::string>()->default_value(""))
         ("mongo.pass", "MongoDB password",
@@ -46,7 +46,7 @@ int main(int argc, char* argv[]) {
         ("service-name","Service label",
             cxxopts::value<std::string>()->default_value("Broker"))
         ("bind-ip",     "Bind IP for HTTP server",
-            cxxopts::value<std::string>()->default_value("127.0.0.1"))
+            cxxopts::value<std::string>()->default_value("0.0.0.0"))
         ("bind-port",   "Bind port for HTTP server",
             cxxopts::value<int>()->default_value("10000"))
 
@@ -82,12 +82,11 @@ int main(int argc, char* argv[]) {
     const auto user = result["mongo.user"].as<std::string>();
     const auto pass = result["mongo.pass"].as<std::string>();
     const auto db   = result["mongo.db"].as<std::string>();
-    if (user.empty() || pass.empty()) 
-    {
-        std::cerr << "Missing Mongo credentials. Either provide --mongo.uri or both --mongo.user and --mongo.pass.\n\n" << opts.help() << std::endl;
-        return 2;
-    }
-    // Default Atlas SRV URI (same as your previous code)
+    //if (user.empty() || pass.empty()) 
+    //{
+    //    std::cerr << "Missing Mongo credentials. Either provide --mongo.uri or both --mongo.user and --mongo.pass.\n\n" << opts.help() << std::endl;
+    //    return 2;
+    //}
     if (!user.empty() && !pass.empty()) 
     {
         uri_str.replace(uri_str.find("<user>"), 6, user);

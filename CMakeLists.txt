@@ -31,10 +31,30 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 include(ExternalProject)
 include(FetchContent)
 
+set(MONGO_C_DRIVER_VERSION "2.1.0") # or newer stable
+set(MONGO_C_INSTALL_DIR "${CMAKE_BINARY_DIR}/mongo-c-driver-install")
+
+#####################################################################
+# Fetch and build mongo-c-driver
+#####################################################################
+ExternalProject_Add(mongo-c-driver
+  URL https://github.com/mongodb/mongo-c-driver/releases/download/${MONGO_C_DRIVER_VERSION}/mongo-c-driver-${MONGO_C_DRIVER_VERSION}.tar.gz
+  PREFIX ${CMAKE_BINARY_DIR}/mongo-c-driver
+  SOURCE_DIR ${CMAKE_BINARY_DIR}/mongo-c-driver-src
+  BINARY_DIR ${CMAKE_BINARY_DIR}/mongo-c-driver-src/build
+  CMAKE_ARGS
+    -DCMAKE_BUILD_TYPE=Release
+    -DCMAKE_INSTALL_PREFIX=${MONGO_C_INSTALL_DIR}
+    -DENABLE_SRV=ON              # <— required for mongodb+srv
+    -DENABLE_SSL=OPENSSL         # <— Atlas requires TLS
+  BUILD_COMMAND ${CMAKE_COMMAND} --build .
+  INSTALL_COMMAND ${CMAKE_COMMAND} --build . --target install
+)
+
 #####################################################################
 # Fetch and build mongo-cxx
 #####################################################################
-set(MONGO_CXX_VERSION "r4.1.0")
+set(MONGO_CXX_VERSION "r4.1.2")
 set(MONGO_CXX_INSTALL_DIR "${CMAKE_BINARY_DIR}/mongo-cxx-driver-install")
 ExternalProject_Add(mongo-cxx-driver
   URL https://github.com/mongodb/mongo-cxx-driver/releases/download/${MONGO_CXX_VERSION}/mongo-cxx-driver-${MONGO_CXX_VERSION}.tar.gz
@@ -43,12 +63,16 @@ ExternalProject_Add(mongo-cxx-driver
   BINARY_DIR ${CMAKE_BINARY_DIR}/mongo-cxx-driver-src/build
   CMAKE_ARGS
     -DCMAKE_BUILD_TYPE=Release
+    -DENABLE_SRV=ON
     -DCMAKE_CXX_STANDARD=17
     -DBUILD_SHARED_LIBS=ON
     -DCMAKE_INSTALL_PREFIX=${MONGO_CXX_INSTALL_DIR}
+    -DCMAKE_PREFIX_PATH=${MONGO_C_INSTALL_DIR}
   BUILD_COMMAND ${CMAKE_COMMAND} --build .
   INSTALL_COMMAND ${CMAKE_COMMAND} --build . --target install
 )
+
+add_dependencies(mongo-cxx-driver mongo-c-driver)
 
 # MongoDB C++ Driver include and lib directories
 set(MONGOCXX_INCLUDE_DIRS "${MONGO_CXX_INSTALL_DIR}/include/")

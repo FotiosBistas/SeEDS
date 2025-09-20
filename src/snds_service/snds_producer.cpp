@@ -1180,6 +1180,7 @@ std::optional<nlohmann::json> SNDSProducer::_http_get_json
     const std::vector<std::pair<std::string, std::string>>& q
 )
 {
+    m_logger->info("Getting from IP: {} and port: {}", broker_ip, broker_port);
     httplib::Client cli(broker_ip.c_str(), broker_port);
     cli.set_read_timeout(5, 0);
     cli.set_connection_timeout(5, 0);

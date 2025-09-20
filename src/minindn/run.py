@@ -1,6 +1,9 @@
 import argparse
 import sys
 import os
+import shlex
+import urllib.parse
+
 from time import sleep
 
 from mininet.log import setLogLevel, info
@@ -49,6 +52,8 @@ if __name__ == '__main__':
 
     number_of_services = len(ndn.net.hosts)
     counter = 0
+
+    cclib = "/home/fotis/Github/SeEDS/build/mongo-c-driver-install/lib"
     cxxlib = "/home/fotis/Github/SeEDS/build/mongo-cxx-driver-install/lib"
     ndnlib = "/home/fotis/Github/SeEDS/build/ndn-cxx/install/lib"
 
@@ -63,19 +68,20 @@ if __name__ == '__main__':
     if args.mongo_db:
         broker_cmd_parts.append(f'--mongo.db={args.mongo_db}')
     if args.mongo_uri:
-        broker_cmd_parts.append(f'--mongo.uri={args.mongo_uri}')
+        user_enc = urllib.parse.quote(args.mongo_user or "", safe="")
+        pass_enc = urllib.parse.quote(args.mongo_pass or "", safe="")
+        uri_filled = (
+            args.mongo_uri
+            .replace("<user>", user_enc)
+            .replace("<pass>", pass_enc)
+        )
+        # Shell-quote the whole URI so < > & ? = etc. are safe
+        broker_cmd_parts.append(f'--mongo.uri={shlex.quote(uri_filled)}')
 
+    print(broker_cmd_parts)
     for host in ndn.net.hosts:
         host_home = f"/home/fotis/Github/SeEDS/src/minindn/tmp/{host.name}"
         host.cmdPrint(f'mkdir -p "{host_home}"')
-
-        if counter == 0:
-            host.cmdPrint(
-                'cd /home/fotis/Github/SeEDS/build && '
-                f'env HOME="{host_home}" LD_LIBRARY_PATH="{cxxlib}:{ndnlib}:$LD_LIBRARY_PATH" '
-                + ' '.join(broker_cmd_parts) + ' '
-                f'> "{host_home}/log_broker.txt" 2>&1 &'
-            )
 
         host.cmdPrint(
             'cd /home/fotis/Github/SeEDS/build && '
@@ -88,7 +94,7 @@ if __name__ == '__main__':
             f'--snds-id={counter} '
             '--id-scope-prefix=SNDS_ID_scope_ '
             '--registry-file-postfix=_registry '
-            '--producer.broker-ip=0.0.0.0 '
+            '--producer.broker-ip=127.0.0.1 '
             '--producer.broker-port=10000 '
             '--producer.registry-type=CAR '
             '--producer.enable-resilience-ipc=true '
