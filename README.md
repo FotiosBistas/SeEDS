@@ -557,3 +557,24 @@ Hashing is MD5 over the canonical dump. It’s a fast, stable fingerprint for id
 - Steady state → on META showing a higher version, request PATCH {local→remote}.
 - If PATCH NACKs/times out/fails to apply, fetch SNAPSHOT {remote}.
 - Liveness & promotion → on 3 consecutive is_alive misses, the example app self-promotes to PRIMARY, emits an IPC "role":"primary" envelope, and stops the poller.
+
+
+# Run the MiniNDN
+
+
+## Install MiniNDN 
+
+Clone the repo: 
+```
+git clone https://github.com/named-data/mini-ndn
+```
+Install the MiniNDN: 
+```
+./install.sh
+```
+
+## Run 
+
+```
+sudo python run.py <specify_topology_file_here>
+```

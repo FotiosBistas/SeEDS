@@ -246,6 +246,22 @@ if(NOT spdlog_POPULATED)
 endif()
 
 #####################################################################
+# Fetch and add cxxopts (CLI flags)
+#####################################################################
+FetchContent_Declare(
+  cxxopts
+  GIT_REPOSITORY https://github.com/jarro2783/cxxopts.git
+  GIT_TAG v3.2.0
+  GIT_SHALLOW TRUE
+)
+FetchContent_GetProperties(cxxopts)
+if(NOT cxxopts_POPULATED)
+  FetchContent_Populate(cxxopts)
+  # cxxopts provides a proper CMake target; add it
+  add_subdirectory(${cxxopts_SOURCE_DIR} ${cxxopts_BINARY_DIR} EXCLUDE_FROM_ALL)
+endif()
+
+#####################################################################
 # Fetch and add cpp-httplib
 #####################################################################
 FetchContent_Declare(
@@ -454,6 +470,7 @@ target_link_libraries(snds_daemon_bin PRIVATE
   ndn-cxx::ndn-cxx
   spdlog::spdlog
   nlohmann_json::nlohmann_json
+  cxxopts::cxxopts
 )
 add_dependencies(snds_daemon_bin ndn-cxx-build)
 
