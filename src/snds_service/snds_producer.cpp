@@ -364,6 +364,12 @@ void SNDSProducer::process_by_id_advertisement(const std::string& content)
     );
 
 
+    nlohmann::json doc = 
+    {
+        {"id",      parsed_interest.name},
+    };
+    _publish_to_broker(doc);
+
     auto ack_message = snds_intra_message::to_string(snds_intra_message::SNDS_CONTROL_MESSAGE_TYPE::ACK_ID_ADVERTISED);
 
     auto message = std::make_unique<snds_intra_message::SNDS_INTRA_MESSAGE>

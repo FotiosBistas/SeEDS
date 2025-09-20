@@ -416,6 +416,7 @@ target_include_directories(snds_broker_bin PRIVATE
 target_link_libraries(snds_broker_bin PRIVATE
   snds_broker
   spdlog::spdlog
+  cxxopts::cxxopts
 )
 set_target_properties(snds_broker_bin PROPERTIES
   BUILD_RPATH   "${MONGO_CXX_LIBRARY_DIR}"

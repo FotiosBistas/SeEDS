@@ -90,13 +90,13 @@ int main(int argc, char** argv) {
         ("producer.service-name", "Producer service name",
             cxxopts::value<std::string>()->default_value("Producer"))
         ("producer.broker-ip", "Producer broker IP/host",
-            cxxopts::value<std::string>()->default_value("0.0.0.0"))
+            cxxopts::value<std::string>()->default_value("127.0.0.1"))
         ("producer.broker-port", "Producer broker port",
             cxxopts::value<size_t>()->default_value("10000"))
         ("producer.registry-type", "Producer initial registry type",
             cxxopts::value<std::string>()->default_value("CAR"))
         ("producer.enable-resilience-ipc", "Enable resilience IPC (true/false)",
-            cxxopts::value<std::string>()->default_value("true"))
+            cxxopts::value<std::string>()->default_value("false"))
         ("producer.resilience-ipc-host", "IPC host",
             cxxopts::value<std::string>()->default_value("127.0.0.1"))
         ("producer.resilience-ipc-port", "IPC port",
