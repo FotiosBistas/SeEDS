@@ -96,7 +96,7 @@ if __name__ == '__main__':
             '--registry-file-postfix=_registry '
             '--producer.broker-ip=127.0.0.1 '
             '--producer.broker-port=10000 '
-            '--producer.registry-type=CAR '
+            f'--producer.registry-type=CAR_{counter} '
             '--producer.enable-resilience-ipc=true '
             '--producer.resilience-ipc-host=127.0.0.1 '
             '--producer.resilience-ipc-port=47832 '
