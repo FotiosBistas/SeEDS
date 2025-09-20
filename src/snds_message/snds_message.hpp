@@ -407,7 +407,7 @@ namespace snds_intra_message
                 return SNDS_INTRA_MESSAGE_TYPE::BY_TYPE_SUBSCRIPTION;
             }
 
-            if (date_.has_value() && timeframe_.has_value())
+            if (date_.has_value() || timeframe_.has_value())
                 return SNDS_INTRA_MESSAGE_TYPE::TEMPORAL_QUERY_REQUEST;
 
             // if (id_.has_value() && type_.has_value())

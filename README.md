@@ -76,9 +76,19 @@ curl -i -X GET http://localhost:8080/?id=car1
 
 For subscriptions append the `isSub=true&suburl=MYURL` at the url. Add quotes to all variables e.g., `?id=car1&isSub=true&suburl=MYURL`
 
+
+By ID:
+
 ```
 curl -i -X GET http://localhost:8080/?id=car1&isSub=true&suburl=MYURL
 ```
+
+By Type: 
+
+```
+curl -i -X GET http://localhost:8080/?type=CAR&isSub=true&suburl=MYURL
+```
+
 
 ## Publish versioned ID 
 Note this will try to publish it to endpoint add. If you don't have an endpoint setup you will get an error: 
@@ -572,6 +582,39 @@ Install the MiniNDN:
 ```
 ./install.sh
 ```
+
+## Make it work with mongo
+
+Install MongoDB locally to not have internet connectivity issues: 
+
+```
+# Ubuntu 22.04/24.04 example — installs MongoDB 7.0
+wget -qO - https://www.mongodb.org/static/pgp/server-7.0.asc | sudo gpg --dearmor -o /usr/share/keyrings/mongodb-server-7.0.gpg
+echo "deb [ arch=amd64,arm64 signed-by=/usr/share/keyrings/mongodb-server-7.0.gpg ] https://repo.mongodb.org/apt/ubuntu $(. /etc/os-release; echo $UBUNTU_CODENAME)/mongodb-org/7.0 multiverse" | \
+  sudo tee /etc/apt/sources.list.d/mongodb-org-7.0.list
+```
+
+Install: 
+
+```
+sudo apt update
+sudo apt install -y mongodb-org
+sudo systemctl enable --now mongod
+```
+
+Sanity check: 
+
+```
+mongosh --eval 'db.runCommand({buildInfo:1}).version'
+# and:
+ss -lnt | grep 27017
+```
+
+A good GUI I use for mongo is Compass: https://www.mongodb.com/try/download/compass
+
+
+Just download the apt file and install it. Connect to the local cluster ( you can connect to any cluster you want ): "mongodb://127.0.0.1:27017"
+
 
 ## Run 
 
