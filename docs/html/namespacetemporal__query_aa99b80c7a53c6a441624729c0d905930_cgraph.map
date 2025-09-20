@@ -1,0 +1,11 @@
+<map id="temporal_query::deserialize_temporal_query" name="temporal_query::deserialize_temporal_query">
+<area shape="rect" id="node1" title="Deserialize from JSON, query&#45;string, or path&#45;like input." alt="" coords="5,139,208,180"/>
+<area shape="rect" id="node2" href="$namespacetemporal__query.html#aa0e823106f6e339cb908045f2cd3bc6f" title="Build a TemporalQuery from a key→value map (unknown keys → extras)." alt="" coords="265,51,428,92"/>
+<area shape="rect" id="node3" href="$namespacetemporal__query.html#a2409574f736c7fa9948518b22e8abd97" title="Parse filters CSV into vectors of Filter (values set empty)." alt="" coords="486,5,654,47"/>
+<area shape="rect" id="node4" href="$namespacetemporal__query.html#a0b9343598c4307f64eba9c6560430db0" title="Parse a &quot;+&quot;&quot;&#45;joined timeframe (e.g., &quot;before+after&quot;) into a bitmask." alt="" coords="485,96,655,137"/>
+<area shape="rect" id="node5" href="$namespacetemporal__query.html#aaffef0e65a69a356a12c88093b5b81ff" title="Parse parameters from a path&#45;like string (heuristics for legacy forms)." alt="" coords="256,168,437,209"/>
+<area shape="rect" id="node6" href="$namespacetemporal__query.html#a4fc223976abd3ed080b9d67279b5e757" title="Parse a query&#45;string form (k=v&amp;k2=v2), URL&#45;decoding keys/values." alt="" coords="256,233,437,275"/>
+<area shape="rect" id="node9" href="$snds__utils_8cpp.html#a001dbcc56c724868ebb4b32ae2b2728c" title=" " alt="" coords="303,299,390,326"/>
+<area shape="rect" id="node7" href="$namespaceparsed__interest__name.html#a02a0b6ee3eb06f5dc5907587ce9fc0f1" title="URL&#45;decode a string (percent&#45;escapes only)." alt="" coords="487,233,653,275"/>
+<area shape="rect" id="node8" href="$namespaceparsed__interest__name.html#a8b20216448202580bfe87c35ac4b9961" title="Convert a single hex digit to its numeric value." alt="" coords="703,233,869,275"/>
+</map>

@@ -1,0 +1,6 @@
+<map id="main" name="main">
+<area shape="rect" id="node1" title=" " alt="" coords="5,53,60,80"/>
+<area shape="rect" id="node2" href="$message__queue__example_8cpp.html#a1c8ca72756bfe9a4da06e51355b836a7" title=" " alt="" coords="108,53,187,80"/>
+<area shape="rect" id="node3" href="$namespaceparsed__interest__name_1_1interest__message__type.html#a88695a924e4c7d4287c7b4d7a6e9e594" title="Convert an INTEREST_MESSAGE_TYPE to its canonical string." alt="" coords="254,5,437,61"/>
+<area shape="rect" id="node4" href="$classMessageQueue.html#a2729c50967a9801ee0b162ae6ccc1e2d" title="Writes a message to the queue." alt="" coords="235,85,456,112"/>
+</map>

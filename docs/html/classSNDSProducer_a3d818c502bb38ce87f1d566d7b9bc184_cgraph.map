@@ -1,0 +1,11 @@
+<map id="SNDSProducer::process_new_subscription_interest" name="SNDSProducer::process_new_subscription_interest">
+<area shape="rect" id="node1" title="Handle a newly announced subscription (by ID or by TYPE) from a subscriber node." alt="" coords="5,154,204,195"/>
+<area shape="rect" id="node2" href="$structparsed__interest__name_1_1ParsedInterestName.html#afeecb404fe631ea3db1f9e1ea475580c" title="Safely retrieves the parameter at the given index." alt="" coords="271,5,454,61"/>
+<area shape="rect" id="node3" href="$classServiceBase.html#a4cad2999841e0281a85add76452ad7ca" title="Convenience API to sign and send a Data packet." alt="" coords="277,85,449,112"/>
+<area shape="rect" id="node4" href="$classSNDSProducer.html#a02fc8494e9da38183387d101a5b61e2d" title="Subscribe a node to updates for a specific ID (idempotent insert)." alt="" coords="261,136,465,163"/>
+<area shape="rect" id="node5" href="$classSNDSProducer.html#a6775635241f58452f6076b093ef0a56d" title="Subscribe a node to a TYPE (all IDs under it) (idempotent insert)." alt="" coords="252,187,473,213"/>
+<area shape="rect" id="node6" href="$namespaceparsed__interest__name.html#aea653b4993da4fac583d8a3ed5ac9ac6" title="Reconstruct a custom NDN name string from a #ParsedInterestName." alt="" coords="276,238,449,279"/>
+<area shape="rect" id="node9" href="$namespacesnds__intra__message.html#a6247eda9f2d6db3d16fb17687d53caca" title="Convert an enum value to its string representation." alt="" coords="285,303,440,345"/>
+<area shape="rect" id="node7" href="$namespaceparsed__interest__name_1_1interest__message__type.html#a88695a924e4c7d4287c7b4d7a6e9e594" title="Convert an INTEREST_MESSAGE_TYPE to its canonical string." alt="" coords="521,193,704,249"/>
+<area shape="rect" id="node8" href="$namespaceparsed__interest__name.html#a466f9a026ebb3e3321d358c1cd0a98ce" title="URL&#45;encode a value for query contexts." alt="" coords="529,274,696,315"/>
+</map>

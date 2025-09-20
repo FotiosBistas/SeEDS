@@ -1,0 +1,10 @@
+<map id="snds_resilience::Snapshot::to_json" name="snds_resilience::Snapshot::to_json">
+<area shape="rect" id="node1" title="Serialize to a self&#45;describing JSON envelope." alt="" coords="940,78,1131,119"/>
+<area shape="rect" id="node2" href="$test__resilience_8cpp.html#ae66f6b31b5ad750f1fe042a706a4e3d4" title=" " alt="" coords="518,9,573,36"/>
+<area shape="rect" id="node3" href="$classSNDSProducer.html#a449430c3ef459e7a7126a250e66c3212" title="Decide whether and how to rehydrate the Broker at startup." alt="" coords="461,139,629,180"/>
+<area shape="rect" id="node6" href="$test__resilience_8cpp.html#a69b5eb0e6bd54eca3289b32c8160a94f" title=" " alt="" coords="725,34,844,61"/>
+<area shape="rect" id="node7" href="$classSNDSProducer.html#a3059fbd0884422e1b6abc2fca29aa4ef" title="Full broker rehydration from the stored journal." alt="" coords="691,136,878,178"/>
+<area shape="rect" id="node8" href="$classSNDSProducer.html#ae073de8db1c32345a4aae5a30c461f08" title="Incrementally replay broker journal entries since the last known cursor." alt="" coords="677,202,892,243"/>
+<area shape="rect" id="node4" href="$classSNDSProducer.html#a78040b177b67ab54589938418a20976a" title="Initialize and run the SNDSProducer main loop." alt="" coords="269,177,413,204"/>
+<area shape="rect" id="node5" href="$classSNDSProducer.html#a1326241b6016c6d37a71c1de37839e9d" title="Construct a producer with logging, naming, broker, and resilience configuration." alt="" coords="5,177,221,204"/>
+</map>

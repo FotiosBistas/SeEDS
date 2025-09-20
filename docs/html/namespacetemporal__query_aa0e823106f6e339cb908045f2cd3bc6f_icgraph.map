@@ -1,0 +1,12 @@
+<map id="temporal_query::from_params" name="temporal_query::from_params">
+<area shape="rect" id="node1" title="Build a TemporalQuery from a key→value map (unknown keys → extras)." alt="" coords="1004,61,1167,102"/>
+<area shape="rect" id="node2" href="$classWorker.html#a70b5e6aece0d46e97777448983552c52" title="Handle a message coming from the HTTP server." alt="" coords="768,13,941,54"/>
+<area shape="rect" id="node4" href="$namespacetemporal__query.html#aa99b80c7a53c6a441624729c0d905930" title="Deserialize from JSON, query&#45;string, or path&#45;like input." alt="" coords="753,93,956,134"/>
+<area shape="rect" id="node3" href="$classWorker.html#a413dfbae742152a0c27f713ead6f5c22" title="Main service loop." alt="" coords="540,5,636,32"/>
+<area shape="rect" id="node5" href="$classSNDSConsumer.html#a5c0a58f230849d750e2b99142a5a365c" title="Express a temporal&#45;query Interest (direct or manifest&#45;based flows)." alt="" coords="493,57,683,98"/>
+<area shape="rect" id="node7" href="$classSNDSProducer.html#ab3ac1f7ce8d0c923ead7be83316889d0" title="Advertise a temporal&#45;query name and publish its descriptor to the broker." alt="" coords="471,122,705,163"/>
+<area shape="rect" id="node10" href="$classSNDSProducer.html#a8ebf9ced62b6de42536af6899386138b" title="Request&#45;time temporal query (pull) and advertise its name for data follow&#45;ups." alt="" coords="494,187,682,229"/>
+<area shape="rect" id="node6" href="$classSNDSConsumer.html#a29695d4c0e4aa8445731fb90fd374c0d" title="Start the consumer loop." alt="" coords="269,64,423,91"/>
+<area shape="rect" id="node8" href="$classSNDSProducer.html#a78040b177b67ab54589938418a20976a" title="Initialize and run the SNDSProducer main loop." alt="" coords="274,161,418,188"/>
+<area shape="rect" id="node9" href="$classSNDSProducer.html#a1326241b6016c6d37a71c1de37839e9d" title="Construct a producer with logging, naming, broker, and resilience configuration." alt="" coords="5,161,221,188"/>
+</map>

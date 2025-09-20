@@ -1,0 +1,4 @@
+<map id="snds_intra_message::SNDS_INTRA_MESSAGE::print_details" name="snds_intra_message::SNDS_INTRA_MESSAGE::print_details">
+<area shape="rect" id="node1" title="Pretty&#45;print message fields and present parameters, and return the same text." alt="" coords="5,5,189,61"/>
+<area shape="rect" id="node2" href="$namespacesnds__intra__message.html#a6247eda9f2d6db3d16fb17687d53caca" title="Convert an enum value to its string representation." alt="" coords="237,13,392,54"/>
+</map>

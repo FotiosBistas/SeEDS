@@ -1,0 +1,5 @@
+<map id="producer" name="producer">
+<area shape="rect" id="node1" title=" " alt="" coords="5,53,84,80"/>
+<area shape="rect" id="node2" href="$namespaceparsed__interest__name_1_1interest__message__type.html#a88695a924e4c7d4287c7b4d7a6e9e594" title="Convert an INTEREST_MESSAGE_TYPE to its canonical string." alt="" coords="151,5,334,61"/>
+<area shape="rect" id="node3" href="$classMessageQueue.html#a2729c50967a9801ee0b162ae6ccc1e2d" title="Writes a message to the queue." alt="" coords="132,85,353,112"/>
+</map>

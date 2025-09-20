@@ -1,0 +1,10 @@
+<map id="trim_copy" name="trim_copy">
+<area shape="rect" id="node1" title=" " alt="" coords="1004,78,1091,105"/>
+<area shape="rect" id="node2" href="$namespacetemporal__query.html#aa99b80c7a53c6a441624729c0d905930" title="Deserialize from JSON, query&#45;string, or path&#45;like input." alt="" coords="753,71,956,112"/>
+<area shape="rect" id="node3" href="$classSNDSConsumer.html#a5c0a58f230849d750e2b99142a5a365c" title="Express a temporal&#45;query Interest (direct or manifest&#45;based flows)." alt="" coords="493,5,683,47"/>
+<area shape="rect" id="node5" href="$classSNDSProducer.html#ab3ac1f7ce8d0c923ead7be83316889d0" title="Advertise a temporal&#45;query name and publish its descriptor to the broker." alt="" coords="471,71,705,112"/>
+<area shape="rect" id="node8" href="$classSNDSProducer.html#a8ebf9ced62b6de42536af6899386138b" title="Request&#45;time temporal query (pull) and advertise its name for data follow&#45;ups." alt="" coords="494,136,682,177"/>
+<area shape="rect" id="node4" href="$classSNDSConsumer.html#a29695d4c0e4aa8445731fb90fd374c0d" title="Start the consumer loop." alt="" coords="269,13,423,39"/>
+<area shape="rect" id="node6" href="$classSNDSProducer.html#a78040b177b67ab54589938418a20976a" title="Initialize and run the SNDSProducer main loop." alt="" coords="274,110,418,137"/>
+<area shape="rect" id="node7" href="$classSNDSProducer.html#a1326241b6016c6d37a71c1de37839e9d" title="Construct a producer with logging, naming, broker, and resilience configuration." alt="" coords="5,110,221,137"/>
+</map>

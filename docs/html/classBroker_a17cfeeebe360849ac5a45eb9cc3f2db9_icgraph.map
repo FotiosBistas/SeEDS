@@ -1,0 +1,6 @@
+<map id="Broker::collection_fingerprint" name="Broker::collection_fingerprint">
+<area shape="rect" id="node1" title="Compute a collection fingerprint." alt="" coords="417,5,552,47"/>
+<area shape="rect" id="node2" href="$classBroker.html#a9072314b0005a4efc140aca73d33a1b4" title="GET /state handler: fingerprint + count for a collection." alt="" coords="264,13,369,39"/>
+<area shape="rect" id="node3" href="$classBroker.html#a854a6365bc9411b0f77b2410a6b93515" title="Start the HTTP server and register all endpoints." alt="" coords="108,13,216,39"/>
+<area shape="rect" id="node4" href="$broker__main_8cpp.html#a0ddf1224851353fc92bfbff6f499fa97" title=" " alt="" coords="5,13,60,39"/>
+</map>

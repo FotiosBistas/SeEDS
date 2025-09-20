@@ -1,0 +1,6 @@
+<map id="ResiliencePoller::stop" name="ResiliencePoller::stop">
+<area shape="rect" id="node1" title="Stop periodic polling and join scheduler threads." alt="" coords="293,56,456,83"/>
+<area shape="rect" id="node2" href="$snds__resilience_2main_8cpp.html#abd46f4739b39267c11165cb3f502ec62" title=" " alt="" coords="121,5,233,32"/>
+<area shape="rect" id="node3" href="$snds__resilience_2main_8cpp.html#a3c04138a5bfe5d72780bb7e82a18e627" title=" " alt="" coords="5,31,60,57"/>
+<area shape="rect" id="node4" href="$classResiliencePoller.html#ae54e2480a469befed7aa43b79e86c31e" title="Destructor." alt="" coords="108,107,245,149"/>
+</map>

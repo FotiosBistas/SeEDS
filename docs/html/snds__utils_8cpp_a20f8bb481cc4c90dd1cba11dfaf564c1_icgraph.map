@@ -1,0 +1,11 @@
+<map id="serialize_registry_file_payload" name="serialize_registry_file_payload">
+<area shape="rect" id="node1" title="Serializes a set of IDs into a binary payload." alt="" coords="1203,41,1337,82"/>
+<area shape="rect" id="node2" href="$test__snds__utils_8cpp.html#ae66f6b31b5ad750f1fe042a706a4e3d4" title=" " alt="" coords="1041,19,1095,45"/>
+<area shape="rect" id="node3" href="$classSNDSProducer.html#ae5e9643cf753d6c82ac7aed6b0aa37ae" title="Serve a &quot;get&#45;by&#45;type&quot; registry file request." alt="" coords="981,70,1155,111"/>
+<area shape="rect" id="node4" href="$classSNDSProducer.html#a9d2b31b6bb85e03e5238f8a7d140e039" title="Entry point for all incoming Interests on announced prefixes." alt="" coords="744,77,933,104"/>
+<area shape="rect" id="node5" href="$classSNDSProducer.html#a78040b177b67ab54589938418a20976a" title="Initialize and run the SNDSProducer main loop." alt="" coords="269,77,413,104"/>
+<area shape="rect" id="node7" href="$classSNDSProducer.html#a958a437d00540030bdc41567ebefe879" title="Advertise an object by ID (NDN announcement) from a string&#45;encoded interest path." alt="" coords="492,37,665,78"/>
+<area shape="rect" id="node8" href="$classSNDSProducer.html#ab3ac1f7ce8d0c923ead7be83316889d0" title="Advertise a temporal&#45;query name and publish its descriptor to the broker." alt="" coords="461,102,696,143"/>
+<area shape="rect" id="node9" href="$classSNDSProducer.html#a8ebf9ced62b6de42536af6899386138b" title="Request&#45;time temporal query (pull) and advertise its name for data follow&#45;ups." alt="" coords="485,167,673,209"/>
+<area shape="rect" id="node6" href="$classSNDSProducer.html#a1326241b6016c6d37a71c1de37839e9d" title="Construct a producer with logging, naming, broker, and resilience configuration." alt="" coords="5,77,221,104"/>
+</map>
