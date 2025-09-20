@@ -166,7 +166,8 @@ public:
 		std::string registryType = "CAR",
 		bool enable_resilience_ipc_ = true,
 		std::string resilience_ipc_host_ = "127.0.0.1",
-		size_t      resilience_ipc_port_ =  47832
+		size_t      resilience_ipc_port_ =  47832,
+		bool am_primary_ = true
 	):
 	ServiceBase
 	(
@@ -187,6 +188,7 @@ public:
 		,enable_resilience_ipc_(enable_resilience_ipc_)
 		,resilience_ipc_host_(resilience_ipc_host_)
 		,resilience_ipc_port_(resilience_ipc_port_)
+		,am_primary_(am_primary_)
 	{
 
 		nlohmann::json init = 

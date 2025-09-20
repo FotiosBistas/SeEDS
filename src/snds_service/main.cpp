@@ -101,6 +101,8 @@ int main(int argc, char** argv) {
             cxxopts::value<std::string>()->default_value("127.0.0.1"))
         ("producer.resilience-ipc-port", "IPC port",
             cxxopts::value<size_t>()->default_value("47832"))
+        ("producer.is-primary", "Start Producer as PRIMARY (overrides default derived from IPC setting)",
+            cxxopts::value<bool>()->default_value("false")->implicit_value("true"));
     ;
 
     // Consumer
@@ -214,6 +216,9 @@ int main(int argc, char** argv) {
     }(result["producer.enable-resilience-ipc"].as<std::string>());
     const auto p_ipc_host = result["producer.resilience-ipc-host"].as<std::string>();
     const auto p_ipc_port = result["producer.resilience-ipc-port"].as<size_t>();
+    const bool p_is_primary = (result.count("producer.is-primary") > 0)
+    ? result["producer.is-primary"].as<bool>()
+    : !p_ipc_en; // sensible default
 
     // Consumer
     const auto c_level = pick_level("consumer.log-level");
@@ -270,7 +275,7 @@ int main(int argc, char** argv) {
 
     auto producer = std::make_unique<SNDSProducer>(
         p_level, p_file, p_num, p_snds, p_state, p_alive, p_id, p_scope, p_rpost,
-        p_name, p_bip, p_bport, p_rtype, p_ipc_en, p_ipc_host, p_ipc_port
+        p_name, p_bip, p_bport, p_rtype, p_ipc_en, p_ipc_host, p_ipc_port, p_is_primary
     );
 
     auto consumer = std::make_unique<SNDSConsumer>(

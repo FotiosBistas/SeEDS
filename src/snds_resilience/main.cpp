@@ -1,4 +1,5 @@
 // main.cpp
+#include <iostream>
 #include <memory>
 #include <string>
 #include <chrono>
@@ -12,6 +13,7 @@
 #include <spdlog/sinks/stdout_color_sinks.h>
 #include <nlohmann/json.hpp>
 
+#include "cxxopts.hpp"
 #include "snds_resilience_poller.hpp"
 #include "snds_resilience.hpp"
 #include "snds_ipc_tcp.hpp"
@@ -84,6 +86,19 @@ static void handle_signal(const boost::system::error_code& ec, int signum, Resil
     if (face)   face->getIoContext().stop();
 }
 
+static spdlog::level::level_enum parse_level(std::string s, spdlog::level::level_enum def) 
+{
+    std::transform(s.begin(), s.end(), s.begin(), ::tolower);
+    if (s=="trace") return spdlog::level::trace;
+    if (s=="debug") return spdlog::level::debug;
+    if (s=="info")  return spdlog::level::info;
+    if (s=="warn"||s=="warning") return spdlog::level::warn;
+    if (s=="err" || s=="error")  return spdlog::level::err;
+    if (s=="critical")           return spdlog::level::critical;
+    if (s=="off")                return spdlog::level::off;
+    return def;
+}
+
 int main(int argc, char** argv)
 {
     // ---- config from argv (optional) ----
@@ -93,19 +108,43 @@ int main(int argc, char** argv)
     // argv[4]: alive period ms   (default 2000)
     // argv[5]: meta  period ms   (default 2000)
     // Make host/port configurable (argv[6], argv[7]) with sensible defaults
-    const std::string prefix       = (argc > 1) ? argv[1] : "SNDS";
-    const std::string peer_alive   = (argc > 2) ? argv[2] : "is_alive_0";
-    const std::string peer_state   = (argc > 3) ? argv[3] : "state_0";
-    const int         alive_ms     = (argc > 4) ? std::stoi(argv[4]) : 2000;
-    const int         meta_ms      = (argc > 5) ? std::stoi(argv[5]) : 2000;
-    const std::string ipc_host = (argc > 6) ? argv[6] : "127.0.0.1";
-    const uint16_t    ipc_port = (argc > 7) ? static_cast<uint16_t>(std::stoi(argv[7])) : 47832;
+    // -----------------------------
+    // CLI
+    // -----------------------------
+    cxxopts::Options opts("resilience_poller_bin", "SeEDS Resilience Poller");
+    opts.add_options()
+        ("prefix", "SNDS root prefix", cxxopts::value<std::string>()->default_value("SNDS"))
+        ("peer-alive", "Remote is_alive state name", cxxopts::value<std::string>()->default_value("is_alive_0"))
+        ("peer-state", "Remote state name", cxxopts::value<std::string>()->default_value("state_0"))
+        ("alive-ms", "Heartbeat probe period (ms)", cxxopts::value<int>()->default_value("2000"))
+        ("meta-ms",  "Meta probe period (ms)",      cxxopts::value<int>()->default_value("2000"))
+        ("ipc-host", "IPC host",                    cxxopts::value<std::string>()->default_value("127.0.0.1"))
+        ("ipc-port", "IPC port",                    cxxopts::value<uint16_t>()->default_value("47832"))
+        ("log-level","Log level (trace|debug|info|warn|error|critical|off)",
+                    cxxopts::value<std::string>()->default_value("info"))
+        ("h,help",   "Show help");
+    auto result = opts.parse(argc, argv);
+    if (result.count("help")) 
+    {
+        std::cout << opts.help() << "\n";
+        return 0;
+    }
 
+    const std::string prefix     = result["prefix"].as<std::string>();
+    const std::string peer_alive = result["peer-alive"].as<std::string>();
+    const std::string peer_state = result["peer-state"].as<std::string>();
+    const int         alive_ms   = result["alive-ms"].as<int>();
+    const int         meta_ms    = result["meta-ms"].as<int>();
+    const std::string ipc_host   = result["ipc-host"].as<std::string>();
+    const uint16_t    ipc_port   = result["ipc-port"].as<uint16_t>();
+    const auto        lvl        = parse_level(result["log-level"].as<std::string>(), spdlog::level::info);
 
     // ---- logger ----
     auto logger = spdlog::stdout_color_mt("poller");
+    logger->set_level(lvl);
     logger->set_pattern("[%Y-%m-%d %H:%M:%S.%e] [%^%l%$] %v");
-    logger->info("[main] starting poller: prefix='{}' alive='{}' state='{}' alive_ms={} meta_ms={}", prefix, peer_alive, peer_state, alive_ms, meta_ms);
+    logger->info("[main] starting poller: prefix='{}' alive='{}' state='{}' alive_ms={} meta_ms={}",
+                prefix, peer_alive, peer_state, alive_ms, meta_ms);
     logger->info("[main] starting IPC communication: ipc_host='{}', ipc_port='{}'", ipc_host, ipc_port);
 
     // ---- face & signals ----
