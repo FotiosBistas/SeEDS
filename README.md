@@ -635,6 +635,21 @@ Requests are exactly the same as above. Just make sure to publish from one node 
 
 Also make sure you subscribe to other nodes and you get results etc.
 
+### Broker
+
+The ``run.py`` script spins up a broker instance in each Node. You can query the database using the following requests: 
+
+Dump: 
+```
+mini-ndn> b curl -X GET 'http://10.0.0.2:10000/dump' -H 'Content-Type: application/json' -H 'Accept: application/json'
+mini-ndn> a curl -X POST 'http://10.0.0.1:10000/add' -H 'Content-Type: application/json' -H 'Accept: application/json' -d '{"id":"car2","date":"2025-06-28T15:41:50Z","type":"CAR"}'
+mini-ndn> a curl -X GET 'http://10.0.0.1:10000/dump' -H 'Content-Type: application/json' -H 'Accept: application/json'
+```
+
+With the above ideas you can also use the rest of the requests like add, get etc...
+
+
+
 ### Resilience
 
 In node D you can set up the resilience by running through the terminal: 

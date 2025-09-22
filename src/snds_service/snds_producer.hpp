@@ -469,7 +469,7 @@ private:
 	size_t           broker_journal_cursor_{0}; // next index to replay
 	std::string      last_replayed_fp_;         // fingerprint of last replayed entry
 
-	bool        mirror_to_secondary_ = true;            // toggle for your debug mirroring
+	bool        mirror_to_secondary_ = false;            // toggle for your debug mirroring
 	std::string secondary_suffix_    = "_SECONDARY";    // collection suffix
 
 	/**

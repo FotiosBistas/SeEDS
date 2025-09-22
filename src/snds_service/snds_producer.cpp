@@ -765,19 +765,19 @@ void SNDSProducer::process_version_metafile_interest(const parsed_interest_name:
         auto nack_message = snds_intra_message::to_string(snds_intra_message::SNDS_CONTROL_MESSAGE_TYPE::NACK_ERROR);
         sendData(interest_response, nack_message);
         //sendData(interest_response, "dummy_payload");
-        sendData(interest_response, R"({
-            "mode": "direct",
-            "items": [
-                {
-                    "id": "dummy_id",
-                    "type": "DUMMY_TYPE",
-                    "count": 0,
-                    "date": "1970-01-01T00:00:00Z",
-                    "timeframe": "before after"
-                }
-            ]
-            })"
-        );
+        //sendData(interest_response, R"({
+        //    "mode": "direct",
+        //    "items": [
+        //        {
+        //            "id": "dummy_id",
+        //            "type": "DUMMY_TYPE",
+        //            "count": 0,
+        //            "date": "1970-01-01T00:00:00Z",
+        //            "timeframe": "before after"
+        //        }
+        //    ]
+        //    })"
+        //);
     }
 
 }
@@ -906,19 +906,19 @@ void SNDSProducer::process_get_by_id_for_type_interest(const parsed_interest_nam
         auto nack_message = snds_intra_message::to_string(snds_intra_message::SNDS_CONTROL_MESSAGE_TYPE::NACK_ERROR);
         sendData(interest_response, nack_message);
         //sendData(interest_response, "dummy_payload");
-        sendData(interest_response, R"({
-            "mode": "direct",
-            "items": [
-                {
-                    "id": "dummy_id",
-                    "type": "DUMMY_TYPE",
-                    "count": 0,
-                    "date": "1970-01-01T00:00:00Z",
-                    "timeframe": "before after"
-                }
-            ]
-            })"
-        );
+        //sendData(interest_response, R"({
+        //    "mode": "direct",
+        //    "items": [
+        //        {
+        //            "id": "dummy_id",
+        //            "type": "DUMMY_TYPE",
+        //            "count": 0,
+        //            "date": "1970-01-01T00:00:00Z",
+        //            "timeframe": "before after"
+        //        }
+        //    ]
+        //    })"
+        //);
     }
 
 }
@@ -978,19 +978,19 @@ void SNDSProducer::process_temporal_query_interest(const parsed_interest_name::P
         m_logger->error("Failed to query /temporal-query: {}", res ? res->body : "No response");
         auto nack_message = snds_intra_message::to_string(snds_intra_message::SNDS_CONTROL_MESSAGE_TYPE::NACK_ERROR);
   	  	//sendData(interest_response, nack_message);
-        sendData(interest_response, R"({
-            "mode": "direct",
-            "items": [
-                {
-                    "id": "dummy_id",
-                    "type": "DUMMY_TYPE",
-                    "count": 0,
-                    "date": "1970-01-01T00:00:00Z",
-                    "timeframe": "before after"
-                }
-            ]
-            })"
-        );
+        //sendData(interest_response, R"({
+        //    "mode": "direct",
+        //    "items": [
+        //        {
+        //            "id": "dummy_id",
+        //            "type": "DUMMY_TYPE",
+        //            "count": 0,
+        //            "date": "1970-01-01T00:00:00Z",
+        //            "timeframe": "before after"
+        //        }
+        //    ]
+        //    })"
+        //);
     }
 }
 
@@ -1231,19 +1231,19 @@ void SNDSProducer::process_get_by_id_interest(const parsed_interest_name::Parsed
         auto nack_message = snds_intra_message::to_string(snds_intra_message::SNDS_CONTROL_MESSAGE_TYPE::NACK_ERROR);
         sendData(interest_response, nack_message);
         //sendData(interest_response, "dummy_payload");
-        sendData(interest_response, R"({
-            "mode": "direct",
-            "items": [
-                {
-                    "id": "dummy_id",
-                    "type": "DUMMY_TYPE",
-                    "count": 0,
-                    "date": "1970-01-01T00:00:00Z",
-                    "timeframe": "before after"
-                }
-            ]
-            })"
-        );
+        //sendData(interest_response, R"({
+        //    "mode": "direct",
+        //    "items": [
+        //        {
+        //            "id": "dummy_id",
+        //            "type": "DUMMY_TYPE",
+        //            "count": 0,
+        //            "date": "1970-01-01T00:00:00Z",
+        //            "timeframe": "before after"
+        //        }
+        //    ]
+        //    })"
+        //);
     }
 
 }
