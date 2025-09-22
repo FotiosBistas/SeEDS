@@ -621,3 +621,36 @@ Just download the apt file and install it. Connect to the local cluster ( you ca
 ```
 sudo python run.py <specify_topology_file_here>
 ```
+
+
+## Test the project effectively 
+
+
+I spin up three nodes through the ``topology.conf``.
+
+
+### Requests 
+
+Requests are exactly the same as above. Just make sure to publish from one node and ask from another.
+
+Also make sure you subscribe to other nodes and you get results etc.
+
+### Resilience
+
+In node D you can set up the resilience by running through the terminal: 
+
+```
+./resilience_poller_bin --log-level="DEBUG" --ipc-port="47835"
+```
+
+This way D is going to become the `secondary` of A. You can set up A to exit the process after 120s to simulate a crash of A.
+
+```
+host.cmdPrint(
+  'cd /home/fotis/Github/SeEDS/build && '
+  f'env HOME="{host_home}" timeout 120s ./snds_daemon_bin '
+  ...
+)
+```
+
+You should see D merging of all its data with A.

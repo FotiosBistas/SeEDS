@@ -87,31 +87,34 @@ if __name__ == '__main__':
         is_last = (idx == number_of_services - 1)  # make last host SECONDARY
         is_primary = not is_last
         registry_key = f"CAR_{idx}"
+        # idx is your SNDS ID (0 for host a). Or use (host.name == 'a')
+        #only_a_timeout = 'timeout 30s ' if idx == 0 else ''
+        only_a_timeout = 'timeout 120s ' if idx == 0 else ''
 
         # Start the resilience poller ONLY on the SECONDARY (last host),
         # pointing it at the PRIMARY's alive/state names (assumed id 0).
-        if is_last:
-            sleep(10)
-            host.cmdPrint(
-                'cd /home/fotis/Github/SeEDS/build && '
-                f'env HOME="{host_home}" ./resilience_poller_bin '
-                '--prefix=SNDS '
-                '--peer-alive=is_alive_0 '
-                '--peer-state=state_0 '
-                '--alive-ms=14000 '
-                '--meta-ms=2000 '
-                '--ipc-host=127.0.0.1 '
-                '--ipc-port=47832 '
-                f'--log-level={args.log_level} '
-                '&'
-            )
+        #if is_last:
+            #sleep(50)
+            #host.cmdPrint(
+            #    'cd /home/fotis/Github/SeEDS/build && '
+            #    f'env HOME="{host_home}" ./resilience_poller_bin '
+            #    '--prefix=SNDS '
+            #    '--peer-alive=is_alive_0 '
+            #    '--peer-state=state_0 '
+            #    '--alive-ms=14000 '
+            #    '--meta-ms=14000 '
+            #    '--ipc-host=127.0.0.1 '
+            #    '--ipc-port=47832 '
+            #    f'--log-level={args.log_level} '
+            #    '&'
+            #)
 
         # Start the SNDS daemon on every host:
         # - PRIMARY on all except the last
         # - SECONDARY on the last (with --producer.is-primary=false)
         host.cmdPrint(
             'cd /home/fotis/Github/SeEDS/build && '
-            f'env HOME="{host_home}" ./snds_daemon_bin '
+            f'env HOME="{host_home}" {only_a_timeout}./snds_daemon_bin '
             f'--log-level={args.log_level} '
             f'--num-services={number_of_services} '
             '--snds-prefix=SNDS '
@@ -125,7 +128,7 @@ if __name__ == '__main__':
             f'--producer.registry-type={registry_key} '
             '--producer.enable-resilience-ipc=true '
             '--producer.resilience-ipc-host=127.0.0.1 '
-            '--producer.resilience-ipc-port=47832 '
+            f'--producer.resilience-ipc-port={47832 + idx} '
             f'--producer.is-primary={"true" if is_primary else "false"} '
             f'> "{host_home}/log.txt" 2>&1 &'
         )

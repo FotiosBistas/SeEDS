@@ -375,6 +375,7 @@ target_include_directories(snds_resilience PUBLIC ${SNDS_RESILIENCE_DIR})
 target_link_libraries(snds_resilience PUBLIC
   snds_utils
   spdlog::spdlog
+  cxxopts::cxxopts
   nlohmann_json::nlohmann_json
 )
 
@@ -525,6 +526,7 @@ target_link_libraries(resilience_demo PRIVATE
   snds_resilience
   spdlog::spdlog
   nlohmann_json::nlohmann_json
+  cxxopts::cxxopts
 )
 
 #####################################################################
@@ -548,6 +550,7 @@ target_include_directories(resilience_poller_bin PRIVATE
 target_link_libraries(resilience_poller_bin PRIVATE
   ndn-cxx::ndn-cxx
   spdlog::spdlog
+  cxxopts::cxxopts
   nlohmann_json::nlohmann_json
   snds_interest
   snds_utils

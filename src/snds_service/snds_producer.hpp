@@ -462,6 +462,7 @@ private:
   	std::thread              resilience_ipc_thr_;
   	std::atomic<bool>        resilience_ipc_running_{false};
 	std::atomic<bool>        am_primary_{false};
+	std::atomic<bool>        promotion_tick_{false};
 
 	// --- incremental broker replay state ---
 	std::atomic<bool> rehydrate_tick_{false};   // set on each patch/snapshot while secondary
@@ -762,6 +763,13 @@ private:
 		return j[key];
 	}
 
+	static nlohmann::json::array_t to_array_set(const nlohmann::json& v)
+	{
+		nlohmann::json::array_t res;
+		if (v.is_array()) res = v.get<nlohmann::json::array_t>();
+		return res;
+	}
+
 	/**
 	 * @brief Get a string value by key or a default; stringifies non-string JSON values.
 	 *
@@ -910,5 +918,98 @@ private:
 	 * @note Useful for initial bootstrap or when primary/secondary share a Broker.
 	*/
 	void seed_secondary_from_broker_dump_();
+
+	// ===== Promotion helpers =====
+	/**
+	 * @brief Rebuild all in-memory containers (type_registry, subscribers, announcements)
+	 *        from the replicated JSON store.
+	*/
+	void rebuild_containers_from_store_();
+
+	/**
+	 * @brief On promotion to PRIMARY, merge store-backed state into in-memory containers
+	 *        and (re-)announce all previously persisted names so this node starts serving them.
+	 * @details Does **not** clear existing containers; it performs a union-merge to preserve
+	 *          anything learned at runtime. Registration of NDN prefixes is idempotent; on success
+	 *          our onRegisterSuccess handler will call announce(...), which records the name in the store.
+	 */
+	void inherit_from_store_after_promotion_();
+
+	/**
+	 * @brief Debug helper: dump current in-memory state of the producer.
+	 *
+	 * This prints both a quick summary and detailed contents of:
+	 *   - type_registry (type → set of IDs)
+	 *   - subscribed_nodes_for_id (id → set of subscribers)
+	 *   - subscribed_nodes_for_type (type → set of subscribers)
+	 *   - announcements (set of announced names)
+	 *
+	 * Intended for use at the end of event callbacks (add/remove/subscribe/unsubscribe/announce)
+	 * to verify state is updated correctly.
+	 *
+	 * @param where Tag or description of the call site (e.g. "event:type_add car→id42").
+	*/
+	void debug_dump_state_(std::string_view where);
+
+	void debug_dump_overlay_(std::string_view where);
+
+	struct Overlay 
+	{
+		nlohmann::json state = nlohmann::json::object();   // local diffs / tombstones
+		uint64_t       version = 0;                        // local-only counter
+		std::string    hash    = "d41d8cd98f00b204e9800998ecf8427e"; // md5("{}")
+	} overlay_;
+
+	// Helper: compute canonical hash for any json (already provided by snds_resilience)
+	inline std::string overlay_hash_(const nlohmann::json& j) const 
+	{
+		return snds_resilience::canonical_hash(j);
+	}
+
+	// Mutate overlay only (never touches base store_)
+	template <typename F>
+	void overlay_mutate_(F&& fn)
+	{
+		// Apply caller's mutation into overlay_.state (as plain JSON deltas, not patch)
+		try 
+		{
+			fn(overlay_.state);
+		} 
+		catch (const std::exception& e) 
+		{
+			m_logger->warn("[overlay] mutate handler threw: {}", e.what());
+		}
+
+		// Bump version + recompute hash
+		overlay_.version++;
+		overlay_.hash = overlay_hash_(overlay_.state);
+
+		// Helpful log line
+		m_logger->debug("[overlay] mutated: version={} hash={} size={} keys=[{}]",
+			overlay_.version,
+			overlay_.hash,
+			overlay_.state.size(),
+			[&]{
+				std::ostringstream oss;
+				bool first = true;
+				for (auto it = overlay_.state.begin(); it != overlay_.state.end(); ++it) 
+				{
+					if (!first) oss << ',';
+					first = false;
+					oss << it.key();
+				}
+				return oss.str();
+			}()
+		);
+	}
+
+	// Merge “base + overlay” for serving reads while SECONDARY
+	nlohmann::json merged_effective_state_() const;
+
+	// Rebase overlay when base changes due to remote patch/snapshot
+	void rebase_overlay_onto_base_after_remote_apply_(const nlohmann::json& base_before);
+
+	// Squash overlay into base on promotion to PRIMARY
+	void squash_overlay_into_base_and_clear_();
 
 };

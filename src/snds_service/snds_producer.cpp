@@ -52,53 +52,73 @@ void SNDSProducer::init(){
         m_logger->info("[event] type_add: {} -> {}", type, id);
         upsert_type_id_(type, id);
         update_store_with_broker_state_(type);
+        debug_dump_state_(fmt::format("event:type_add {}->{}", type, id));
+        debug_dump_overlay_(fmt::format("event:type_add {}->{}", type, id));
     };
 
     events_.on_type_remove = [this](const std::string& type, const std::string& id) 
     {
         m_logger->info("[event] type_remove: {} -> {}", type, id);
         erase_type_id_(type, id);
+        debug_dump_state_(fmt::format("event:type_remove {}->{}", type, id));
+        debug_dump_overlay_(fmt::format("event:type_remove {}->{}", type, id));
     };
 
     events_.on_subscribe_id = [this](const std::string& id, const std::string& node) 
     {
         m_logger->info("[event] subscribe_id: node={} -> id={}", node, id);
         upsert_sub_by_id_(id, node);
+        debug_dump_state_(fmt::format("event:on_subscribe_id {}->{}", node, id));
+        debug_dump_overlay_(fmt::format("event:on_subscribe_id {}->{}", node, id));
     };
 
     events_.on_unsubscribe_id = [this](const std::string& id, const std::string& node) 
     {
         m_logger->info("[event] unsubscribe_id: node={} from id={}", node, id);
         erase_sub_by_id_(id, node);
+        debug_dump_state_(fmt::format("event:on_unsubscribe_id {}->{}", node, id));
+        debug_dump_overlay_(fmt::format("event:on_unsubscribe_id {}->{}", node, id));
     };
 
     events_.on_subscribe_type = [this](const std::string& type, const std::string& node) 
     {
         m_logger->info("[event] subscribe_type: node={} -> type={}", node, type);
         upsert_sub_by_type_(type, node);
+        debug_dump_state_(fmt::format("event:on_subscribe_type {}->{}", node, type));
+        debug_dump_overlay_(fmt::format("event:on_subscribe_type {}->{}", node, type));
     };
 
     events_.on_unsubscribe_type = [this](const std::string& type, const std::string& node) 
     {
         m_logger->info("[event] unsubscribe_type: node={} from type={}", node, type);
         erase_sub_by_type_(type, node);
+        debug_dump_state_(fmt::format("event:on_unsubscribe_type {}->{}", node, type));
+        debug_dump_overlay_(fmt::format("event:on_unsubscribe_type {}->{}", node, type));
     };
 
     events_.on_announce_add = [this](const std::string& name) 
     {
         m_logger->info("[event] announce_add: {}", name);
         store_announce_(name);
+        debug_dump_state_(fmt::format("event:on_announce_add {}", name));
+        debug_dump_overlay_(fmt::format("event:on_announce_add {}", name));
     };
 
     events_.on_announce_remove = [this](const std::string& name) 
     {
         m_logger->info("[event] announce_remove: {}", name);
         store_unannounce_(name);
+        debug_dump_state_(fmt::format("event:on_announce_remove {}", name));
+        debug_dump_overlay_(fmt::format("event:on_announce_remove {}", name));
     };
 
-    if (enable_resilience_ipc_) 
+    if (enable_resilience_ipc_ && !am_primary_) 
     {
         start_resilience_ipc_();
+    }
+    else
+    {
+        m_logger->info("Not starting resilience IPC...");
     }
 
     maybe_rehydrate_broker_(/*type unused*/"");
@@ -185,6 +205,26 @@ void SNDSProducer::init(){
     while (running.load())
     {
         // m_logger->debug("Reading packet...");
+
+        if (promotion_tick_.exchange(false)) 
+        {
+            m_logger->warn("[resilience] applying promotion side-effects on main loop");
+
+            // Make the effective state canonical (single bump) and clear overlay
+            squash_overlay_into_base_and_clear_();
+
+            // Stop IPC if still running
+            if (resilience_ipc_running_.load()) 
+            {
+                m_logger->warn("[resilience-ipc] stopping IPC listener (promotion)");
+                stop_resilience_ipc_();
+            }
+
+            // Rebuild RAM & (re)announce using the canonical base
+            inherit_from_store_after_promotion_();
+        }
+
+
         if (am_primary_.load() && resilience_ipc_running_.load()) 
         {
             m_logger->warn("[resilience-ipc] stopping IPC listener (became PRIMARY)");
@@ -904,7 +944,7 @@ void SNDSProducer::process_temporal_query_interest(const parsed_interest_name::P
         count,
         url_encode(date),
         url_encode(timeframe),
-        filters
+        url_encode(filters)
     );
 
 	m_logger->debug("Requesting to endpoint: {}", endpoint);
@@ -1289,101 +1329,183 @@ std::optional<nlohmann::json> SNDSProducer::fetch_broker_state_json_(const std::
 
 void SNDSProducer::upsert_type_id_(const std::string& type, const std::string& id) 
 {
-    store_.mutate([&](nlohmann::json& s)
+    if (am_primary_.load()) 
     {
-        auto& types = ensure_obj(s, "types");
-        auto& t     = types[type];               // auto-creates null
-        if (!t.is_object()) t = nlohmann::json::object();
-        auto& ids   = ensure_obj(t, "ids");
-        ids[id] = true;                          // add/overwrite
-    });
+        store_.mutate([&](nlohmann::json& s)
+        {
+            auto& types = ensure_obj(s, "types");
+            auto& t     = types[type]; if (!t.is_object()) t = nlohmann::json::object();
+            auto& ids   = ensure_obj(t, "ids");
+            ids[id] = true;
+        });
+    } 
+    else 
+    {
+        overlay_mutate_([&](nlohmann::json& o)
+            {
+                o["reg_add"][type].push_back(id);
+            }
+        );
+    }
 }
 
 void SNDSProducer::erase_type_id_(const std::string& type, const std::string& id) 
 {
-    store_.mutate([&](nlohmann::json& s)
+    if (am_primary_.load()) 
     {
-        auto& types = ensure_obj(s, "types");
-        auto itT = types.find(type);
-        if (itT == types.end() || !itT->is_object()) return;
-        auto& ids = ensure_obj(*itT, "ids");
-        ids.erase(id);
-        // optional cleanup if empty
-        if (ids.empty()) itT->erase("ids");
-        if (itT->empty()) types.erase(type);
-    });
+        store_.mutate([&](nlohmann::json& s)
+            {
+                auto& types = ensure_obj(s, "types");
+                auto itT = types.find(type);
+                if (itT == types.end() || !itT->is_object()) return;
+                auto& ids = ensure_obj(*itT, "ids");
+                ids.erase(id);
+                if (ids.empty()) itT->erase("ids");
+                if (itT->empty()) types.erase(type);
+            }
+        );
+    } 
+    else 
+    {
+        overlay_mutate_([&](nlohmann::json& o)
+            {
+                o["reg_del"][type].push_back(id);
+            }
+        );
+    }
 }
 
 void SNDSProducer::upsert_sub_by_id_(const std::string& id, const std::string& node) 
 {
-    store_.mutate([&](nlohmann::json& s)
+    if (am_primary_.load()) 
     {
-        auto& subs = ensure_obj(s, "subscribers");
-        auto& byId = ensure_obj(subs, "byId");
-        auto& ent  = byId[id]; if (!ent.is_object()) ent = nlohmann::json::object();
-        auto& nodes= ensure_obj(ent, "nodes");
-        nodes[node] = true;
-    });
+        store_.mutate([&](nlohmann::json& s)
+            {
+                auto& subs = ensure_obj(s, "subscribers");
+                auto& byId = ensure_obj(subs, "byId");
+                auto& ent  = byId[id]; if (!ent.is_object()) ent = nlohmann::json::object();
+                auto& nodes= ensure_obj(ent, "nodes");
+                nodes[node] = true;
+            }
+        );
+    } 
+    else 
+    {
+        overlay_mutate_([&](nlohmann::json& o)
+            {
+                o["sub_add"]["byId:" + id].push_back(node);
+            }
+        );
+    }
 }
 
 void SNDSProducer::erase_sub_by_id_(const std::string& id, const std::string& node) 
 {
-    store_.mutate([&](nlohmann::json& s)
+    if (am_primary_.load()) 
     {
-        auto& subs = ensure_obj(s, "subscribers");
-        auto& byId = ensure_obj(subs, "byId");
-        auto it = byId.find(id);
-        if (it == byId.end() || !it->is_object()) return;
-        auto& nodes = ensure_obj(*it, "nodes");
-        nodes.erase(node);
-        if (nodes.empty()) it->erase("nodes");
-        if (it->empty()) byId.erase(id);
-    });
+        store_.mutate([&](nlohmann::json& s)
+            {
+                auto& subs = ensure_obj(s, "subscribers");
+                auto& byId = ensure_obj(subs, "byId");
+                auto it = byId.find(id);
+                if (it == byId.end() || !it->is_object()) return;
+                auto& nodes = ensure_obj(*it, "nodes");
+                nodes.erase(node);
+                if (nodes.empty()) it->erase("nodes");
+                if (it->empty()) byId.erase(id);
+            }
+        );
+    } else {
+        overlay_mutate_([&](nlohmann::json& o)
+            {
+                o["sub_del"]["byId:" + id].push_back(node);
+            }
+        );
+    }
 }
 
-void SNDSProducer::upsert_sub_by_type_(const std::string& type, const std::string& node) 
-{
-    store_.mutate([&](nlohmann::json& s)
+void SNDSProducer::upsert_sub_by_type_(const std::string& type, const std::string& node) {
+    if (am_primary_.load()) 
     {
-        auto& subs = ensure_obj(s, "subscribers");
-        auto& byT  = ensure_obj(subs, "byType");
-        auto& ent  = byT[type]; if (!ent.is_object()) ent = nlohmann::json::object();
-        auto& nodes= ensure_obj(ent, "nodes");
-        nodes[node] = true;
-    });
+        store_.mutate([&](nlohmann::json& s)
+            {
+                auto& subs = ensure_obj(s, "subscribers");
+                auto& byT  = ensure_obj(subs, "byType");
+                auto& ent  = byT[type]; if (!ent.is_object()) ent = nlohmann::json::object();
+                auto& nodes= ensure_obj(ent, "nodes");
+                nodes[node] = true;
+            }
+        );
+    } else {
+        overlay_mutate_([&](nlohmann::json& o)
+            {
+                o["sub_add"]["byType:" + type].push_back(node);
+            }
+        );
+    }
 }
 
-void SNDSProducer::erase_sub_by_type_(const std::string& type, const std::string& node) 
-{
-    store_.mutate([&](nlohmann::json& s)
+void SNDSProducer::erase_sub_by_type_(const std::string& type, const std::string& node) {
+    if (am_primary_.load()) 
     {
-        auto& subs = ensure_obj(s, "subscribers");
-        auto& byT  = ensure_obj(subs, "byType");
-        auto it = byT.find(type);
-        if (it == byT.end() || !it->is_object()) return;
-        auto& nodes = ensure_obj(*it, "nodes");
-        nodes.erase(node);
-        if (nodes.empty()) it->erase("nodes");
-        if (it->empty()) byT.erase(type);
-    });
+        store_.mutate([&](nlohmann::json& s)
+            {
+                auto& subs = ensure_obj(s, "subscribers");
+                auto& byT  = ensure_obj(subs, "byType");
+                auto it = byT.find(type);
+                if (it == byT.end() || !it->is_object()) return;
+                auto& nodes = ensure_obj(*it, "nodes");
+                nodes.erase(node);
+                if (nodes.empty()) it->erase("nodes");
+                if (it->empty()) byT.erase(type); 
+            }
+        );
+    } 
+    else 
+    {
+        overlay_mutate_([&](nlohmann::json& o)
+            {
+                o["sub_del"]["byType:" + type].push_back(node);
+            }
+        );
+    }
 }
 
-void SNDSProducer::store_announce_(const std::string& name) 
-{
-    store_.mutate([&](nlohmann::json& s)
+void SNDSProducer::store_announce_(const std::string& name) {
+    if (am_primary_.load()) 
     {
-        auto& ann = ensure_obj(s, "announcements");
-        ann[name] = true;
-    });
+        store_.mutate([&](nlohmann::json& s)
+            {
+                auto& ann = ensure_obj(s, "announcements");
+                ann[name] = true;
+            }
+        );
+    } else {
+        overlay_mutate_([&](nlohmann::json& o)
+            {
+                o["ann_add"].push_back(name);
+            }
+        );
+    }
 }
 
-void SNDSProducer::store_unannounce_(const std::string& name) 
-{
-    store_.mutate([&](nlohmann::json& s)
+void SNDSProducer::store_unannounce_(const std::string& name) {
+    if (am_primary_.load()) {
+        store_.mutate([&](nlohmann::json& s)
+            {
+                auto& ann = ensure_obj(s, "announcements");
+                ann.erase(name);
+            }
+        );
+    } 
+    else 
     {
-        auto& ann = ensure_obj(s, "announcements");
-        ann.erase(name);
-    });
+        overlay_mutate_([&](nlohmann::json& o)
+            {
+                o["ann_del"].push_back(name);
+            }
+        );
+    }
 }
 
 void SNDSProducer::update_store_with_broker_state_(const std::string& type) 
@@ -1396,78 +1518,107 @@ void SNDSProducer::update_store_with_broker_state_(const std::string& type)
         return;
     }
 
-    store_.mutate([&](nlohmann::json& s)
+    if (am_primary_.load()) 
     {
-        auto& broker = ensure_obj(s, "broker");
-        auto& cols   = ensure_obj(broker, "collections");
-
-        cols[effective_type] = 
-        {
-            {"algo",    j->value("algo",  "")},
-            {"hash",    j->value("hash",  "")},
-            {"count",   j->value("count", 0)},
-            {"lastSeen", iso8601_now_utc()}
-        };
-
-        if (!broker.contains("endpoint")) broker["endpoint"] = fmt::format("{}:{}", broker_ip, broker_port);
-    });
+        store_.mutate([&](nlohmann::json& s)
+            {
+                auto& broker = ensure_obj(s, "broker");
+                auto& cols   = ensure_obj(broker, "collections");
+                cols[effective_type] = 
+                {
+                    {"algo",     j->value("algo",  "")},
+                    {"hash",     j->value("hash",  "")},
+                    {"count",    j->value("count", 0)},
+                    {"lastSeen", iso8601_now_utc()}
+                };
+                if (!broker.contains("endpoint")) broker["endpoint"] = fmt::format("{}:{}", broker_ip, broker_port);
+            }
+        );
+    } 
+    else 
+    {
+        // keep these in overlay until promotion
+        overlay_mutate_([&](nlohmann::json& o)
+            {
+                o["broker_collections_upd"][effective_type] = 
+                {
+                    {"algo",     j->value("algo",  "")},
+                    {"hash",     j->value("hash",  "")},
+                    {"count",    j->value("count", 0)},
+                    {"lastSeen", iso8601_now_utc()}
+                };
+                o["broker_endpoint"] = fmt::format("{}:{}", broker_ip, broker_port);
+            }
+        );
+    }
 }
 
 void SNDSProducer::append_broker_journal_(const nlohmann::json& body)
 {
-    // Body must include at least id + type for deterministic replay.
     const std::string id   = j_get_string_or(body, "id", "");
     std::string       type = j_get_string_or(body, "type", "GENERIC");
+    if (id.empty()) { m_logger->warn("[journal] skipping entry without 'id'"); return; }
     if (type.empty()) type = "GENERIC";
 
-    if (id.empty()) 
+    if (am_primary_.load()) 
     {
-        m_logger->warn("[journal] skipping entry without 'id'");
-        return;
-    }
-
-    store_.mutate([&](nlohmann::json& s)
-    {
-        auto& broker  = ensure_obj(s, "broker");
-        auto& journal = ensure_arr(broker, "journal");
-
-        // Can dedupe identical consecutive payloads cheaply:
-        if (!journal.empty()) 
+        store_.mutate([&](nlohmann::json& s)
         {
-            const auto& last = journal.back();
-            if (last.contains("payload") && last["payload"] == body) 
+            auto& broker  = ensure_obj(s, "broker");
+            auto& journal = ensure_arr(broker, "journal");
+
+            if (!journal.empty()) 
             {
-                m_logger->debug("[journal] duplicate payload -> skip");
-                return;
+                const auto& last = journal.back();
+                if (last.contains("payload") && last["payload"] == body) 
+                {
+                    m_logger->debug("[journal] duplicate payload -> skip");
+                    return;
+                }
             }
-        }
 
-        nlohmann::json entry = 
-        {
-            {"ts",      iso8601_now_utc()},
-            {"type",    type},
-            {"id",      id},
-            {"payload", body}
-        };
+            journal.push_back(
+                {
+                    {"ts",      iso8601_now_utc()},
+                    {"type",    type},
+                    {"id",      id},
+                    {"payload", body}
+                }
+            );
 
-        journal.push_back(std::move(entry));
+            if (journal.size() > broker_journal_max) 
+            {
+                const auto overflow = journal.size() - broker_journal_max;
+                journal.erase(journal.begin(), journal.begin() + static_cast<nlohmann::json::difference_type>(overflow));
+            }
+        });
+    } 
+    else 
+    {
+        // keep appended entries in overlay until promotion
+        overlay_mutate_([&](nlohmann::json& o)
+            {
+                auto& add = o["broker_journal_add"];
+                if (!add.is_array()) add = nlohmann::json::array();
+                // optional dedupe against last overlay entry
+                if (!add.empty() && add.back().contains("payload") && add.back()["payload"] == body) return;
 
-        if (journal.size() > broker_journal_max)
-        {
-            // drop oldest to cap growth
-            const auto overflow = journal.size() - broker_journal_max;
-            journal.erase(journal.begin(), journal.begin() + static_cast<nlohmann::json::difference_type>(overflow));
-        }
-
-        try 
-        {
-            m_logger->debug("[journal] current entries ({}):\n{}", journal.size(), journal.dump(2));
-        } 
-        catch (const std::exception& e) 
-        {
-            m_logger->error("[journal] failed to dump JSON: {}", e.what());
-        }
-    });
+                add.push_back(
+                    {
+                        {"ts",      iso8601_now_utc()},
+                        {"type",    type},
+                        {"id",      id},
+                        {"payload", body}
+                    }
+                );
+                if (add.size() > broker_journal_max) 
+                {
+                    const auto overflow = add.size() - broker_journal_max;
+                    add.erase(add.begin(), add.begin() + static_cast<nlohmann::json::difference_type>(overflow));
+                }
+            }
+        );
+    }
 }
 
 
@@ -1509,14 +1660,22 @@ void SNDSProducer::start_resilience_ipc_()
                 if (kind == "snapshot") 
                 {
                     store_.assign(payload.at("state"));
-                    if (!am_primary_.load()) rehydrate_tick_.store(true);
-                }
+                    if (!am_primary_.load()) 
+                    {
+                        rebase_overlay_onto_base_after_remote_apply_({});
+                        rehydrate_tick_.store(true);
+                    }
+                } 
                 else if (kind == "patch") 
                 {
                     auto snap      = store_.get_snapshot();
                     auto new_state = snap.state.patch(payload.at("ops"));
                     store_.assign(std::move(new_state));
-                    if (!am_primary_.load()) rehydrate_tick_.store(true);
+                    if (!am_primary_.load()) 
+                    {
+                        rebase_overlay_onto_base_after_remote_apply_({});
+                        rehydrate_tick_.store(true);
+                    }
                 }
                 else if (kind == "meta") 
                 {
@@ -1528,39 +1687,39 @@ void SNDSProducer::start_resilience_ipc_()
                     const std::string reason = payload.value("reason", "");
                     const uint32_t    misses = payload.value("misses", 0U);
                 
-                if (role == "primary") 
-                {
-                    m_logger->warn("[resilience-ipc] promotion to PRIMARY (reason={}, misses={})", reason, misses);
-
-                    // Persist role for observability
-                    store_.mutate([&](nlohmann::json& s)
+                    if (role == "primary") 
                     {
-                        auto& r = ensure_obj(s, "resilience");
-                        r["role"]   = "primary";
-                        r["since"]  = iso8601_now_utc();
-                        r["reason"] = reason;
-                        r["misses"] = misses;
-                    });
+                        m_logger->warn("[resilience-ipc] promotion to PRIMARY (reason={}, misses={})", reason, misses);
 
-                    am_primary_.store(true);
-
-                    // IMPORTANT: do NOT call stop_resilience_ipc_() here (we're on the IPC thread).
-                    // Just request stop; the loop will exit after this iteration.
-                    resilience_ipc_running_.store(false);
-                    m_logger->warn("[resilience-ipc] stop requested; will be joined from main loop");
-                }
-                    else if (role == "secondary") 
-                    {
-                        m_logger->warn("[resilience-ipc] demoted to SECONDARY (reason={})", reason);
+                        // Persist role for observability
                         store_.mutate([&](nlohmann::json& s)
                         {
                             auto& r = ensure_obj(s, "resilience");
-                            r["role"]   = "secondary";
+                            r["role"]   = "primary";
                             r["since"]  = iso8601_now_utc();
                             r["reason"] = reason;
+                            r["misses"] = misses;
                         });
-                        am_primary_.store(false);
-                    } 
+
+                        am_primary_.store(true);
+                        promotion_tick_.store(true);
+                        // IMPORTANT: do NOT call stop_resilience_ipc_() here (we're on the IPC thread).
+                        // Just request stop; the loop will exit after this iteration.
+                        resilience_ipc_running_.store(false);
+                        m_logger->warn("[resilience-ipc] stop requested; will be joined from main loop");
+                    }
+                        else if (role == "secondary") 
+                        {
+                            m_logger->warn("[resilience-ipc] demoted to SECONDARY (reason={})", reason);
+                            store_.mutate([&](nlohmann::json& s)
+                            {
+                                auto& r = ensure_obj(s, "resilience");
+                                r["role"]   = "secondary";
+                                r["since"]  = iso8601_now_utc();
+                                r["reason"] = reason;
+                            });
+                            am_primary_.store(false);
+                        } 
                     else 
                     {
                         m_logger->warn("[resilience-ipc] unknown role='{}'", role);
@@ -1836,4 +1995,408 @@ void SNDSProducer::seed_secondary_from_broker_dump_()
     {
         m_logger->error("[seed] /copy failed: {}", res ? res->body : "no response");
     }
+}
+
+
+void SNDSProducer::rebuild_containers_from_store_()
+{
+    const auto snap = store_.get_snapshot().to_json();
+    if (!snap.contains("state") || !snap["state"].is_object()) return;
+    const auto& st = snap["state"];
+
+    // ---- TYPES (ids stored as object: {id:true}) ----
+    if (auto it = st.find("types"); it != st.end() && it->is_object())
+    {
+        for (auto& [type, obj] : it->items())
+        {
+            if (!obj.is_object()) continue;
+            if (obj.contains("ids") && obj["ids"].is_object())
+            {
+                auto& ids_set = type_registry[type];
+                for (auto& [id, _] : obj["ids"].items())
+                    ids_set.insert(id);
+            }
+        }
+    }
+
+    // ---- SUBSCRIBERS ----
+    if (auto it = st.find("subscribers"); it != st.end() && it->is_object())
+    {
+        // byId[*].nodes can be {node:true,...} (object) or ["node",...] (array)
+        if (auto byId = it->find("byId"); byId != it->end() && byId->is_object())
+        {
+            for (auto& [id, obj] : byId->items())
+            {
+                if (!obj.is_object()) continue;
+                auto nodesIt = obj.find("nodes");
+                if (nodesIt == obj.end()) continue;
+
+                auto& dst = subscribed_nodes_for_id[id];
+
+                if (nodesIt->is_object()) {
+                    for (auto& [node, _] : nodesIt->items())
+                        dst.insert(node);
+                } else if (nodesIt->is_array()) {
+                    for (auto& n : *nodesIt)
+                        if (n.is_string()) dst.insert(n.get<std::string>());
+                }
+            }
+        }
+
+        // byType[*].nodes can be {node:true,...} or ["node",...]
+        if (auto byType = it->find("byType"); byType != it->end() && byType->is_object())
+        {
+            for (auto& [type, obj] : byType->items())
+            {
+                if (!obj.is_object()) continue;
+                auto nodesIt = obj.find("nodes");
+                if (nodesIt == obj.end()) continue;
+
+                auto& dst = subscribed_nodes_for_type[type];
+
+                if (nodesIt->is_object()) {
+                    for (auto& [node, _] : nodesIt->items())
+                        dst.insert(node);
+                } else if (nodesIt->is_array()) {
+                    for (auto& n : *nodesIt)
+                        if (n.is_string()) dst.insert(n.get<std::string>());
+                }
+            }
+        }
+    }
+
+    // ---- ANNOUNCEMENTS ----
+    // Stored by store_announce_() as object: {name:true}, but accept array too for compat.
+    if (auto it = st.find("announcements"); it != st.end())
+    {
+        if (it->is_object()) {
+            for (auto& [name, _] : it->items())
+                announcements.insert(name);
+        } else if (it->is_array()) {
+            for (auto& n : *it)
+                if (n.is_string()) announcements.insert(n.get<std::string>());
+        }
+    }
+
+    // ---- DEBUG OUTPUT (full dumps) ----
+    m_logger->debug("[promotion] rebuilt containers from store:");
+    for (const auto& [t, ids] : type_registry) {
+        std::ostringstream oss; for (auto& id : ids) oss << id << " ";
+        m_logger->debug("  type_registry[{}] = [{}]", t, oss.str());
+    }
+    for (const auto& [id, nodes] : subscribed_nodes_for_id) {
+        std::ostringstream oss; for (auto& n : nodes) oss << n << " ";
+        m_logger->debug("  subscribed_nodes_for_id[{}] = [{}]", id, oss.str());
+    }
+    for (const auto& [t, nodes] : subscribed_nodes_for_type) {
+        std::ostringstream oss; for (auto& n : nodes) oss << n << " ";
+        m_logger->debug("  subscribed_nodes_for_type[{}] = [{}]", t, oss.str());
+    }
+    {
+        std::ostringstream oss; for (auto& a : announcements) oss << a << " ";
+        m_logger->debug("  announcements = [{}]", oss.str());
+    }
+
+    // ---- DEBUG SUMMARY (quick sanity check) ----
+    size_t type_count = type_registry.size();
+    size_t id_total = 0; for (auto& [_, s] : type_registry) id_total += s.size();
+
+    size_t sub_id_count = 0; for (auto& [_, s] : subscribed_nodes_for_id)   sub_id_count += s.size();
+    size_t sub_ty_count = 0; for (auto& [_, s] : subscribed_nodes_for_type) sub_ty_count += s.size();
+
+    m_logger->info("[promotion] summary: types={} ids={} subs(byId)={} subs(byType)={} announced={}", type_count, id_total, sub_id_count, sub_ty_count, announcements.size());
+}
+
+void SNDSProducer::inherit_from_store_after_promotion_()
+{
+    // Merge store-backed state into in-memory containers
+    rebuild_containers_from_store_();
+
+    // (Re-)announce all names we have persisted. Registration is idempotent.
+    //    On successful registration, onRegisterSuccess() will call announce(...),
+    //    which records the name (again idempotently) into the store.
+    for (const auto& name : announcements)
+    {
+        try
+        {
+            m_logger->info("[promotion] (re)announcing {}", name);
+            m_face.setInterestFilter(
+                name,
+                std::bind(&SNDSProducer::onInterest, this, std::placeholders::_2),
+                std::bind(&SNDSProducer::onRegisterSuccess, this, std::placeholders::_1),
+                std::bind(&SNDSProducer::onRegisterFailed,  this, std::placeholders::_1, std::placeholders::_2)
+            );
+        }
+        catch (const std::exception& e)
+        {
+            m_logger->warn("[promotion] failed to (re)announce {}: {}", name, e.what());
+        }
+    }
+
+    // Optional: refresh per-type Broker metadata so dashboards stay accurate.
+    //    We only read the set of types we've seen so far.
+    for (const auto& [type, _ids] : type_registry)
+    {
+        update_store_with_broker_state_(type);
+    }
+}
+
+void SNDSProducer::debug_dump_state_(std::string_view where)
+{
+    // Quick summary counts
+    size_t type_count = type_registry.size();
+    size_t id_total   = 0; for (auto& [_, s] : type_registry) id_total += s.size();
+    size_t sub_id_cnt = 0; for (auto& [_, s] : subscribed_nodes_for_id)   sub_id_cnt += s.size();
+    size_t sub_ty_cnt = 0; for (auto& [_, s] : subscribed_nodes_for_type) sub_ty_cnt += s.size();
+    size_t ann_cnt    = announcements.size();
+
+    m_logger->info("[debug][{}] summary → types={} ids={} subs(byId)={} subs(byType)={} announced={}",
+                   where, type_count, id_total, sub_id_cnt, sub_ty_cnt, ann_cnt);
+
+    // Detailed container dumps
+    m_logger->debug("[debug][{}] type_registry:", where);
+    for (const auto& [t, ids] : type_registry) {
+        std::ostringstream oss; for (const auto& id : ids) oss << id << ' ';
+        m_logger->debug("  [{}] {}", t, oss.str());
+    }
+
+    m_logger->debug("[debug][{}] subscribed_nodes_for_id:", where);
+    for (const auto& [id, nodes] : subscribed_nodes_for_id) {
+        std::ostringstream oss; for (const auto& n : nodes) oss << n << ' ';
+        m_logger->debug("  [{}] {}", id, oss.str());
+    }
+
+    m_logger->debug("[debug][{}] subscribed_nodes_for_type:", where);
+    for (const auto& [t, nodes] : subscribed_nodes_for_type) {
+        std::ostringstream oss; for (const auto& n : nodes) oss << n << ' ';
+        m_logger->debug("  [{}] {}", t, oss.str());
+    }
+
+    {
+        std::ostringstream oss; for (auto& a : announcements) oss << a << ' ';
+        m_logger->debug("[debug][{}] announcements: {}", where, oss.str());
+    }
+}
+
+void SNDSProducer::debug_dump_overlay_(std::string_view where)
+{
+    m_logger->debug("[overlay][{}] ver={} hash={} keys={}",
+        where,
+        overlay_.version,
+        overlay_.hash,
+        overlay_.state.is_object() ? overlay_.state.size() : 0);
+}
+
+// Deterministic merge of the few shapes we locally touch.
+// Keep this narrowly scoped (announcements, registry maps, subscribers).
+nlohmann::json SNDSProducer::merged_effective_state_() const 
+{
+    using json = nlohmann::json;
+    json base = store_.get_snapshot().state;
+    const json& ov = overlay_.state;
+
+    if (ov.contains("json_patch_against_base") && ov["json_patch_against_base"].is_array()) 
+    {
+        m_logger->debug("[overlay] merge: applying json_patch_against_base (ops={})", ov["json_patch_against_base"].size());
+        try 
+        {
+            return base.patch(ov["json_patch_against_base"]);
+        } 
+        catch (const std::exception& e) 
+        {
+            m_logger->warn("[merge] failed to apply json_patch_against_base: {}", e.what());
+        }
+    }
+
+    // ---------- ANNOUNCEMENTS (object: {name:true}) ----------
+    ensure_obj(base, "announcements");
+    std::unordered_set<std::string> ann;
+    for (auto& [k, v] : base["announcements"].items()) 
+    {
+        if (!v.is_boolean() || v.get<bool>()) ann.insert(k);
+    }
+
+    if (ov.contains("ann_add"))
+    {
+        for (const auto& a : ov["ann_add"]) if (a.is_string()) ann.insert(a.get<std::string>());
+    }
+
+    if (ov.contains("ann_del"))
+    {
+        for (const auto& d : ov["ann_del"]) if (d.is_string()) ann.erase(d.get<std::string>());
+    }
+
+    base["announcements"] = json::object();
+    for (const auto& name : ann) base["announcements"][name] = true;
+
+    // ---------- TYPES REGISTRY (types -> ids -> {id:true}) ----------
+    ensure_obj(base, "types");
+    auto add_to_type = [&](const std::string& t, const std::string& id)
+    {
+        auto& tnode = base["types"][t];
+        if (!tnode.is_object()) tnode = json::object();
+        auto& ids   = ensure_obj(tnode, "ids");
+        ids[id] = true;
+    };
+
+    auto del_from_type = [&](const std::string& t, const std::string& id)
+    {
+        auto itT = base["types"].find(t);
+        if (itT == base["types"].end() || !itT->is_object()) return;
+        auto& ids = ensure_obj(*itT, "ids");
+        ids.erase(id);
+        if (ids.empty()) itT->erase("ids");
+        if (itT->empty()) base["types"].erase(t);
+    };
+
+    if (ov.contains("reg_add") && ov["reg_add"].is_object())
+    {
+        for (auto& [t, arr] : ov["reg_add"].items())
+        {
+            for (auto& v : arr) if (v.is_string()) add_to_type(t, v.get<std::string>());
+        }
+    }
+
+    if (ov.contains("reg_del") && ov["reg_del"].is_object())
+    {
+        for (auto& [t, arr] : ov["reg_del"].items())
+        {
+            for (auto& v : arr) if (v.is_string()) del_from_type(t, v.get<std::string>());
+        }
+    }
+
+    // ---------- SUBSCRIBERS ----------
+    // Overlay uses "sub_add"/"sub_del" with keys "byId:<ID>" or "byType:<TYPE>"
+    ensure_obj(base, "subscribers");
+    auto& subs = base["subscribers"];
+    auto ensure_nodes_obj = [&](json& parent, const std::string& key)->json&
+    {
+        auto& obj = parent[key];
+        if (!obj.is_object()) obj = json::object();
+        auto& nodes = ensure_obj(obj, "nodes");
+        return nodes;
+    };
+
+    auto apply_sub_delta = [&](const char* kind)
+    {
+        if (!ov.contains(kind) || !ov[kind].is_object()) return;
+        for (auto& [k, arr] : ov[kind].items()) 
+        {
+            // k is "byId:foo" or "byType:bar"
+            const std::string prefix_byId  = "byId:";
+            const std::string prefix_byTyp = "byType:";
+            if (k.rfind(prefix_byId, 0) == 0) 
+            {
+                const std::string id = k.substr(prefix_byId.size());
+                //auto& nodes = ensure_nodes_obj(subs, "byId")[id]["nodes"]; // ensure chain
+                // normalize ensure chain explicitly:
+                auto& byId = ensure_obj(subs, "byId");
+                auto& ent  = byId[id]; if (!ent.is_object()) ent = json::object();
+                auto& nmap = ensure_obj(ent, "nodes");
+
+                for (auto& v : arr) if (v.is_string()) 
+                {
+                    const std::string node = v.get<std::string>();
+                    if (std::string(kind) == "sub_add") nmap[node] = true;
+                    else nmap.erase(node);
+                }
+
+                if (nmap.empty()) 
+                { 
+                    ent.erase("nodes"); 
+                    if (ent.empty()) byId.erase(id); 
+                }
+            } 
+            else if (k.rfind(prefix_byTyp, 0) == 0) 
+            {
+                const std::string type = k.substr(prefix_byTyp.size());
+                auto& byT  = ensure_obj(subs, "byType");
+                auto& ent  = byT[type]; if (!ent.is_object()) ent = json::object();
+                auto& nmap = ensure_obj(ent, "nodes");
+                for (auto& v : arr) if (v.is_string()) 
+                {
+                    const std::string node = v.get<std::string>();
+                    if (std::string(kind) == "sub_add") nmap[node] = true;
+                    else nmap.erase(node);
+                }
+                if (nmap.empty()) 
+                { 
+                    ent.erase("nodes"); 
+                    if (ent.empty()) byT.erase(type); 
+                }
+            } 
+            else 
+            {
+                // unknown key; ignore
+            }
+        }
+    };
+    apply_sub_delta("sub_add");
+    apply_sub_delta("sub_del");
+
+    // ---------- BROKER OVERLAY ----------
+    ensure_obj(base, "broker");
+    auto& broker = base["broker"];
+
+    // journal append
+    ensure_arr(broker, "journal");
+    if (ov.contains("broker_journal_add") && ov["broker_journal_add"].is_array()) 
+    {
+        for (const auto& e : ov["broker_journal_add"]) broker["journal"].push_back(e);
+        // optional cap to mirror base capping:
+        if (broker["journal"].size() > broker_journal_max) 
+        {
+            const auto overflow = broker["journal"].size() - broker_journal_max;
+            broker["journal"].erase(broker["journal"].begin(), broker["journal"].begin() + static_cast<json::difference_type>(overflow));
+        }
+    }
+
+    // collections updates + endpoint
+    ensure_obj(broker, "collections");
+    if (ov.contains("broker_collections_upd") && ov["broker_collections_upd"].is_object()) 
+    {
+        for (auto& [t, v] : ov["broker_collections_upd"].items()) broker["collections"][t] = v;
+    }
+
+    if (ov.contains("broker_endpoint") && ov["broker_endpoint"].is_string()) 
+    {
+        broker["endpoint"] = ov["broker_endpoint"];
+    }
+
+    return base;
+}
+
+void SNDSProducer::rebase_overlay_onto_base_after_remote_apply_(const nlohmann::json& /*base_before*/)
+{
+    const nlohmann::json effective_old = merged_effective_state_();
+    const nlohmann::json base_after    = store_.get_snapshot().state;
+
+    const auto patch = nlohmann::json::diff(base_after, effective_old);
+    overlay_.state = patch.empty() ? nlohmann::json::object() : nlohmann::json{{"json_patch_against_base", patch}};
+    overlay_.version++;
+    overlay_.hash = overlay_hash_(overlay_.state);
+
+    m_logger->debug("[overlay] REBASE → version={} hash={} patch_ops={}", overlay_.version, overlay_.hash, (overlay_.state.contains("json_patch_against_base") ? overlay_.state["json_patch_against_base"].size() : 0));
+}
+
+
+void SNDSProducer::squash_overlay_into_base_and_clear_()
+{
+    const nlohmann::json effective = merged_effective_state_();
+    const nlohmann::json base_now  = store_.get_snapshot().state;
+
+    if (effective != base_now) 
+    {
+        const auto before = store_.get_meta();
+        store_.assign(effective);
+        const auto after = store_.get_meta();
+        m_logger->debug("[overlay] SQUASH → base version {}→{}  hash {}→{}  overlay ver={} hash={}", before.version, after.version, before.hash, after.hash, overlay_.version, overlay_.hash);
+    } 
+    else 
+    {
+        m_logger->debug("[overlay] SQUASH → no-op (effective==base), overlay ver={} hash={}", overlay_.version, overlay_.hash);
+    }
+
+    overlay_ = Overlay{}; // reset
+    m_logger->debug("[overlay] CLEARED");
 }
