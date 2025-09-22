@@ -682,23 +682,45 @@ void SNDSProducer::process_resilience_patch_interest(const parsed_interest_name:
     sendData(interest_response, payload);
 }
 
-void SNDSProducer::process_resilience_meta_interest(const parsed_interest_name::ParsedInterestName &interest)
+void SNDSProducer::process_resilience_meta_interest(const parsed_interest_name::ParsedInterestName& interest)
 {
+    using namespace ndn::time_literals; // enables 0_ms, 50_ms, etc.
 
-    const auto interest_response = parsed_interest_name::to_custom_ndn_name(interest, true);
-
-    const auto snap = store_.get_snapshot();  // has .version, .hash, .state
-
-    nlohmann::json meta = 
+    try 
     {
-        {"version", snap.version},            // uint64_t
-        {"hash",    snap.hash},               // canonical md5 of state
-        {"ts",      iso8601_now_utc()}        // ISO-8601 UTC
-    };
+        // Build the response name exactly as your consumer expects
+        auto interest_response = parsed_interest_name::to_custom_ndn_name(interest, true);
 
-    meta["state_name"] = snds_state_with_id;   // e.g., "state_0"
+        // Gather current snapshot (version/hash/state)
+        const auto snap = store_.get_snapshot();
 
-    sendData(interest_response, meta.dump());
+        // Build the meta JSON
+        nlohmann::json meta = 
+        {
+            {"version", snap.version},
+            {"hash",    snap.hash},
+            {"ts",      iso8601_now_utc()}
+        };
+
+        meta["state_name"] = snds_state_with_id; // e.g. "state_0"
+
+        const std::string payload = meta.dump(); // serialize JSON once
+
+        // Prepare Data
+        auto data = std::make_shared<ndn::Data>();
+        data->setName(interest_response);
+        // Set to 0 ms so CS does not serve cached copies unless consumer allows stale
+        //TODO tweak this so we don't overwhelm the network
+        data->setFreshnessPeriod(30_ms);
+        data->setContent(std::move(payload));
+        // Sign & send
+        m_keyChain.sign(*data);
+        m_face.put(*data);
+    }
+    catch (const std::exception& e) 
+    {
+        spdlog::warn("[producer] meta interest handling failed: {}", e.what());
+    }
 }
 
 void SNDSProducer::process_version_metafile_interest(const parsed_interest_name::ParsedInterestName& interest)
