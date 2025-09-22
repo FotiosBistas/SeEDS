@@ -167,7 +167,9 @@ public:
 		bool enable_resilience_ipc_ = true,
 		std::string resilience_ipc_host_ = "127.0.0.1",
 		size_t      resilience_ipc_port_ =  47832,
-		bool am_primary_ = true
+		bool am_primary_ = true,
+		std::string seed_from_broker_ip = "",
+    	size_t      seed_from_broker_port = 0
 	):
 	ServiceBase
 	(
@@ -189,6 +191,8 @@ public:
 		,resilience_ipc_host_(resilience_ipc_host_)
 		,resilience_ipc_port_(resilience_ipc_port_)
 		,am_primary_(am_primary_)
+		,seed_from_broker_ip_(std::move(seed_from_broker_ip))
+		,seed_from_broker_port_(static_cast<uint16_t>(seed_from_broker_port))
 	{
 
 		nlohmann::json init = 
@@ -227,6 +231,7 @@ public:
 		m_logger->info("SNDSProducer initialized with serviceName: {}", this->serviceName);
 		m_logger->info("SNDSProducer will connect to Broker with IP: {} and port: {}", this->broker_ip, this->broker_port);
 		m_logger->info("SNDSProducer will connect to IPC with IP: {} and port: {}", this->resilience_ipc_host_, this->resilience_ipc_port_);
+		m_logger->info("SNDSProducer will seed FROM Broker at: {}:{}", seed_from_broker_ip_, seed_from_broker_port_);
 		type_registry[registryType] = std::unordered_set<std::string>{};
 	}
 
@@ -457,6 +462,11 @@ private:
   	// IPC config
   	std::string resilience_ipc_host_ = "127.0.0.1";
   	uint16_t    resilience_ipc_port_ = 47832;
+
+	// Where to PULL data from when bootstrapping (/dump) — i.e., the PRIMARY broker.
+  	// Defaults to the local broker_ip/broker_port if not provided.
+  	std::string seed_from_broker_ip_;
+  	uint16_t    seed_from_broker_port_{0};
 
   	// thread control
   	std::thread              resilience_ipc_thr_;

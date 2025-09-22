@@ -53,6 +53,10 @@ if __name__ == '__main__':
     os.system('sudo rm -f /run/nfd/nfd.sock')
     os.system('ln /run/nfd/a.sock /run/nfd/nfd.sock')
 
+    # Determine PRIMARY broker endpoint (we use host 0 / 'a' as PRIMARY)
+    primary_host = ndn.net.hosts[0]
+    primary_ip   = primary_host.IP()
+    primary_port = 10000  # broker bind-port we use everywhere
     number_of_services = len(ndn.net.hosts)
 
     # (Optional) Broker command construction — kept for completeness
@@ -151,6 +155,12 @@ if __name__ == '__main__':
         # idx is your SNDS ID (0 for host a). Or use (host.name == 'a')
         only_a_timeout = '' if idx == 0 else ''
 
+        # Prepare seed-from (PRIMARY) flags for Producer:
+        # - PRIMARY itself can omit them (Producer defaults to its own broker),
+        #   but setting explicitly is fine too.
+        seed_from_ip   = primary_ip
+        seed_from_port = primary_port
+
         # Start the SNDS daemon on every host, pointing to the per-node broker via node IP
         host.cmdPrint(
             'cd /home/fotis/Github/SeEDS/build && '
@@ -170,6 +180,8 @@ if __name__ == '__main__':
             f'--producer.resilience-ipc-host={node_ip} '
             f'--producer.resilience-ipc-port={47832 + idx} '
             f'--producer.is-primary={"true" if is_primary else "false"} '
+            f'--producer.seed-from-broker-ip={seed_from_ip} '
+            f'--producer.seed-from-broker-port={seed_from_port} '
             f'> "{host_home}/log.txt" 2>&1 &'
         )
 

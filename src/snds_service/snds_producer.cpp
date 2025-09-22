@@ -123,9 +123,16 @@ void SNDSProducer::init(){
 
     maybe_rehydrate_broker_(/*type unused*/"");
 
-    // One-time bootstrap: mirror current Broker data into secondary (or copy 1:1)
-    // Useful when primary & secondary are the same Broker during debugging.
-    seed_secondary_from_broker_dump_();
+    if(!am_primary_)
+    {
+        // One-time bootstrap: mirror current Broker data into secondary (or copy 1:1)
+        // Useful when primary & secondary are the same Broker during debugging.
+        seed_secondary_from_broker_dump_();
+    }
+    else
+    {
+        m_logger->info("Not copying the data from primary to secondary.");
+    }
 
 
     // Advertise for each type in the registry map
@@ -1986,29 +1993,48 @@ void SNDSProducer::maybe_rehydrate_broker_(const std::string& type/*type*/)
     }
 }
 
-void SNDSProducer::seed_secondary_from_broker_dump_()
-{
-    m_logger->warn("[seed] starting bootstrap via /copy (mirror_to_secondary_={}, suffix='{}')", mirror_to_secondary_, secondary_suffix_);
+ void SNDSProducer::seed_secondary_from_broker_dump_()
+ {
+    m_logger->warn("[seed] bootstrap via /dump → /copy (src={}:{}, dst(local)={}:{}, mirror_to_secondary_={}, suffix='{}')", seed_from_broker_ip_, seed_from_broker_port_, broker_ip, broker_port, mirror_to_secondary_, secondary_suffix_);
 
-    auto dump = _http_get_json("/dump", {});
-    if (!dump) 
+    // GET /dump from the PRIMARY (seed source), not from ourselves.
+    httplib::Client src(seed_from_broker_ip_.c_str(), seed_from_broker_port_);
+    src.set_read_timeout(60, 0);
+    src.set_connection_timeout(5, 0);
+    auto dump_res = src.Get("/dump");
+    if (!(dump_res && dump_res->status == 200)) 
     {
-        m_logger->warn("[seed] /dump returned no JSON — skipping bootstrap");
+        m_logger->warn("[seed] source /dump failed from {}:{} : {}", seed_from_broker_ip_, seed_from_broker_port_, dump_res ? std::to_string(dump_res ->status) : "no response");
         return;
     }
 
+    nlohmann::json dump_json;
+    try 
+    {
+        dump_json = nlohmann::json::parse(dump_res->body);
+    } 
+    catch (const std::exception& e) 
+    {
+        m_logger->warn("[seed] invalid JSON from source /dump: {}", e.what());
+        return;
+    }
+
+    // /dump might return either { "collections": { ... } } or just { ... }.
+    nlohmann::json collections = (dump_json.contains("collections") && dump_json["collections"].is_object()) ? dump_json["collections"] : dump_json;
+
     nlohmann::json body = 
     {
-        {"mirror_to_secondary", mirror_to_secondary_}, // <- true: write *_SECONDARY, false: copy 1:1 names
+        {"mirror_to_secondary", mirror_to_secondary_},
         {"secondary_suffix",    secondary_suffix_},
-        {"collections",         *dump}
+        {"collections",         collections}
     };
 
-    httplib::Client cli(broker_ip.c_str(), broker_port);
-    cli.set_read_timeout(60, 0);
-    cli.set_connection_timeout(5, 0);
+    // POST to our LOCAL broker /copy (destination).
+    httplib::Client dst(broker_ip.c_str(), broker_port);
+    dst.set_read_timeout(60, 0);
+    dst.set_connection_timeout(5, 0);
 
-    auto res = cli.Post("/copy", body.dump(), "application/json");
+    auto res = dst.Post("/copy", body.dump(), "application/json");
     if (res && res->status == 200) 
     {
         m_logger->warn("[seed] /copy OK: {}", res->body);
@@ -2017,7 +2043,7 @@ void SNDSProducer::seed_secondary_from_broker_dump_()
     {
         m_logger->error("[seed] /copy failed: {}", res ? res->body : "no response");
     }
-}
+ }
 
 
 void SNDSProducer::rebuild_containers_from_store_()

@@ -102,8 +102,11 @@ int main(int argc, char** argv) {
         ("producer.resilience-ipc-port", "IPC port",
             cxxopts::value<size_t>()->default_value("47832"))
         ("producer.is-primary", "Start Producer as PRIMARY (overrides default derived from IPC setting)",
-            cxxopts::value<bool>()->default_value("false")->implicit_value("true"));
-    ;
+            cxxopts::value<bool>()->default_value("false")->implicit_value("true"))
+        ("producer.seed-from-broker-ip", "Seed-from PRIMARY broker IP/host (used to bootstrap from /dump)",
+            cxxopts::value<std::string>()->default_value(""))
+        ("producer.seed-from-broker-port", "Seed-from PRIMARY broker port",
+            cxxopts::value<size_t>()->default_value("0"));
 
     // Consumer
     opts.add_options("consumer")
@@ -219,6 +222,8 @@ int main(int argc, char** argv) {
     const bool p_is_primary = (result.count("producer.is-primary") > 0)
     ? result["producer.is-primary"].as<bool>()
     : !p_ipc_en; // sensible default
+    const auto p_seed_ip   = result["producer.seed-from-broker-ip"].as<std::string>();
+    const auto p_seed_port = result["producer.seed-from-broker-port"].as<size_t>();
 
     // Consumer
     const auto c_level = pick_level("consumer.log-level");
@@ -275,7 +280,8 @@ int main(int argc, char** argv) {
 
     auto producer = std::make_unique<SNDSProducer>(
         p_level, p_file, p_num, p_snds, p_state, p_alive, p_id, p_scope, p_rpost,
-        p_name, p_bip, p_bport, p_rtype, p_ipc_en, p_ipc_host, p_ipc_port, p_is_primary
+        p_name, p_bip, p_bport, p_rtype, p_ipc_en, p_ipc_host, p_ipc_port, p_is_primary,
+        p_seed_ip, p_seed_port
     );
 
     auto consumer = std::make_unique<SNDSConsumer>(
