@@ -967,22 +967,88 @@ private:
 	*/
 	void debug_dump_state_(std::string_view where);
 
+
+	/**
+	 * @brief Dump a concise textual snapshot of the overlay buffer.
+	 *
+	 * Logs overlay version/hash/key count and, if present, the tail of
+	 * "broker_journal_add" entries that would be appended on promotion.
+	 *
+	 * @param where Arbitrary tag (e.g. call-site or phase) included in log lines.
+	 *
+	 * @note Read-only; does not mutate overlay or base.
+	*/
 	void debug_dump_overlay_(std::string_view where);
 
+	/**
+	 * @struct Overlay
+	 * @brief Local, ephemeral mutation buffer applied on top of @c store_ while SECONDARY.
+	 *
+	 * The overlay holds user-visible deltas (adds/removes) and broker appends that
+	 * are not yet committed to the base store. Its @ref version and @ref hash make
+	 * it easy to trace/debug and detect accidental mutation.
+	 *
+	 * Semantics:
+	 *  - Never directly mutates @c store_ (base). Only @ref squash_overlay_into_base_and_clear_ does.
+	 *  - Can be rebased when remote patches/snapshots advance the base.
+	 *  - Can optionally carry a canonical JSON Patch against the base.
+	*/
 	struct Overlay 
 	{
+		/**
+		 * @brief JSON object holding local diffs and tombstones.
+		 *
+		 * Common keys:
+		 *  - "ann_add" / "ann_del": string arrays
+		 *  - "reg_add" / "reg_del": { type: [id, ...] }
+		 *  - "sub_add" / "sub_del": { "byId:<ID>|byType:<TYPE>": [node, ...] }
+		 *  - "broker_journal_add":  [ { ...entry... }, ... ]
+		 *  - "broker_collections_upd": { type: <collection json> }
+		 *  - "broker_endpoint": "<url>"
+		 *  - "json_patch_against_base": JSON Patch array (RFC 6902)
+		*/
 		nlohmann::json state = nlohmann::json::object();   // local diffs / tombstones
+		/**
+		 * @brief Monotonic counter incremented on each overlay mutation/rebase.
+		*/
 		uint64_t       version = 0;                        // local-only counter
+		/**
+		 * @brief Canonical hash of @ref state for integrity/debugging.
+		 *
+		 * Initial value is MD5 of "{}" (d41d8cd98f00b204e9800998ecf8427e).
+		 * The actual algorithm is provided by @ref snds_resilience::canonical_hash.
+		*/
 		std::string    hash    = "d41d8cd98f00b204e9800998ecf8427e"; // md5("{}")
 	} overlay_;
 
-	// Helper: compute canonical hash for any json (already provided by snds_resilience)
+	/**
+	 * @brief Compute a canonical, stable hash for a JSON value.
+	 *
+	 * @param j Any JSON value (commonly an object).
+	 * @return std::string Canonical hash string suitable for logs/metrics.
+	 *
+	 * @note Delegates to @c snds_resilience::canonical_hash which takes care of
+	 *       canonicalization (e.g. key ordering) prior to hashing.
+	*/
 	inline std::string overlay_hash_(const nlohmann::json& j) const 
 	{
 		return snds_resilience::canonical_hash(j);
 	}
 
-	// Mutate overlay only (never touches base store_)
+	/**
+	 * @brief Mutate the overlay state only (never touches the base store).
+	 *
+	 * Invokes @p fn with a mutable reference to @ref overlay_.state to record
+	 * plain-JSON deltas (not a JSON Patch). Afterwards bumps @ref overlay_.version
+	 * and recomputes @ref overlay_.hash, then logs a concise summary of changes.
+	 *
+	 * @tparam F Callable with signature <tt>void(nlohmann::json&)</tt>.
+	 * @param fn Mutation function writing into @ref overlay_.state.
+	 *
+	 * @post @ref overlay_.version is incremented; @ref overlay_.hash reflects state.
+	 * @exception Never throws; exceptions from @p fn are caught and logged.
+	 * @warning Keep @p fn cheap and exception-safe; avoid mutating the base store.
+	*/
 	template <typename F>
 	void overlay_mutate_(F&& fn)
 	{
@@ -1019,13 +1085,45 @@ private:
 		);
 	}
 
-	// Merge “base + overlay” for serving reads while SECONDARY
+	/**
+	 * @brief Build the effective read view = base @c store_ state ⊕ overlay.
+	 *
+	 * Applies, deterministically and minimally, only the shapes we own locally:
+	 * announcements, type registry, subscribers, broker journal/collections/endpoint,
+	 * or an explicit "json_patch_against_base" if present.
+	 *
+	 * @return nlohmann::json Fully merged state used to serve reads while SECONDARY.
+	 *
+	 * @note This function is side-effect free; it does not mutate overlay or base.
+	 * @warning Intended for read paths; avoid heavy allocations in hot loops.
+	*/
 	nlohmann::json merged_effective_state_() const;
 
-	// Rebase overlay when base changes due to remote patch/snapshot
+	/**
+	 * @brief Rebase current overlay onto the latest base after a remote apply.
+	 *
+	 * Computes the diff between the new base and the previous effective view,
+	 * stores it as "json_patch_against_base" when non-empty, and refreshes
+	 * @ref overlay_.version and @ref overlay_.hash.
+	 *
+	 * @param base_before Snapshot of base prior to the remote patch/snapshot (unused
+	 *                    in the current implementation but kept for clarity/tests).
+	 *
+	 * @post Overlay becomes a minimal patch relative to the new base.
+	 * @note This keeps local intent while accepting remote changes deterministically.
+ 	*/
 	void rebase_overlay_onto_base_after_remote_apply_(const nlohmann::json& base_before);
 
-	// Squash overlay into base on promotion to PRIMARY
+	/**
+	 * @brief Promote: atomically squash overlay into base and clear the overlay.
+	 *
+	 * If the effective merged state differs from the current base, assigns it to
+	 * the underlying store and logs the base meta transition; otherwise, no-ops.
+	 * In both cases, resets @ref overlay_ to its default-constructed state.
+	 *
+	 * @post Base reflects merged state (if different); overlay is cleared.
+	 * @warning Only call on promotion to PRIMARY or when commit is desired.
+	*/
 	void squash_overlay_into_base_and_clear_();
 
 };
