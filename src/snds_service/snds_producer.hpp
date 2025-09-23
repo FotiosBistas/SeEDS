@@ -780,6 +780,12 @@ private:
 		return res;
 	}
 
+	// At file top (or in an anonymous namespace near the .cpp top)
+	static inline std::string shorten(const std::string& s, size_t n = 12) 
+	{
+		return s.size() <= n ? s : s.substr(0, n);
+	}
+
 	/**
 	 * @brief Get a string value by key or a default; stringifies non-string JSON values.
 	 *

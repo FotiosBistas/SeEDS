@@ -2224,6 +2224,44 @@ void SNDSProducer::debug_dump_state_(std::string_view where)
         std::ostringstream oss; for (auto& a : announcements) oss << a << ' ';
         m_logger->debug("[debug][{}] announcements: {}", where, oss.str());
     }
+
+    try 
+    {
+        const auto snap   = store_.get_snapshot().to_json();
+        const auto* state = (snap.contains("state") && snap["state"].is_object()) ? &snap["state"] : nullptr;
+        const auto* broker= (state && state->contains("broker") && (*state)["broker"].is_object()) ? &(*state)["broker"] : nullptr;
+        const auto* journal = (broker && broker->contains("journal") && (*broker)["journal"].is_array()) ? &(*broker)["journal"] : nullptr;
+
+        const size_t jsize = journal ? journal->size() : 0;
+        m_logger->info("[debug][{}] broker.journal: entries={} cursor={} last_fp={}", where, jsize, broker_journal_cursor_, shorten(last_replayed_fp_, 10));
+
+        if (journal && !journal->empty()) 
+        {
+            // Dump the last few entries to avoid log spam
+            const size_t LIMIT = 10;
+            const size_t start = (jsize > LIMIT) ? (jsize - LIMIT) : 0;
+            m_logger->debug("[debug][{}] broker.journal (last {} of {}):", where, jsize - start, jsize);
+
+            for (size_t i = start; i < jsize; ++i) 
+            {
+                const auto& e = (*journal)[i];
+                const std::string ts   = e.value("ts", "");
+                const std::string type = e.value("type", e.contains("payload") && e["payload"].is_object() ? e["payload"].value("type", "GENERIC") : "GENERIC");
+                const std::string id   = e.value("id",   e.contains("payload") && e["payload"].is_object() ? e["payload"].value("id", "") : "");
+                size_t payload_keys = 0;
+                if (e.contains("payload")) 
+                {
+                    const auto& p = e["payload"];
+                    payload_keys = p.is_object() ? p.size() : (p.is_array() ? p.size() : 1);
+                }
+                m_logger->debug("  [{}] ts={} type={} id={} payload_keys={}", i, ts, type, id, payload_keys);
+            }
+        }
+    }
+    catch (const std::exception& ex) 
+    {
+        m_logger->warn("[debug][{}] broker.journal dump failed: {}", where, ex.what());
+    }
 }
 
 void SNDSProducer::debug_dump_overlay_(std::string_view where)
@@ -2233,6 +2271,37 @@ void SNDSProducer::debug_dump_overlay_(std::string_view where)
         overlay_.version,
         overlay_.hash,
         overlay_.state.is_object() ? overlay_.state.size() : 0);
+
+    // Show pending broker journal adds that SECONDARY would replay on promotion
+    if (overlay_.state.is_object()) 
+    {
+        const auto it = overlay_.state.find("broker_journal_add");
+        if (it != overlay_.state.end() && it->is_array()) 
+        {
+            const auto& add = *it;
+            m_logger->debug("[overlay][{}] broker_journal_add: entries={}", where, add.size());
+
+            if (!add.empty()) 
+            {
+                const size_t LIMIT = 10;
+                const size_t start = (add.size() > LIMIT) ? (add.size() - LIMIT) : 0;
+                for (size_t i = start; i < add.size(); ++i) 
+                {
+                    const auto& e = add[i];
+                    const std::string ts   = e.value("ts", "");
+                    const std::string type = e.value("type", e.contains("payload") && e["payload"].is_object() ? e["payload"].value("type", "GENERIC") : "GENERIC");
+                    const std::string id   = e.value("id",   e.contains("payload") && e["payload"].is_object() ? e["payload"].value("id", "") : "");
+                    size_t payload_keys = 0;
+                    if (e.contains("payload")) 
+                    {
+                        const auto& p = e["payload"];
+                        payload_keys = p.is_object() ? p.size() : (p.is_array() ? p.size() : 1);
+                    }
+                    m_logger->debug("  [add:{}] ts={} type={} id={} payload_keys={}", i, ts, type, id, payload_keys);
+                }
+            }
+        }
+    }
 }
 
 // Deterministic merge of the few shapes we locally touch.

@@ -153,7 +153,8 @@ if __name__ == '__main__':
         )
 
         # idx is your SNDS ID (0 for host a). Or use (host.name == 'a')
-        only_a_timeout = '' if idx == 0 else ''
+        only_a_timeout = 'timeout 120s' if idx == 0 else ''
+        #only_a_timeout = '' if idx == 0 else ''
 
         # Prepare seed-from (PRIMARY) flags for Producer:
         # - PRIMARY itself can omit them (Producer defaults to its own broker),
@@ -164,7 +165,7 @@ if __name__ == '__main__':
         # Start the SNDS daemon on every host, pointing to the per-node broker via node IP
         host.cmdPrint(
             'cd /home/fotis/Github/SeEDS/build && '
-            f'env HOME="{host_home}" {only_a_timeout}./snds_daemon_bin '
+            f'env HOME="{host_home}" {only_a_timeout} ./snds_daemon_bin '
             f'--log-level={args.log_level} '
             f'--num-services={number_of_services} '
             '--snds-prefix=SNDS '
