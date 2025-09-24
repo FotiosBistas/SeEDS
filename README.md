@@ -76,9 +76,19 @@ curl -i -X GET http://localhost:8080/?id=car1
 
 For subscriptions append the `isSub=true&suburl=MYURL` at the url. Add quotes to all variables e.g., `?id=car1&isSub=true&suburl=MYURL`
 
+
+By ID:
+
 ```
 curl -i -X GET http://localhost:8080/?id=car1&isSub=true&suburl=MYURL
 ```
+
+By Type: 
+
+```
+curl -i -X GET http://localhost:8080/?type=CAR&isSub=true&suburl=MYURL
+```
+
 
 ## Publish versioned ID 
 Note this will try to publish it to endpoint add. If you don't have an endpoint setup you will get an error: 
@@ -557,3 +567,105 @@ Hashing is MD5 over the canonical dump. It’s a fast, stable fingerprint for id
 - Steady state → on META showing a higher version, request PATCH {local→remote}.
 - If PATCH NACKs/times out/fails to apply, fetch SNAPSHOT {remote}.
 - Liveness & promotion → on 3 consecutive is_alive misses, the example app self-promotes to PRIMARY, emits an IPC "role":"primary" envelope, and stops the poller.
+
+
+# Run the MiniNDN
+
+
+## Install MiniNDN 
+
+Clone the repo: 
+```
+git clone https://github.com/named-data/mini-ndn
+```
+Install the MiniNDN: 
+```
+./install.sh
+```
+
+## Make it work with mongo
+
+Install MongoDB locally to not have internet connectivity issues: 
+
+```
+# Ubuntu 22.04/24.04 example — installs MongoDB 7.0
+wget -qO - https://www.mongodb.org/static/pgp/server-7.0.asc | sudo gpg --dearmor -o /usr/share/keyrings/mongodb-server-7.0.gpg
+echo "deb [ arch=amd64,arm64 signed-by=/usr/share/keyrings/mongodb-server-7.0.gpg ] https://repo.mongodb.org/apt/ubuntu $(. /etc/os-release; echo $UBUNTU_CODENAME)/mongodb-org/7.0 multiverse" | \
+  sudo tee /etc/apt/sources.list.d/mongodb-org-7.0.list
+```
+
+Install: 
+
+```
+sudo apt update
+sudo apt install -y mongodb-org
+sudo systemctl enable --now mongod
+```
+
+Sanity check: 
+
+```
+mongosh --eval 'db.runCommand({buildInfo:1}).version'
+# and:
+ss -lnt | grep 27017
+```
+
+A good GUI I use for mongo is Compass: https://www.mongodb.com/try/download/compass
+
+
+Just download the apt file and install it. Connect to the local cluster ( you can connect to any cluster you want ): "mongodb://127.0.0.1:27017"
+
+
+## Run 
+
+```
+sudo python run.py <specify_topology_file_here>
+```
+
+
+## Test the project effectively 
+
+
+I spin up three nodes through the ``topology.conf``.
+
+
+### Requests 
+
+Requests are exactly the same as above. Just make sure to publish from one node and ask from another.
+
+Also make sure you subscribe to other nodes and you get results etc.
+
+### Broker
+
+The ``run.py`` script spins up a broker instance in each Node. You can query the database using the following requests: 
+
+Dump: 
+```
+mini-ndn> b curl -X GET 'http://10.0.0.2:10000/dump' -H 'Content-Type: application/json' -H 'Accept: application/json'
+mini-ndn> a curl -X POST 'http://10.0.0.1:10000/add' -H 'Content-Type: application/json' -H 'Accept: application/json' -d '{"id":"car2","date":"2025-06-28T15:41:50Z","type":"CAR"}'
+mini-ndn> a curl -X GET 'http://10.0.0.1:10000/dump' -H 'Content-Type: application/json' -H 'Accept: application/json'
+```
+
+With the above ideas you can also use the rest of the requests like add, get etc...
+
+
+
+### Resilience
+
+In node D you can set up the resilience by running through the terminal: 
+
+```
+./resilience_poller_bin --log-level="DEBUG" --ipc-port="47835"
+```
+
+This way D is going to become the `secondary` of A. You can set up A to exit the process after 120s to simulate a crash of A.
+
+```
+host.cmdPrint(
+  'cd /home/fotis/Github/SeEDS/build && '
+  f'env HOME="{host_home}" timeout 120s ./snds_daemon_bin '
+  ...
+)
+```
+
+You should see D merging of all its data with A.

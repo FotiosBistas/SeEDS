@@ -31,10 +31,30 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 include(ExternalProject)
 include(FetchContent)
 
+set(MONGO_C_DRIVER_VERSION "2.1.0") # or newer stable
+set(MONGO_C_INSTALL_DIR "${CMAKE_BINARY_DIR}/mongo-c-driver-install")
+
+#####################################################################
+# Fetch and build mongo-c-driver
+#####################################################################
+ExternalProject_Add(mongo-c-driver
+  URL https://github.com/mongodb/mongo-c-driver/releases/download/${MONGO_C_DRIVER_VERSION}/mongo-c-driver-${MONGO_C_DRIVER_VERSION}.tar.gz
+  PREFIX ${CMAKE_BINARY_DIR}/mongo-c-driver
+  SOURCE_DIR ${CMAKE_BINARY_DIR}/mongo-c-driver-src
+  BINARY_DIR ${CMAKE_BINARY_DIR}/mongo-c-driver-src/build
+  CMAKE_ARGS
+    -DCMAKE_BUILD_TYPE=Release
+    -DCMAKE_INSTALL_PREFIX=${MONGO_C_INSTALL_DIR}
+    -DENABLE_SRV=ON              # <— required for mongodb+srv
+    -DENABLE_SSL=OPENSSL         # <— Atlas requires TLS
+  BUILD_COMMAND ${CMAKE_COMMAND} --build .
+  INSTALL_COMMAND ${CMAKE_COMMAND} --build . --target install
+)
+
 #####################################################################
 # Fetch and build mongo-cxx
 #####################################################################
-set(MONGO_CXX_VERSION "r4.1.0")
+set(MONGO_CXX_VERSION "r4.1.2")
 set(MONGO_CXX_INSTALL_DIR "${CMAKE_BINARY_DIR}/mongo-cxx-driver-install")
 ExternalProject_Add(mongo-cxx-driver
   URL https://github.com/mongodb/mongo-cxx-driver/releases/download/${MONGO_CXX_VERSION}/mongo-cxx-driver-${MONGO_CXX_VERSION}.tar.gz
@@ -43,12 +63,16 @@ ExternalProject_Add(mongo-cxx-driver
   BINARY_DIR ${CMAKE_BINARY_DIR}/mongo-cxx-driver-src/build
   CMAKE_ARGS
     -DCMAKE_BUILD_TYPE=Release
+    -DENABLE_SRV=ON
     -DCMAKE_CXX_STANDARD=17
     -DBUILD_SHARED_LIBS=ON
     -DCMAKE_INSTALL_PREFIX=${MONGO_CXX_INSTALL_DIR}
+    -DCMAKE_PREFIX_PATH=${MONGO_C_INSTALL_DIR}
   BUILD_COMMAND ${CMAKE_COMMAND} --build .
   INSTALL_COMMAND ${CMAKE_COMMAND} --build . --target install
 )
+
+add_dependencies(mongo-cxx-driver mongo-c-driver)
 
 # MongoDB C++ Driver include and lib directories
 set(MONGOCXX_INCLUDE_DIRS "${MONGO_CXX_INSTALL_DIR}/include/")
@@ -246,6 +270,22 @@ if(NOT spdlog_POPULATED)
 endif()
 
 #####################################################################
+# Fetch and add cxxopts (CLI flags)
+#####################################################################
+FetchContent_Declare(
+  cxxopts
+  GIT_REPOSITORY https://github.com/jarro2783/cxxopts.git
+  GIT_TAG v3.2.0
+  GIT_SHALLOW TRUE
+)
+FetchContent_GetProperties(cxxopts)
+if(NOT cxxopts_POPULATED)
+  FetchContent_Populate(cxxopts)
+  # cxxopts provides a proper CMake target; add it
+  add_subdirectory(${cxxopts_SOURCE_DIR} ${cxxopts_BINARY_DIR} EXCLUDE_FROM_ALL)
+endif()
+
+#####################################################################
 # Fetch and add cpp-httplib
 #####################################################################
 FetchContent_Declare(
@@ -335,6 +375,7 @@ target_include_directories(snds_resilience PUBLIC ${SNDS_RESILIENCE_DIR})
 target_link_libraries(snds_resilience PUBLIC
   snds_utils
   spdlog::spdlog
+  cxxopts::cxxopts
   nlohmann_json::nlohmann_json
 )
 
@@ -400,6 +441,7 @@ target_include_directories(snds_broker_bin PRIVATE
 target_link_libraries(snds_broker_bin PRIVATE
   snds_broker
   spdlog::spdlog
+  cxxopts::cxxopts
 )
 set_target_properties(snds_broker_bin PROPERTIES
   BUILD_RPATH   "${MONGO_CXX_LIBRARY_DIR}"
@@ -454,6 +496,7 @@ target_link_libraries(snds_daemon_bin PRIVATE
   ndn-cxx::ndn-cxx
   spdlog::spdlog
   nlohmann_json::nlohmann_json
+  cxxopts::cxxopts
 )
 add_dependencies(snds_daemon_bin ndn-cxx-build)
 
@@ -483,6 +526,7 @@ target_link_libraries(resilience_demo PRIVATE
   snds_resilience
   spdlog::spdlog
   nlohmann_json::nlohmann_json
+  cxxopts::cxxopts
 )
 
 #####################################################################
@@ -506,6 +550,7 @@ target_include_directories(resilience_poller_bin PRIVATE
 target_link_libraries(resilience_poller_bin PRIVATE
   ndn-cxx::ndn-cxx
   spdlog::spdlog
+  cxxopts::cxxopts
   nlohmann_json::nlohmann_json
   snds_interest
   snds_utils

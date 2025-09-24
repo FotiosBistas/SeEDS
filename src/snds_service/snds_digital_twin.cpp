@@ -233,7 +233,10 @@ void DigitalTwin::process_by_id_and_type_advertisement(const std::string& id, co
     m_logger->debug("Sleeping {} ms before sending scope advertisement...",  std::chrono::duration_cast<std::chrono::milliseconds>(kDelay).count());
     std::this_thread::sleep_for(kDelay);
 
-    std::string type_scope = getSNDSNodeScopeNameForSubscription(type, id_scope_prefix, number_of_snds_services);
+
+    m_logger->info("No need to create scope since Type: {} is a defined scope", type);
+    //std::string type_scope = getSNDSNodeScopeNameForSubscription(type, id_scope_prefix, number_of_snds_services);
+    std::string type_scope = type;
 
     interest_name = parsed_interest_name::make_parsed_interest_name
     (

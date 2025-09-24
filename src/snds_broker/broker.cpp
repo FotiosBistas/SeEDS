@@ -78,8 +78,11 @@ void Broker::listen(){
                 );
                 return;
             }
+
+            logger->debug("Received body: {}", body.dump(2));
         
             const bool mirror_to_secondary = body.value("mirror_to_secondary", true);
+            logger->debug("Mirror to secondary: {}", mirror_to_secondary);
             const std::string suffix = body.value("secondary_suffix", std::string("_SECONDARY"));
         
             if (!body.contains("collections") || !body["collections"].is_object()) {
@@ -114,12 +117,15 @@ void Broker::listen(){
                 const std::string target_name = mirror_to_secondary
                     ? (source_name + suffix)          // e.g. CAR -> CAR_SECONDARY, CAR_VERSIONED -> CAR_VERSIONED_SECONDARY
                     : source_name;                    // exact same name (1:1 copy)
-            
+                
+                logger->debug("Created target name to copy: {}...", target_name);
                 auto target = db[target_name];
             
                 logger->info("[/copy] {} -> {} ({} docs)", source_name, target_name, docs.size());
             
                 const bool versioned = is_versioned_name(source_name);
+
+                logger->debug("Is versioned: {}", versioned);
             
                 for (const auto& jdoc : docs) {
                     if (!jdoc.is_object()) { skipped++; continue; }
@@ -169,6 +175,7 @@ void Broker::listen(){
                 }
             }
         
+            logger->debug("Sending summary back to client: {}", summary.dump());
             summary["status"]   = "ok";
             summary["inserted"] = inserted;
             summary["replaced"] = replaced;

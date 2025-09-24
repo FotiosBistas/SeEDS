@@ -489,10 +489,19 @@ void Worker::process_subscription_request
     // Build scope + interest according to type
     const bool by_id = (msg_type == snds_intra_message::SNDS_INTRA_MESSAGE_TYPE::BY_ID_SUBSCRIPTION);
 
-    const std::string node_scope_name = getSNDSNodeScopeNameForSubscription(name, id_scope_prefix, number_of_snds_services);
+    std::string node_scope_name = "";
 
-    m_logger->info("Created node scope name: {} for Name: {} with URL: {}", node_scope_name, name, subURL);
-    m_logger->info("Hi this is me: {} I'm going to ask node: {} to subscribe to: {}", snds_id_scope_name, node_scope_name, name);
+    if(by_id)
+    {
+        std::string node_scope_name = getSNDSNodeScopeNameForSubscription(name, id_scope_prefix, number_of_snds_services);
+        m_logger->info("Created node scope name: {} for Name: {} with URL: {}", node_scope_name, name, subURL);
+        m_logger->info("Hi this is me: {} I'm going to ask node: {} to subscribe to: {}", snds_id_scope_name, node_scope_name, name);
+    }
+    else
+    {
+        node_scope_name = name;
+        m_logger->info("Since this is a byType subscription we don't need to create a scope. Using the Type: {} as a scope", name);
+    }
 
     const auto interest_kind = by_id ? parsed_interest_name::interest_message_type::INTEREST_MESSAGE_TYPE::NEW_ID_SUBSCRIPTION : parsed_interest_name::interest_message_type::INTEREST_MESSAGE_TYPE::NEW_TYPE_SUBSCRIPTION;
 

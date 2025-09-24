@@ -166,7 +166,10 @@ public:
 		std::string registryType = "CAR",
 		bool enable_resilience_ipc_ = true,
 		std::string resilience_ipc_host_ = "127.0.0.1",
-		size_t      resilience_ipc_port_ =  47832
+		size_t      resilience_ipc_port_ =  47832,
+		bool am_primary_ = true,
+		std::string seed_from_broker_ip = "",
+    	size_t      seed_from_broker_port = 0
 	):
 	ServiceBase
 	(
@@ -187,6 +190,9 @@ public:
 		,enable_resilience_ipc_(enable_resilience_ipc_)
 		,resilience_ipc_host_(resilience_ipc_host_)
 		,resilience_ipc_port_(resilience_ipc_port_)
+		,am_primary_(am_primary_)
+		,seed_from_broker_ip_(std::move(seed_from_broker_ip))
+		,seed_from_broker_port_(static_cast<uint16_t>(seed_from_broker_port))
 	{
 
 		nlohmann::json init = 
@@ -225,6 +231,7 @@ public:
 		m_logger->info("SNDSProducer initialized with serviceName: {}", this->serviceName);
 		m_logger->info("SNDSProducer will connect to Broker with IP: {} and port: {}", this->broker_ip, this->broker_port);
 		m_logger->info("SNDSProducer will connect to IPC with IP: {} and port: {}", this->resilience_ipc_host_, this->resilience_ipc_port_);
+		m_logger->info("SNDSProducer will seed FROM Broker at: {}:{}", seed_from_broker_ip_, seed_from_broker_port_);
 		type_registry[registryType] = std::unordered_set<std::string>{};
 	}
 
@@ -456,17 +463,23 @@ private:
   	std::string resilience_ipc_host_ = "127.0.0.1";
   	uint16_t    resilience_ipc_port_ = 47832;
 
+	// Where to PULL data from when bootstrapping (/dump) — i.e., the PRIMARY broker.
+  	// Defaults to the local broker_ip/broker_port if not provided.
+  	std::string seed_from_broker_ip_;
+  	uint16_t    seed_from_broker_port_{0};
+
   	// thread control
   	std::thread              resilience_ipc_thr_;
   	std::atomic<bool>        resilience_ipc_running_{false};
 	std::atomic<bool>        am_primary_{false};
+	std::atomic<bool>        promotion_tick_{false};
 
 	// --- incremental broker replay state ---
 	std::atomic<bool> rehydrate_tick_{false};   // set on each patch/snapshot while secondary
 	size_t           broker_journal_cursor_{0}; // next index to replay
 	std::string      last_replayed_fp_;         // fingerprint of last replayed entry
 
-	bool        mirror_to_secondary_ = true;            // toggle for your debug mirroring
+	bool        mirror_to_secondary_ = false;            // toggle for your debug mirroring
 	std::string secondary_suffix_    = "_SECONDARY";    // collection suffix
 
 	/**
@@ -760,6 +773,19 @@ private:
 		return j[key];
 	}
 
+	static nlohmann::json::array_t to_array_set(const nlohmann::json& v)
+	{
+		nlohmann::json::array_t res;
+		if (v.is_array()) res = v.get<nlohmann::json::array_t>();
+		return res;
+	}
+
+	// At file top (or in an anonymous namespace near the .cpp top)
+	static inline std::string shorten(const std::string& s, size_t n = 12) 
+	{
+		return s.size() <= n ? s : s.substr(0, n);
+	}
+
 	/**
 	 * @brief Get a string value by key or a default; stringifies non-string JSON values.
 	 *
@@ -908,5 +934,196 @@ private:
 	 * @note Useful for initial bootstrap or when primary/secondary share a Broker.
 	*/
 	void seed_secondary_from_broker_dump_();
+
+	// ===== Promotion helpers =====
+	/**
+	 * @brief Rebuild all in-memory containers (type_registry, subscribers, announcements)
+	 *        from the replicated JSON store.
+	*/
+	void rebuild_containers_from_store_();
+
+	/**
+	 * @brief On promotion to PRIMARY, merge store-backed state into in-memory containers
+	 *        and (re-)announce all previously persisted names so this node starts serving them.
+	 * @details Does **not** clear existing containers; it performs a union-merge to preserve
+	 *          anything learned at runtime. Registration of NDN prefixes is idempotent; on success
+	 *          our onRegisterSuccess handler will call announce(...), which records the name in the store.
+	 */
+	void inherit_from_store_after_promotion_();
+
+	/**
+	 * @brief Debug helper: dump current in-memory state of the producer.
+	 *
+	 * This prints both a quick summary and detailed contents of:
+	 *   - type_registry (type → set of IDs)
+	 *   - subscribed_nodes_for_id (id → set of subscribers)
+	 *   - subscribed_nodes_for_type (type → set of subscribers)
+	 *   - announcements (set of announced names)
+	 *
+	 * Intended for use at the end of event callbacks (add/remove/subscribe/unsubscribe/announce)
+	 * to verify state is updated correctly.
+	 *
+	 * @param where Tag or description of the call site (e.g. "event:type_add car→id42").
+	*/
+	void debug_dump_state_(std::string_view where);
+
+
+	/**
+	 * @brief Dump a concise textual snapshot of the overlay buffer.
+	 *
+	 * Logs overlay version/hash/key count and, if present, the tail of
+	 * "broker_journal_add" entries that would be appended on promotion.
+	 *
+	 * @param where Arbitrary tag (e.g. call-site or phase) included in log lines.
+	 *
+	 * @note Read-only; does not mutate overlay or base.
+	*/
+	void debug_dump_overlay_(std::string_view where);
+
+	/**
+	 * @struct Overlay
+	 * @brief Local, ephemeral mutation buffer applied on top of @c store_ while SECONDARY.
+	 *
+	 * The overlay holds user-visible deltas (adds/removes) and broker appends that
+	 * are not yet committed to the base store. Its @ref version and @ref hash make
+	 * it easy to trace/debug and detect accidental mutation.
+	 *
+	 * Semantics:
+	 *  - Never directly mutates @c store_ (base). Only @ref squash_overlay_into_base_and_clear_ does.
+	 *  - Can be rebased when remote patches/snapshots advance the base.
+	 *  - Can optionally carry a canonical JSON Patch against the base.
+	*/
+	struct Overlay 
+	{
+		/**
+		 * @brief JSON object holding local diffs and tombstones.
+		 *
+		 * Common keys:
+		 *  - "ann_add" / "ann_del": string arrays
+		 *  - "reg_add" / "reg_del": { type: [id, ...] }
+		 *  - "sub_add" / "sub_del": { "byId:<ID>|byType:<TYPE>": [node, ...] }
+		 *  - "broker_journal_add":  [ { ...entry... }, ... ]
+		 *  - "broker_collections_upd": { type: <collection json> }
+		 *  - "broker_endpoint": "<url>"
+		 *  - "json_patch_against_base": JSON Patch array (RFC 6902)
+		*/
+		nlohmann::json state = nlohmann::json::object();   // local diffs / tombstones
+		/**
+		 * @brief Monotonic counter incremented on each overlay mutation/rebase.
+		*/
+		uint64_t       version = 0;                        // local-only counter
+		/**
+		 * @brief Canonical hash of @ref state for integrity/debugging.
+		 *
+		 * Initial value is MD5 of "{}" (d41d8cd98f00b204e9800998ecf8427e).
+		 * The actual algorithm is provided by @ref snds_resilience::canonical_hash.
+		*/
+		std::string    hash    = "d41d8cd98f00b204e9800998ecf8427e"; // md5("{}")
+	} overlay_;
+
+	/**
+	 * @brief Compute a canonical, stable hash for a JSON value.
+	 *
+	 * @param j Any JSON value (commonly an object).
+	 * @return std::string Canonical hash string suitable for logs/metrics.
+	 *
+	 * @note Delegates to @c snds_resilience::canonical_hash which takes care of
+	 *       canonicalization (e.g. key ordering) prior to hashing.
+	*/
+	inline std::string overlay_hash_(const nlohmann::json& j) const 
+	{
+		return snds_resilience::canonical_hash(j);
+	}
+
+	/**
+	 * @brief Mutate the overlay state only (never touches the base store).
+	 *
+	 * Invokes @p fn with a mutable reference to @ref overlay_.state to record
+	 * plain-JSON deltas (not a JSON Patch). Afterwards bumps @ref overlay_.version
+	 * and recomputes @ref overlay_.hash, then logs a concise summary of changes.
+	 *
+	 * @tparam F Callable with signature <tt>void(nlohmann::json&)</tt>.
+	 * @param fn Mutation function writing into @ref overlay_.state.
+	 *
+	 * @post @ref overlay_.version is incremented; @ref overlay_.hash reflects state.
+	 * @exception Never throws; exceptions from @p fn are caught and logged.
+	 * @warning Keep @p fn cheap and exception-safe; avoid mutating the base store.
+	*/
+	template <typename F>
+	void overlay_mutate_(F&& fn)
+	{
+		// Apply caller's mutation into overlay_.state (as plain JSON deltas, not patch)
+		try 
+		{
+			fn(overlay_.state);
+		} 
+		catch (const std::exception& e) 
+		{
+			m_logger->warn("[overlay] mutate handler threw: {}", e.what());
+		}
+
+		// Bump version + recompute hash
+		overlay_.version++;
+		overlay_.hash = overlay_hash_(overlay_.state);
+
+		// Helpful log line
+		m_logger->debug("[overlay] mutated: version={} hash={} size={} keys=[{}]",
+			overlay_.version,
+			overlay_.hash,
+			overlay_.state.size(),
+			[&]{
+				std::ostringstream oss;
+				bool first = true;
+				for (auto it = overlay_.state.begin(); it != overlay_.state.end(); ++it) 
+				{
+					if (!first) oss << ',';
+					first = false;
+					oss << it.key();
+				}
+				return oss.str();
+			}()
+		);
+	}
+
+	/**
+	 * @brief Build the effective read view = base @c store_ state ⊕ overlay.
+	 *
+	 * Applies, deterministically and minimally, only the shapes we own locally:
+	 * announcements, type registry, subscribers, broker journal/collections/endpoint,
+	 * or an explicit "json_patch_against_base" if present.
+	 *
+	 * @return nlohmann::json Fully merged state used to serve reads while SECONDARY.
+	 *
+	 * @note This function is side-effect free; it does not mutate overlay or base.
+	 * @warning Intended for read paths; avoid heavy allocations in hot loops.
+	*/
+	nlohmann::json merged_effective_state_() const;
+
+	/**
+	 * @brief Rebase current overlay onto the latest base after a remote apply.
+	 *
+	 * Computes the diff between the new base and the previous effective view,
+	 * stores it as "json_patch_against_base" when non-empty, and refreshes
+	 * @ref overlay_.version and @ref overlay_.hash.
+	 *
+	 * @param base_before Snapshot of base prior to the remote patch/snapshot (unused
+	 *                    in the current implementation but kept for clarity/tests).
+	 *
+	 * @post Overlay becomes a minimal patch relative to the new base.
+	 * @note This keeps local intent while accepting remote changes deterministically.
+ 	*/
+	void rebase_overlay_onto_base_after_remote_apply_(const nlohmann::json& base_before);
+
+	/**
+	 * @brief Promote: atomically squash overlay into base and clear the overlay.
+	 *
+	 * If the effective merged state differs from the current base, assigns it to
+	 * the underlying store and logs the base meta transition; otherwise, no-ops.
+	 * In both cases, resets @ref overlay_ to its default-constructed state.
+	 *
+	 * @post Base reflects merged state (if different); overlay is cleared.
+	 * @warning Only call on promotion to PRIMARY or when commit is desired.
+	*/
+	void squash_overlay_into_base_and_clear_();
 
 };

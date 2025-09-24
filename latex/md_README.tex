@@ -1,0 +1,740 @@
+The below cmake configuration will compile\+:
+
+
+\begin{DoxyItemize}
+\item NFD
+\item NFD-\/tools
+\item ndn-\/cxx ( the simple version )
+\end{DoxyItemize}
+
+
+\begin{DoxyCode}{0}
+\DoxyCodeLine{mkdir build}
+\DoxyCodeLine{cd build}
+\DoxyCodeLine{cmake ..}
+\DoxyCodeLine{make}
+
+\end{DoxyCode}
+
+
+Note that you might need to install the following dependencies\+:
+
+
+\begin{DoxyCode}{0}
+\DoxyCodeLine{sudo apt install libsqlite3-\/dev}
+\DoxyCodeLine{sudo apt install libpcap-\/dev}
+\DoxyCodeLine{sudo apt install libsystemd}
+\DoxyCodeLine{sudo apt install libboost-\/all-\/dev}
+
+\end{DoxyCode}
+
+
+Also you probably need to use\+:
+
+
+\begin{DoxyCode}{0}
+\DoxyCodeLine{sudo make}
+
+\end{DoxyCode}
+\hypertarget{md_README_autotoc_md1}{}\doxysection{Run}\label{md_README_autotoc_md1}
+You should be able to run everything from\+:
+
+
+\begin{DoxyCode}{0}
+\DoxyCodeLine{sudo ./run-\/nfd.sh}
+
+\end{DoxyCode}
+
+
+Note you might need to copy the file that is located inside\+: 
+\begin{DoxyCode}{0}
+\DoxyCodeLine{build/NFD/install/etc/ndn/ndf.conf.sample}
+
+\end{DoxyCode}
+
+
+Inside the same folder\+:
+
+
+\begin{DoxyCode}{0}
+\DoxyCodeLine{build/NFD/install/etc/ndn/ndf.conf}
+
+\end{DoxyCode}
+
+
+It is the same file without the .sample\hypertarget{md_README_autotoc_md2}{}\doxysection{Requests}\label{md_README_autotoc_md2}
+
+\begin{DoxyCode}{0}
+\DoxyCodeLine{curl -\/v -\/i -\/X POST http://127.0.0.1:8080 -\/d id="{}car1\&type=CAR"{}}
+
+\end{DoxyCode}
+
+
+or loop for multiple ids, e.\+g., 10 ids car1 to car10\+:
+
+
+\begin{DoxyCode}{0}
+\DoxyCodeLine{\$ for i in \{1..10\}; }
+\DoxyCodeLine{do curl -\/v -\/i -\/X POST http://127.0.0.1:8080 -\/d id="{}car\$\{i\}\&type=CAR"{}; }
+\DoxyCodeLine{sleep 0.5; }
+\DoxyCodeLine{done}
+
+\end{DoxyCode}
+
+
+Run the subscriber indicating either id or typee.\+g., send a GET HTTP message with URL param {\ttfamily ?id=car1"{} or}?type=CAR\`{}. Can be done via browser or curl
+
+
+\begin{DoxyCode}{0}
+\DoxyCodeLine{curl -\/i -\/X GET http://localhost:8080/?id=car1}
+
+\end{DoxyCode}
+\hypertarget{md_README_autotoc_md3}{}\doxysubsection{Subscriptions}\label{md_README_autotoc_md3}
+For subscriptions append the {\ttfamily is\+Sub=true\&suburl=MYURL} at the url. Add quotes to all variables e.\+g., {\ttfamily ?id=car1\&is\+Sub=true\&suburl=MYURL}
+
+By ID\+:
+
+
+\begin{DoxyCode}{0}
+\DoxyCodeLine{curl -\/i -\/X GET http://localhost:8080/?id=car1\&isSub=true\&suburl=MYURL}
+
+\end{DoxyCode}
+
+
+By Type\+:
+
+
+\begin{DoxyCode}{0}
+\DoxyCodeLine{curl -\/i -\/X GET http://localhost:8080/?type=CAR\&isSub=true\&suburl=MYURL}
+
+\end{DoxyCode}
+\hypertarget{md_README_autotoc_md4}{}\doxysubsection{Publish versioned ID}\label{md_README_autotoc_md4}
+Note this will try to publish it to endpoint add. If you don\textquotesingle{}t have an endpoint setup you will get an error\+: 
+\begin{DoxyCode}{0}
+\DoxyCodeLine{\textcolor{keywordflow}{if}(message.get()-\/>getMessageType() == SNDS\_INTRA\_MESSAGE\_TYPE::TEMPORAL\_QUERY\_REQUEST)\{}
+\DoxyCodeLine{    m\_logger-\/>info(\textcolor{stringliteral}{"{}Got new Temporal Query request...\(\backslash\)n\{\}"{}}, message.get()-\/>printDetails());}
+\DoxyCodeLine{    \textcolor{keyword}{auto} query = deserialize\_temporal\_query(content);}
+\DoxyCodeLine{    \textcolor{comment}{//query.date = md5\_hex(\&query.date, query.date.size());}}
+\DoxyCodeLine{    \textcolor{keyword}{auto} name = to\_path(query, \textcolor{keyword}{false}, \textcolor{keyword}{false});}
+\DoxyCodeLine{    m\_logger-\/>info(\textcolor{stringliteral}{"{}Annoucing name \{\}"{}}, name);}
+\DoxyCodeLine{    m\_face.setInterestFilter(name,}
+\DoxyCodeLine{      std::bind(\&SNDSProducer::onInterest, \textcolor{keyword}{this}, std::placeholders::\_2),}
+\DoxyCodeLine{      std::bind(\&SNDSProducer::onRegisterSuccess, \textcolor{keyword}{this}, std::placeholders::\_1),}
+\DoxyCodeLine{      std::bind(\&SNDSProducer::onRegisterFailed, \textcolor{keyword}{this}, std::placeholders::\_1, std::placeholders::\_2));}
+\DoxyCodeLine{}
+\DoxyCodeLine{    std::string payload = serialize\_temporal\_query(query);}
+\DoxyCodeLine{    httplib::Client cli(broker\_ip.c\_str(), broker\_port);}
+\DoxyCodeLine{    \textcolor{keyword}{auto} res = cli.Post(\textcolor{stringliteral}{"{}/add"{}}, payload, \textcolor{stringliteral}{"{}application/json"{}});}
+\DoxyCodeLine{    \textcolor{keywordflow}{if} (res \&\& res-\/>status == 200) \{}
+\DoxyCodeLine{        m\_logger-\/>info(\textcolor{stringliteral}{"{}Successfully POSTed to /add: \{\}"{}}, res-\/>body);}
+\DoxyCodeLine{    \} \textcolor{keywordflow}{else} \{}
+\DoxyCodeLine{        m\_logger-\/>error(\textcolor{stringliteral}{"{}Failed to POST to /add: \{\}"{}}, res ? res-\/>body : \textcolor{stringliteral}{"{}No response"{}});}
+\DoxyCodeLine{    \}}
+\DoxyCodeLine{    \textcolor{keywordflow}{continue};}
+\DoxyCodeLine{\}}
+
+\end{DoxyCode}
+ The request can look like this\+: 
+\begin{DoxyCode}{0}
+\DoxyCodeLine{curl -\/X POST http://localhost:8080/ \(\backslash\)}
+\DoxyCodeLine{  -\/-\/data-\/urlencode "{}id=car2"{} \(\backslash\)}
+\DoxyCodeLine{  -\/-\/data-\/urlencode "{}date=2025-\/06-\/28T15:41:50Z"{} \(\backslash\)}
+\DoxyCodeLine{  -\/H "{}Accept: application/json"{}}
+
+\end{DoxyCode}
+ \hypertarget{md_README_autotoc_md5}{}\doxysubsection{Temporal Query\+:}\label{md_README_autotoc_md5}
+This will retrieve the metafile from the database\+:
+
+
+\begin{DoxyCode}{0}
+\DoxyCodeLine{curl -\/G http://localhost:8080/ \(\backslash\)}
+\DoxyCodeLine{  -\/-\/data-\/urlencode "{}id=car2"{} \(\backslash\)}
+\DoxyCodeLine{  -\/-\/data-\/urlencode "{}date=2025-\/06-\/28T15:41:50Z"{} \(\backslash\)}
+\DoxyCodeLine{  -\/-\/data-\/urlencode "{}timeframe=before+after"{} \(\backslash\)}
+\DoxyCodeLine{  -\/-\/data-\/urlencode "{}count=10"{} \(\backslash\)}
+\DoxyCodeLine{  -\/H "{}Accept: application/json"{}}
+
+\end{DoxyCode}
+\hypertarget{md_README_autotoc_md6}{}\doxysection{Components}\label{md_README_autotoc_md6}
+\hypertarget{md_README_autotoc_md7}{}\doxysubsection{Service}\label{md_README_autotoc_md7}
+At runtime, Se\+EDS is a small distributed system composed of five cooperating services that run inside one process (each on its own thread) and talk over in-\/memory message queues. External I/O happens via NDN Interests/\+Data and a tiny HTTP API\+:
+
+
+\begin{DoxyItemize}
+\item SNDSHTTPService\+: small HTTP server (cpp-\/httplib) that turns HTTP GET/\+POST into internal messages.
+\item Worker\+: Parses requests, deduplicates, tracks state, aggregates results, and sends responses back to HTTP.
+\item SNDSConsumer\+: emits NDN Interests constructed from Worker’s requests, receives Data packets, and forwards payloads back.
+\item SNDSProducer\+: answers incoming NDN Interests (publishes Data) and also initiates outbound Interests when needed.
+\item Digital\+Twin\+: drives advertisements (by-\/\+ID / by-\/type / scope) and forwards “temporal query” announcements to Producer.
+\end{DoxyItemize}\hypertarget{md_README_autotoc_md8}{}\doxysubsubsection{Main Requests}\label{md_README_autotoc_md8}
+\hypertarget{md_README_autotoc_md9}{}\doxyparagraph{GET by ID ( Forwarded to the NDN through the temporal query API )}\label{md_README_autotoc_md9}
+HTTP receives {\ttfamily GET /?id=$<$ID$>$} (or POST body). It packs params into an intra-\/message and sends to Worker.
+
+Worker\+:
+\begin{DoxyItemize}
+\item Deduplicates with pending\+\_\+get\+\_\+by\+\_\+id\+\_\+requests (set).
+\item Builds an NDN name\+: {\ttfamily /$<$snds\+\_\+prefix$>$/$<$id$>$/get\+By\+ID\+:$<$id$>$} using parsed\+\_\+interest\+\_\+name helpers.
+\item Sends a GET\+\_\+\+BY\+\_\+\+ID\+\_\+\+REQUEST message to Consumer.
+\end{DoxyItemize}
+
+Consumer\+:
+\begin{DoxyItemize}
+\item Expresses the NDN Interest. Note that all the interests are forwarded through the temporal query API.
+\item On Data\+: forwards payload to Worker as GET\+\_\+\+BY\+\_\+\+ID\+\_\+\+RESPONSE.
+\end{DoxyItemize}
+
+Worker\+:
+\begin{DoxyItemize}
+\item Confirms the ID was pending; clears it; optionally tells Digital\+Twin to erase pending state.
+\item Writes the final response to the HTTP queue as TEMPORAL\+\_\+\+QUERY\+\_\+\+RESPONSE (used uniformly for JSON).
+\end{DoxyItemize}
+
+HTTP\+:
+\begin{DoxyItemize}
+\item Waits for one message from the service queue and returns 200 with the payload.
+\end{DoxyItemize}\hypertarget{md_README_autotoc_md10}{}\doxyparagraph{GET by TYPE}\label{md_README_autotoc_md10}
+HTTP receives {\ttfamily GET /?type=$<$TYPE$>$}.
+
+Worker\+:
+\begin{DoxyItemize}
+\item Deduplicates with pending\+\_\+get\+\_\+by\+\_\+type\+\_\+requests.
+\item Computes $<$\+TYPE$>$\+\_\+registry (configurable postfix).
+\item Sends GET\+\_\+\+BY\+\_\+\+TYPE\+\_\+\+REQUEST to Consumer with NDN name\+: {\ttfamily /$<$snds\+\_\+prefix$>$/$<$TYPE$>$\+\_\+registry/get\+By\+Type\+:$<$TYPE$>$} or {\ttfamily /$<$snds\+\_\+prefix$>$/$<$TYPE$>$/get\+By\+Type\+:$<$TYPE$>$} which is equivalent.
+\end{DoxyItemize}
+
+Consumer\+:
+\begin{DoxyItemize}
+\item fetches the registry file (a list of IDs) and sends it to Worker as REGISTRY\+\_\+\+PAYLOAD. Worker ( TODO this should be changed when we optimize cache hits )\+:
+\item Parses IDs with parse\+\_\+ids\+\_\+from\+\_\+registry\+\_\+file\+\_\+payload(...).
+\item For each ID, sends GET\+\_\+\+BY\+\_\+\+ID\+\_\+\+FOR\+\_\+\+TYPE\+\_\+\+REQUEST to Consumer with name\+: {\ttfamily /$<$snds\+\_\+prefix$>$/$<$TYPE$>$/get\+By\+IDFor\+Type\+:$<$ID$>$\&$<$TYPE$>$}
+\item Tracks which IDs are outstanding in pending\+\_\+ids\+\_\+to\+\_\+type\+\_\+map\mbox{[}TYPE\mbox{]}.
+\item Consumer replies for each ID with GET\+\_\+\+BY\+\_\+\+ID\+\_\+\+FOR\+\_\+\+TYPE\+\_\+\+RESPONSE.( Forwarded to the NDN through the temporal query API )
+\end{DoxyItemize}
+
+Worker\+:
+\begin{DoxyItemize}
+\item accumulates (id,payload) in payloads\+\_\+for\+\_\+get\+\_\+by\+\_\+type\mbox{[}TYPE\mbox{]}.
+\end{DoxyItemize}
+
+When the last ID arrives, it assembles and sends it to HTTP as a single message\+: 
+\begin{DoxyCode}{0}
+\DoxyCodeLine{\{ "{}type"{}: "{}<TYPE>"{}, "{}items"{}: [ \{"{}id"{}: "{}..."{}, "{}payload"{}: "{}..."{}\} ] \}}
+
+\end{DoxyCode}
+\hypertarget{md_README_autotoc_md11}{}\doxyparagraph{Subscriptions \& scope}\label{md_README_autotoc_md11}
+Users can subscribe to events by sending {\ttfamily GET /?id=$<$ID$>$\&is\+Sub=true\&suburl=$<$URL$>$} (or by type in the place of id=).
+
+HTTP → Worker\+: BY\+\_\+\+ID\+\_\+\+SUBSCRIPTION or BY\+\_\+\+TYPE\+\_\+\+SUBSCRIPTION.
+
+Worker\+:
+\begin{DoxyItemize}
+\item Stores the subscriber URL in subscribed\+\_\+by\+\_\+id\+\_\+users or subscribed\+\_\+by\+\_\+type\+\_\+users.
+\item Only on the first subscription for a key, it computes the node scope name (get\+SNDSNode\+Scope\+Name\+For\+Subscription) and asks Consumer to notify the appropriate scope\+:
+\end{DoxyItemize}
+
+
+\begin{DoxyCode}{0}
+\DoxyCodeLine{/<snds\_prefix>/<node\_scope>/newIdSubscription:<ID>\&<our\_scope>}
+
+\end{DoxyCode}
+ or\+: 
+\begin{DoxyCode}{0}
+\DoxyCodeLine{/<snds\_prefix>/<node\_scope>/newTypeSubscription:<type>\&<our\_scope>}
+
+\end{DoxyCode}
+\hypertarget{md_README_autotoc_md12}{}\doxyparagraph{Temporal queries (historical data)}\label{md_README_autotoc_md12}
+Temporal queries fetch historical “metafile” records around a date, optionally filtered.
+
+HTTP POST body or query string, e.\+g.\+:
+
+
+\begin{DoxyCode}{0}
+\DoxyCodeLine{id=car2\&date=2025-\/06-\/28T15:41:50Z\&timeframe=before+after\&count=10}
+
+\end{DoxyCode}
+
+
+Worker\+:
+\begin{DoxyItemize}
+\item Worker parses to a Temporal\+Query
+\item frame\+: bitmask of NOW$\vert$\+BEFORE$\vert$\+AFTER (temporal\+\_\+query\+::string\+\_\+to\+\_\+timeframe + to\+\_\+fields)
+\item date, id, optional type, count, optional filters and extras
+\item Worker computes a stable hash (temporal\+\_\+query\+\_\+hash\+\_\+string) and inserts the query into pending\+\_\+temporal\+\_\+queries\mbox{[}hash\mbox{]}. Then it forwards the serialized query to Consumer
+\end{DoxyItemize}
+
+Consumer\+: 
+\begin{DoxyCode}{0}
+\DoxyCodeLine{/<snds\_prefix>/<entity>/temporalQuery:id=...\&date=...\&timeframe=...\&count=...[\&filters=...]}
+
+\end{DoxyCode}
+ where {\ttfamily entity = (type.\+empty() ? id \+: type)}.
+
+Network returns one of two shapes\+:
+
+a) Direct mode (single item)
+
+\begin{quote}
+Payload returns only one items back to the consumer.\+Consumer detects it (\+\_\+is\+\_\+direct\+\_\+temporal\+\_\+payload), extracts the item, converts it into a Version envelope (with is\+\_\+metafile=false, mode=\char`\"{}direct\char`\"{}), and sends one VERSION\+\_\+\+RESPONSE back to Worker via a canonical query-\/\+URI (using build\+\_\+query\+\_\+uri). \end{quote}
+b) Manifest mode (metafile list)
+
+\begin{quote}
+Payload is an array of documents with \+\_\+id containing \{ \+\_\+id\+: \char`\"{}$<$id$>$\char`\"{}, timestamp\+: \{\char`\"{}\$date\char`\"{}\+: $<$ms$>$\} \}. Consumer fans out\+: for each doc, it constructs a metafile interest \end{quote}
+
+\begin{DoxyCode}{0}
+\DoxyCodeLine{/<snds\_prefix>/<id>/version?id=...\&type=...\&date=...\&metafile=true\&parentQueryHash=...}
+
+\end{DoxyCode}
+ \begin{quote}
+It sends all but the last with last\+Interest=false, and the last with last\+Interest=true.(A duplicate filter with a canonicalized name avoids resending.) \end{quote}
+Worker aggregation
+
+a) Direct mode\+: Worker extracts the single item and immediately returns\+:
+
+
+\begin{DoxyCode}{0}
+\DoxyCodeLine{\{"{}mode"{}:"{}direct"{},"{}items"{}:[\{...\}]\}}
+
+\end{DoxyCode}
+ b) Manifest mode\+:
+
+
+\begin{DoxyItemize}
+\item Worker buffers every VERSION\+\_\+\+RESPONSE per parent\+Query\+Hash in temporal\+\_\+buffers\mbox{[}hash\mbox{]}.
+\item Each slice is sanitized (fix\+\_\+mixed\+\_\+utf8\+\_\+cp1252) and optionally field-\/filtered (if filters present).
+\item On the last\+Interest it sends a single bundle back to HTTP\+: 
+\begin{DoxyCode}{0}
+\DoxyCodeLine{\{}
+\DoxyCodeLine{  "{}mode"{}: "{}manifest"{},}
+\DoxyCodeLine{  "{}parentQueryHash"{}: "{}<hash>"{},}
+\DoxyCodeLine{  "{}query"{}: "{}<serialized query>"{},}
+\DoxyCodeLine{  "{}items"{}: [ <filtered JSON slices> ]}
+\DoxyCodeLine{\}}
+
+\end{DoxyCode}
+
+\item Then it clears pending\+\_\+temporal\+\_\+queries\mbox{[}hash\mbox{]} and the buffer.
+\item Filtering\+: users can pass filters=a,b,c in the query; Worker will keep only those keys per item (object-\/wise).
+\end{DoxyItemize}\hypertarget{md_README_autotoc_md13}{}\doxysubsection{Broker}\label{md_README_autotoc_md13}
+You can run test the broker as a standalone binary. No need to run through the snds\+\_\+broker\+\_\+bin.\hypertarget{md_README_autotoc_md14}{}\doxysubsubsection{Summary}\label{md_README_autotoc_md14}
+The Broker is a small HTTP service in front of Mongo\+DB that stores, retrieves,fingerprints, and bulk-\/copies JSON documents. It supports both latest (unversioned) and historical (versioned) views of the same data and exposes a handful of endpoints for SNDS components (producers/consumers, resilience tools).\hypertarget{md_README_autotoc_md15}{}\doxyparagraph{Key ideas}\label{md_README_autotoc_md15}
+Two collections per type\+:
+\begin{DoxyItemize}
+\item Unversioned\+: $<$\+TYPE$>$ — contains only the latest record for each id (upserted).
+\item Versioned\+: $<$\+TYPE$>$\+\_\+\+VERSIONED — append-\/only history\+: \+\_\+id is a document \{ \+\_\+id\+: \char`\"{}$<$id$>$\char`\"{}, timestamp\+: $<$date$>$ \}.
+\item For mirroring, a secondary suffix may be used\+: $\ast$\+\_\+\+SECONDARY.
+\end{DoxyItemize}
+
+Deterministic fingerprints\+:
+\begin{DoxyItemize}
+\item Each document is canonicalized (keys sorted) and MD5’d.
+\item A collection fingerprint is SHA-\/256 over the per-\/doc MD5s, iterating in \+\_\+id order.
+\item GET /state?type=$<$\+TYPE$>$ returns \{ algo, hash, count \}. Secondary collections are skipped.
+\end{DoxyItemize}
+
+Timestamps always present
+\begin{DoxyItemize}
+\item Every record gets a server-\/side timestamp (BSON date). Versioned \+\_\+id also embeds the timestamp.
+\end{DoxyItemize}
+
+Graceful runtime\+:
+\begin{DoxyItemize}
+\item Single binary HTTP server (cpp-\/httplib), structured logs (spdlog), SIGINT-\/aware shutdown.
+\end{DoxyItemize}\hypertarget{md_README_autotoc_md16}{}\doxyparagraph{Endpoints (quick reference)}\label{md_README_autotoc_md16}
+
+\begin{DoxyItemize}
+\item POST /add\+: Insert/\+Upsert a document into both stores. Body must include at least id; type defaults to \char`\"{}\+GENERIC\char`\"{} if missing.
+\begin{DoxyEnumerate}
+\item Unversioned\+: replace\+\_\+one(..., upsert=true) on $<$\+TYPE$>$.
+\item Versioned\+: insert\+\_\+one on $<$\+TYPE$>$\+\_\+\+VERSIONED (or $\ast$\+\_\+\+VERSIONED\+\_\+\+SECONDARY if the incoming type name already carries \+\_\+\+SECONDARY).
+\end{DoxyEnumerate}
+\item GET /get?id=$<$\+ID$>$\&type=$<$\+TYPE$>$\+: Returns the latest document for that id from $<$\+TYPE$>$.
+\item GET /temporal-\/query?id=$<$\+ID$>$\&type=$<$\+TYPE$>$\&date=$<$\+ISO$>$\&timeframe=$<$NOW$\vert$\+BEFORE$\vert$\+AFTER\mbox{[}+...\mbox{]}$>$\&count=$<$\+N$>$. Reads from $<$\+TYPE$>$\+\_\+\+VERSIONED using Mongo\+DB pipelines. This returns an array with one element per timeframe token\+:
+\begin{DoxyEnumerate}
+\item NOW\+: nearest entries to date
+\item BEFORE\+: entries $<$= date (ascending)
+\item AFTER\+: entries $>$= date (ascending)
+\end{DoxyEnumerate}
+\item GET /state?type=$<$\+TYPE$>$ Returns a fingerprint of $<$\+TYPE$>$\+:
+\begin{DoxyEnumerate}
+\item {\ttfamily \{ \char`\"{}collection\char`\"{}\+: \char`\"{}\+TYPE\char`\"{}, \char`\"{}algo\char`\"{}\+: \char`\"{}\+SHA-\/256\char`\"{}, \char`\"{}hash\char`\"{}\+: \char`\"{}$<$hex$>$\char`\"{}, \char`\"{}count\char`\"{}\+: $<$n$>$ \}}
+\item For $\ast$\+\_\+\+SECONDARY types, returns an empty fingerprint and secondary\+: true.
+\end{DoxyEnumerate}
+\item GET /dump\mbox{[}?type=$<$\+TYPE$>$\mbox{]}\+: Export all (or one) non-\/secondary collections as Extended JSON.
+\item POST /copy\+: Bulk (re)hydrate collections from a JSON dump. Body shape\+: 
+\begin{DoxyCode}{0}
+\DoxyCodeLine{\{}
+\DoxyCodeLine{  "{}mirror\_to\_secondary"{}: true,}
+\DoxyCodeLine{  "{}secondary\_suffix"{}: "{}\_SECONDARY"{},}
+\DoxyCodeLine{  "{}collections"{}: \{}
+\DoxyCodeLine{    "{}CAR"{}: [ /* docs */ ],}
+\DoxyCodeLine{    "{}CAR\_VERSIONED"{}: [ /* docs */ ]}
+\DoxyCodeLine{  \}}
+\DoxyCodeLine{\}}
+
+\end{DoxyCode}
+
+\end{DoxyItemize}
+\begin{DoxyEnumerate}
+\item Unversioned docs → upsert by string \+\_\+id.
+\item Versioned docs → insert by composite \+\_\+id \{\+\_\+id, timestamp\}.
+\item When mirror\+\_\+to\+\_\+secondary=true, data is written to $<$\+NAME$>$\+\_\+\+SECONDARY.
+\end{DoxyEnumerate}\hypertarget{md_README_autotoc_md17}{}\doxysubsubsection{Example CURL}\label{md_README_autotoc_md17}
+
+\begin{DoxyCode}{0}
+\DoxyCodeLine{\# Add or update a record}
+\DoxyCodeLine{curl -\/sX POST localhost:8080/add \(\backslash\)}
+\DoxyCodeLine{  -\/H 'content-\/type: application/json' \(\backslash\)}
+\DoxyCodeLine{  -\/d '\{"{}type"{}:"{}CAR"{},"{}id"{}:"{}X123"{},"{}speed"{}:42\}'}
+\DoxyCodeLine{}
+\DoxyCodeLine{\# Latest read}
+\DoxyCodeLine{curl -\/s 'localhost:8080/get?id=X123\&type=CAR'}
+\DoxyCodeLine{}
+\DoxyCodeLine{\# Temporal query (5 items before a date)}
+\DoxyCodeLine{curl -\/s 'localhost:8080/temporal-\/query?id=X123\&type=CAR\&date=2025-\/06-\/26T14:30:00Z\&timeframe=BEFORE\&count=5'}
+\DoxyCodeLine{}
+\DoxyCodeLine{\# Collection fingerprint}
+\DoxyCodeLine{curl -\/s 'localhost:8080/state?type=CAR'}
+\DoxyCodeLine{}
+\DoxyCodeLine{\# Dump all non-\/secondary collections}
+\DoxyCodeLine{curl -\/s 'localhost:8080/dump'}
+
+\end{DoxyCode}
+\hypertarget{md_README_autotoc_md18}{}\doxysubsubsection{Compile}\label{md_README_autotoc_md18}
+Compile everything along with the broker\+:
+
+
+\begin{DoxyCode}{0}
+\DoxyCodeLine{sudo make (-\/j) }
+
+\end{DoxyCode}
+
+
+Compile only the broker target\+:
+
+
+\begin{DoxyCode}{0}
+\DoxyCodeLine{sudo cmake -\/-\/build . -\/-\/target snds\_broker\_bin (-\/j)}
+
+\end{DoxyCode}
+ \hypertarget{md_README_autotoc_md19}{}\doxysubsubsection{Run}\label{md_README_autotoc_md19}
+Note you need to provide the arguments like port,ip inside the main function.
+
+
+\begin{DoxyCode}{0}
+\DoxyCodeLine{\textcolor{preprocessor}{\#include <iostream>}}
+\DoxyCodeLine{\textcolor{preprocessor}{\#include <string>}}
+\DoxyCodeLine{\textcolor{preprocessor}{\#include <sstream>}}
+\DoxyCodeLine{}
+\DoxyCodeLine{\textcolor{preprocessor}{\#include "{}broker.h"{}}}
+\DoxyCodeLine{}
+\DoxyCodeLine{}
+\DoxyCodeLine{\textcolor{keywordtype}{int} main(\textcolor{keywordtype}{int} argc, \textcolor{keywordtype}{char}* argv[])\{}
+\DoxyCodeLine{}
+\DoxyCodeLine{    \textcolor{keywordflow}{if} (argc != 4) \{}
+\DoxyCodeLine{        std::cerr << \textcolor{stringliteral}{"{}Usage: ./app <username> <password> <database>\(\backslash\)n"{}};}
+\DoxyCodeLine{        \textcolor{keywordflow}{return} 1;}
+\DoxyCodeLine{    \}}
+\DoxyCodeLine{}
+\DoxyCodeLine{    std::string username = argv[1];}
+\DoxyCodeLine{    std::string password = argv[2];}
+\DoxyCodeLine{    std::string database = argv[3];}
+\DoxyCodeLine{}
+\DoxyCodeLine{    std::string uri\_str = \textcolor{stringliteral}{"{}mongodb+srv://"{}} + username + \textcolor{stringliteral}{"{}:"{}} + password +}
+\DoxyCodeLine{                          \textcolor{stringliteral}{"{}@cluster0.czndtc9.mongodb.net/?retryWrites=true\&w=majority\&appName=Cluster0"{}};}
+\DoxyCodeLine{}
+\DoxyCodeLine{    \textcolor{keywordflow}{try} \{}
+\DoxyCodeLine{        mongocxx::instance instance\{\};}
+\DoxyCodeLine{        mongocxx::uri uri(uri\_str);}
+\DoxyCodeLine{        Broker broker(uri, database, spdlog::level::debug, \textcolor{stringliteral}{"{}Broker.log"{}}, \textcolor{stringliteral}{"{}Broker"{}}, \textcolor{stringliteral}{"{}0.0.0.0"{}}, 10000);}
+\DoxyCodeLine{        broker.listen();}
+\DoxyCodeLine{    \} \textcolor{keywordflow}{catch} (\textcolor{keyword}{const} std::exception\& e) \{}
+\DoxyCodeLine{        std::cerr << \textcolor{stringliteral}{"{}MongoDB Exception: "{}} << e.what() << \textcolor{charliteral}{'\(\backslash\)n'};}
+\DoxyCodeLine{        \textcolor{keywordflow}{return} 1;}
+\DoxyCodeLine{    \}}
+\DoxyCodeLine{    \textcolor{keywordflow}{return} 0;}
+\DoxyCodeLine{\}}
+
+\end{DoxyCode}
+
+
+The only thing you need to provide through the command line is the password, username and the database name of the Mongo\+DB instance.
+
+
+\begin{DoxyCode}{0}
+\DoxyCodeLine{Usage: ./app <username> <password> <database>}
+
+\end{DoxyCode}
+ \hypertarget{md_README_autotoc_md20}{}\doxysubsubsection{Requests}\label{md_README_autotoc_md20}
+Currently the HTTP API supports\+:
+
+
+\begin{DoxyItemize}
+\item (POST) add-\/one. The type parameter does not have to be filled. If its not filled or doesn\textquotesingle{}t exist the system will default to the {\ttfamily GENERIC} type\+: 
+\begin{DoxyCode}{0}
+\DoxyCodeLine{curl -\/X POST http://localhost:10000/add \(\backslash\)}
+\DoxyCodeLine{  -\/H "{}Content-\/Type: application/json"{} \(\backslash\)}
+\DoxyCodeLine{  -\/H "{}Accept: application/json"{} \(\backslash\)}
+\DoxyCodeLine{  -\/d '\{}
+\DoxyCodeLine{    "{}id"{}: "{}car2"{},}
+\DoxyCodeLine{    "{}date"{}: "{}2025-\/06-\/28T15:41:50Z"{},}
+\DoxyCodeLine{    "{}type"{}: "{}CAR"{}}
+\DoxyCodeLine{    // rest\_of\_the\_data...}
+\DoxyCodeLine{  \}'}
+
+\end{DoxyCode}
+
+\item (GET) temporal-\/query. The type parameter does not have to be filled. If its not filled or doesn\textquotesingle{}t exist the system will default to the {\ttfamily GENERIC} type\+: 
+\begin{DoxyCode}{0}
+\DoxyCodeLine{curl -\/G http://localhost:10000/temporal-\/query \(\backslash\)}
+\DoxyCodeLine{  -\/-\/data-\/urlencode "{}id=car2"{} \(\backslash\)}
+\DoxyCodeLine{  -\/-\/data-\/urlencode "{}type=CAR"{} \(\backslash\)}
+\DoxyCodeLine{  -\/-\/data-\/urlencode "{}count=10"{} \(\backslash\)}
+\DoxyCodeLine{  -\/-\/data-\/urlencode "{}date=2025-\/06-\/28T15:41:50Z"{} \(\backslash\)}
+\DoxyCodeLine{  -\/-\/data-\/urlencode "{}timeframe=before+after"{} \(\backslash\)}
+\DoxyCodeLine{  -\/H "{}Accept: application/json"{}}
+
+\end{DoxyCode}
+
+\item (GET) state\+: 
+\begin{DoxyCode}{0}
+\DoxyCodeLine{curl -\/G http://localhost:10000/state \(\backslash\)}
+\DoxyCodeLine{  -\/-\/data-\/urlencode "{}type=sensor"{} \(\backslash\)}
+\DoxyCodeLine{  -\/H "{}Accept: application/json"{}}
+
+\end{DoxyCode}
+
+\end{DoxyItemize}\hypertarget{md_README_autotoc_md21}{}\doxysubsection{Resilience}\label{md_README_autotoc_md21}
+The resilience layer keeps a SECONDARY node in sync with a PRIMARY by exchanging tiny JSON envelopes over NDN. It prefers JSON Patch deltas for speed and falls back to full snapshots when needed. Everything is content-\/addressed with a deterministic hash so both sides can prove they agree.\hypertarget{md_README_autotoc_md22}{}\doxysubsubsection{Store (\+PRIMARY)}\label{md_README_autotoc_md22}
+Canonical, versioned JSON store with a bounded history. Each change bumps a version, recomputes a canonical hash, and keeps a snapshot for patch generation. Exposes\+:
+
+
+\begin{DoxyItemize}
+\item Meta → \{version, hash\}\+: a lightweight head descriptor for quick “are we in sync?” checks.
+\item Patch → \{base\+\_\+version, target\+\_\+version, target\+\_\+hash, ops\} where ops is RFC6902 JSON Patch {\ttfamily (nlohmann\+::json\+::diff(base,target))}. Apply with {\ttfamily json.\+patch(ops)}.
+\item Snapshot → \{version, hash, state\}\+: full state transfer for cold start or when a patch isn’t possible.
+\end{DoxyItemize}\hypertarget{md_README_autotoc_md23}{}\doxysubsubsection{Mirror (\+SECONDARY)}\label{md_README_autotoc_md23}
+Local follower that applies Snapshot or Patch. Validates via canonical hash; on mismatch it logs and normalizes locally (the goal is convergence, not crypto).\hypertarget{md_README_autotoc_md24}{}\doxysubsubsection{Resilience\+Poller (\+SECONDARY)}\label{md_README_autotoc_md24}
+A tiny scheduler that probes the PRIMARY and pulls updates. It runs two periodic loops and posts all I/O onto the NDN Face’s io\+\_\+context\+:
+
+
+\begin{DoxyItemize}
+\item Alive loop\+: proves reachability with a nonce echo.
+\item Meta loop\+: reads \{version, hash, ts\} and decides whether to fetch a patch or snapshot.
+\end{DoxyItemize}\hypertarget{md_README_autotoc_md25}{}\doxysubsubsection{Run}\label{md_README_autotoc_md25}
+\tabulinesep=1mm
+\begin{longtabu}spread 0pt [c]{*{4}{|X[-1]}|}
+\hline
+\PBS\centering \cellcolor{\tableheadbgcolor}\textbf{ Arg index   }&\PBS\centering \cellcolor{\tableheadbgcolor}\textbf{ Meaning   }&\PBS\centering \cellcolor{\tableheadbgcolor}\textbf{ Default   }&\PBS\centering \cellcolor{\tableheadbgcolor}\textbf{ Example    }\\\cline{1-4}
+\endfirsthead
+\hline
+\endfoot
+\hline
+\PBS\centering \cellcolor{\tableheadbgcolor}\textbf{ Arg index   }&\PBS\centering \cellcolor{\tableheadbgcolor}\textbf{ Meaning   }&\PBS\centering \cellcolor{\tableheadbgcolor}\textbf{ Default   }&\PBS\centering \cellcolor{\tableheadbgcolor}\textbf{ Example    }\\\cline{1-4}
+\endhead
+1   &NDN prefix   &{\ttfamily SNDS}   &{\ttfamily SNDS}    \\\cline{1-4}
+2   &peer “is alive” name   &{\ttfamily is\+\_\+alive\+\_\+0}   &{\ttfamily is\+\_\+alive\+\_\+2}    \\\cline{1-4}
+3   &peer “state” name   &{\ttfamily state\+\_\+0}   &{\ttfamily state\+\_\+2}    \\\cline{1-4}
+4   &alive probe period (ms)   &{\ttfamily 2000}   &{\ttfamily 1000}    \\\cline{1-4}
+5   &meta poll period (ms)   &{\ttfamily 2000}   &{\ttfamily 3000}    \\\cline{1-4}
+6   &IPC host   &{\ttfamily 127.\+0.\+0.\+1}   &{\ttfamily 0.\+0.\+0.\+0}    \\\cline{1-4}
+7   &IPC port   &{\ttfamily 47832}   &{\ttfamily 49000}   \\\cline{1-4}
+\end{longtabu}
+
+
+Example with all defaults\+: 
+\begin{DoxyCode}{0}
+\DoxyCodeLine{./resilience\_poller\_bin}
+
+\end{DoxyCode}
+ Example specifying everything\+: 
+\begin{DoxyCode}{0}
+\DoxyCodeLine{./resilience\_poller\_bin SNDS is\_alive\_2 state\_2 1000 3000 127.0.0.1 49000}
+
+\end{DoxyCode}
+\hypertarget{md_README_autotoc_md26}{}\doxysubsubsection{Wire protocol (\+NDN interest)}\label{md_README_autotoc_md26}
+Names are built under your SNDS prefix with per-\/peer components\+:\hypertarget{md_README_autotoc_md27}{}\doxyparagraph{Liveness probe}\label{md_README_autotoc_md27}
+
+\begin{DoxyItemize}
+\item Purpose\+: “\+Are you up, and did you see my nonce?”
+\item Interest name\+: /$<$SNDS-\/prefix$>$/$<$peer\+\_\+is\+\_\+alive\+\_\+name$>$/\+GET\+\_\+\+RESILIENCE\+\_\+\+IS\+\_\+\+ALIVE/$<$nonce$>$
+\item Example\+: /\+SNDS/is\+\_\+alive\+\_\+2/\+GET\+\_\+\+RESILIENCE\+\_\+\+IS\+\_\+\+ALIVE/123456789
+\item Data (JSON)\+:
+\end{DoxyItemize}
+
+
+\begin{DoxyCode}{0}
+\DoxyCodeLine{\{ "{}ack"{}: true, "{}nonce"{}: "{}123456789"{}, "{}ts"{}: "{}2025-\/06-\/26T14:30:00Z"{} \}}
+
+\end{DoxyCode}
+
+\begin{DoxyItemize}
+\item Client behavior\+: Accept only if ack == true and the echoed nonce matches.
+\end{DoxyItemize}\hypertarget{md_README_autotoc_md28}{}\doxyparagraph{Head metadata}\label{md_README_autotoc_md28}
+
+\begin{DoxyItemize}
+\item Purpose\+: “\+What version and hash is your current state?”
+\item Interest name\+: /$<$SNDS-\/prefix$>$/$<$peer\+\_\+state\+\_\+name$>$/\+GET\+\_\+\+RESILIENCE\+\_\+\+META
+\item Example\+: /\+SNDS/state\+\_\+2/\+GET\+\_\+\+RESILIENCE\+\_\+\+META
+\item Data (JSON)\+: 
+\begin{DoxyCode}{0}
+\DoxyCodeLine{\{ "{}version"{}: 42, "{}hash"{}: "{}7c4ff521...md5..."{}, "{}ts"{}: "{}2025-\/06-\/26T14:31:00Z"{} \}}
+
+\end{DoxyCode}
+
+\item Client behavior\+: Compare version to your local version to decide whether you need a patch or a snapshot.
+\end{DoxyItemize}\hypertarget{md_README_autotoc_md29}{}\doxyparagraph{Patch (delta) request}\label{md_README_autotoc_md29}
+
+\begin{DoxyItemize}
+\item Purpose\+: “\+Give me the JSON Patch from my version → your version.\+”
+\item Interest name\+:/$<$SNDS-\/prefix$>$/$<$peer\+\_\+state\+\_\+name$>$/\+GET\+\_\+\+RESILIENCE\+\_\+\+PATCH/$<$from\+\_\+version$>$/$<$to\+\_\+version$>$
+\item Example\+: /\+SNDS/state\+\_\+2/\+GET\+\_\+\+RESILIENCE\+\_\+\+PATCH/40/42
+\item Success Data (JSON)\+: 
+\begin{DoxyCode}{0}
+\DoxyCodeLine{\{}
+\DoxyCodeLine{  "{}kind"{}: "{}patch"{},}
+\DoxyCodeLine{  "{}base\_version"{}: 40,}
+\DoxyCodeLine{  "{}target\_version"{}: 42,}
+\DoxyCodeLine{  "{}target\_hash"{}: "{}7c4ff521...md5..."{},}
+\DoxyCodeLine{  "{}ops"{}: [ /* RFC6902 JSON Patch ops */ ]}
+\DoxyCodeLine{\}}
+
+\end{DoxyCode}
+
+\item Possible error Data (JSON)\+: (producer guides you to fall back) 
+\begin{DoxyCode}{0}
+\DoxyCodeLine{\{ "{}error"{}: "{}patch\_unavailable"{}, "{}advice"{}: "{}fetch\_snapshot"{}, "{}latest"{}: 42 \}}
+
+\end{DoxyCode}
+
+\item Other error values you might see\+: {\ttfamily missing\+\_\+parameters, invalid\+\_\+parameters, non\+\_\+increasing\+\_\+version, unknown\+\_\+target\+\_\+version, store\+\_\+advanced}.
+\item Client behavior\+: Try applying ops to your local state. If apply fails or you get an error, fetch a snapshot of target\+\_\+version (or of latest).
+\end{DoxyItemize}\hypertarget{md_README_autotoc_md30}{}\doxyparagraph{Snapshot (full state) request}\label{md_README_autotoc_md30}
+
+\begin{DoxyItemize}
+\item Purpose\+: “\+Give me the full state at your head (or at the specified version).”
+\item Interest name\+:/$<$SNDS-\/prefix$>$/$<$peer\+\_\+state\+\_\+name$>$/\+GET\+\_\+\+RESILIENCE\+\_\+\+SNAPSHOT/$<$to\+\_\+version$>$
+\item Example\+: /\+SNDS/state\+\_\+2/\+GET\+\_\+\+RESILIENCE\+\_\+\+SNAPSHOT/42
+\item Success Data (JSON)\+: 
+\begin{DoxyCode}{0}
+\DoxyCodeLine{\{}
+\DoxyCodeLine{  "{}kind"{}: "{}snapshot"{},}
+\DoxyCodeLine{  "{}version"{}: 42,}
+\DoxyCodeLine{  "{}hash"{}: "{}7c4ff521...md5..."{},}
+\DoxyCodeLine{  "{}state"{}: \{ /* entire canonical JSON state */ \}}
+\DoxyCodeLine{\}}
+
+\end{DoxyCode}
+
+\item Possible error Data (JSON)\+: 
+\begin{DoxyCode}{0}
+\DoxyCodeLine{\{ "{}error"{}: "{}store\_advanced"{}, "{}advice"{}: "{}fetch\_snapshot"{}, "{}latest"{}: 43 \}}
+
+\end{DoxyCode}
+
+\end{DoxyItemize}
+
+(You asked for 42, but the head moved to 43; ask again for 43.)\hypertarget{md_README_autotoc_md31}{}\doxyparagraph{Determinism \& hashing}\label{md_README_autotoc_md31}
+Canonicalization uses nlohmann\+::ordered\+\_\+json + compact .dump() so the same logical object hashes identically everywhere.
+
+Hashing is MD5 over the canonical dump. It’s a fast, stable fingerprint for identity checks—not a security guarantee.\hypertarget{md_README_autotoc_md32}{}\doxyparagraph{Client behavior (\+SECONDARY)}\label{md_README_autotoc_md32}
+
+\begin{DoxyItemize}
+\item Boot → send META. With no local version, fetch SNAPSHOT at the advertised version and apply.
+\item Steady state → on META showing a higher version, request PATCH \{local→remote\}.
+\item If PATCH NACKs/times out/fails to apply, fetch SNAPSHOT \{remote\}.
+\item Liveness \& promotion → on 3 consecutive is\+\_\+alive misses, the example app self-\/promotes to PRIMARY, emits an IPC \char`\"{}role\char`\"{}\+:\char`\"{}primary\char`\"{} envelope, and stops the poller.
+\end{DoxyItemize}\hypertarget{md_README_autotoc_md33}{}\doxysection{Run the Mini\+NDN}\label{md_README_autotoc_md33}
+\hypertarget{md_README_autotoc_md34}{}\doxysubsection{Install Mini\+NDN}\label{md_README_autotoc_md34}
+Clone the repo\+: 
+\begin{DoxyCode}{0}
+\DoxyCodeLine{git clone https://github.com/named-\/data/mini-\/ndn}
+
+\end{DoxyCode}
+ Install the Mini\+NDN\+: 
+\begin{DoxyCode}{0}
+\DoxyCodeLine{./install.sh}
+
+\end{DoxyCode}
+\hypertarget{md_README_autotoc_md35}{}\doxysubsection{Make it work with mongo}\label{md_README_autotoc_md35}
+Install Mongo\+DB locally to not have internet connectivity issues\+:
+
+
+\begin{DoxyCode}{0}
+\DoxyCodeLine{\# Ubuntu 22.04/24.04 example — installs MongoDB 7.0}
+\DoxyCodeLine{wget -\/qO -\/ https://www.mongodb.org/static/pgp/server-\/7.0.asc | sudo gpg -\/-\/dearmor -\/o /usr/share/keyrings/mongodb-\/server-\/7.0.gpg}
+\DoxyCodeLine{echo "{}deb [ arch=amd64,arm64 signed-\/by=/usr/share/keyrings/mongodb-\/server-\/7.0.gpg ] https://repo.mongodb.org/apt/ubuntu \$(. /etc/os-\/release; echo \$UBUNTU\_CODENAME)/mongodb-\/org/7.0 multiverse"{} | \(\backslash\)}
+\DoxyCodeLine{  sudo tee /etc/apt/sources.list.d/mongodb-\/org-\/7.0.list}
+
+\end{DoxyCode}
+
+
+Install\+:
+
+
+\begin{DoxyCode}{0}
+\DoxyCodeLine{sudo apt update}
+\DoxyCodeLine{sudo apt install -\/y mongodb-\/org}
+\DoxyCodeLine{sudo systemctl enable -\/-\/now mongod}
+
+\end{DoxyCode}
+
+
+Sanity check\+:
+
+
+\begin{DoxyCode}{0}
+\DoxyCodeLine{mongosh -\/-\/eval 'db.runCommand(\{buildInfo:1\}).version'}
+\DoxyCodeLine{\# and:}
+\DoxyCodeLine{ss -\/lnt | grep 27017}
+
+\end{DoxyCode}
+
+
+A good GUI I use for mongo is Compass\+: \href{https://www.mongodb.com/try/download/compass}{\texttt{ https\+://www.\+mongodb.\+com/try/download/compass}}
+
+Just download the apt file and install it. Connect to the local cluster ( you can connect to any cluster you want )\+: \char`\"{}mongodb\+://127.\+0.\+0.\+1\+:27017\char`\"{}\hypertarget{md_README_autotoc_md36}{}\doxysubsection{Run}\label{md_README_autotoc_md36}
+
+\begin{DoxyCode}{0}
+\DoxyCodeLine{sudo python run.py <specify\_topology\_file\_here>}
+
+\end{DoxyCode}
+\hypertarget{md_README_autotoc_md37}{}\doxysubsection{Test the project effectively}\label{md_README_autotoc_md37}
+I spin up three nodes through the {\ttfamily topology.\+conf}.\hypertarget{md_README_autotoc_md38}{}\doxysubsubsection{Requests}\label{md_README_autotoc_md38}
+Requests are exactly the same as above. Just make sure to publish from one node and ask from another.
+
+Also make sure you subscribe to other nodes and you get results etc.\hypertarget{md_README_autotoc_md39}{}\doxysubsubsection{Broker}\label{md_README_autotoc_md39}
+The {\ttfamily run.\+py} script spins up a broker instance in each Node. You can query the database using the following requests\+:
+
+Dump\+: 
+\begin{DoxyCode}{0}
+\DoxyCodeLine{mini-\/ndn> b curl -\/X GET 'http://10.0.0.2:10000/dump' -\/H 'Content-\/Type: application/json' -\/H 'Accept: application/json'}
+\DoxyCodeLine{mini-\/ndn> a curl -\/X POST 'http://10.0.0.1:10000/add' -\/H 'Content-\/Type: application/json' -\/H 'Accept: application/json' -\/d '\{"{}id"{}:"{}car2"{},"{}date"{}:"{}2025-\/06-\/28T15:41:50Z"{},"{}type"{}:"{}CAR"{}\}'}
+\DoxyCodeLine{mini-\/ndn> a curl -\/X GET 'http://10.0.0.1:10000/dump' -\/H 'Content-\/Type: application/json' -\/H 'Accept: application/json'}
+
+\end{DoxyCode}
+
+
+With the above ideas you can also use the rest of the requests like add, get etc...\hypertarget{md_README_autotoc_md40}{}\doxysubsubsection{Resilience}\label{md_README_autotoc_md40}
+In node D you can set up the resilience by running through the terminal\+:
+
+
+\begin{DoxyCode}{0}
+\DoxyCodeLine{./resilience\_poller\_bin -\/-\/log-\/level="{}DEBUG"{} -\/-\/ipc-\/port="{}47835"{}}
+
+\end{DoxyCode}
+
+
+This way D is going to become the {\ttfamily secondary} of A. You can set up A to exit the process after 120s to simulate a crash of A.
+
+
+\begin{DoxyCode}{0}
+\DoxyCodeLine{host.cmdPrint(}
+\DoxyCodeLine{  'cd /home/fotis/Github/SeEDS/build \&\& '}
+\DoxyCodeLine{  f'env HOME="{}\{host\_home\}"{} timeout 120s ./snds\_daemon\_bin '}
+\DoxyCodeLine{  ...}
+\DoxyCodeLine{)}
+
+\end{DoxyCode}
+
+
+You should see D merging of all its data with A. 
