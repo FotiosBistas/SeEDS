@@ -237,13 +237,13 @@ Usage:
 ## Post ID
 
 ```
-curl -v -i -X POST http://127.0.0.1:8080 -d id="car1"
+curl -v -i -X POST http://127.0.0.1:8080 -d id=car1
 ```
 
 ## Post to registry
 
 ```
-curl -v -i -X POST http://127.0.0.1:8080 -d id="car1&type=CAR"
+curl -v -i -X POST http://127.0.0.1:8080 -d id=car1&type=CAR
 ```
 
 ## Get by ID
@@ -572,13 +572,13 @@ D's logs:
 ```
 [2025-09-25 00:16:25.868] [info] [Consumer] Sending actual Interest /SNDS/CAR_0_registry/getByType%3ACAR_0?CanBePrefix&Lifetime=6000
 [2025-09-25 00:16:25.869] [info] [Consumer] Received Data with name: /SNDS/CAR_0_registry/getByType%3ACAR_0 in function onData
-[2025-09-25 00:16:25.869] [info] [Consumer] Data packet payload: R   	car123434 car1234 car124 car54 in function onData
+[2025-09-25 00:16:25.869] [info] [Consumer] Data packet payload: R car123434|car1234|car124|car54 in function onData
 [2025-09-25 00:16:25.869] [info] [Consumer] Parsed interest: Prefix: SNDS, Name: CAR_0_registry, Command: getByType, Params: [CAR_0] in onData
 [2025-09-25 00:16:25.869] [info] [Consumer] Received Registry File
-[2025-09-25 00:16:25.869] [info] [Consumer] In Function: onData sending name CAR_0 to worker R   	car123434 car1234 car124 car54
+[2025-09-25 00:16:25.869] [info] [Consumer] In Function: onData sending name CAR_0 to worker R	car123434|car1234|car124|car54
 [2025-09-25 00:16:25.869] [info] [Worker] Received content: CAR_0
 [2025-09-25 00:16:25.869] [info] [Consumer] Reading packet...
-[2025-09-25 00:16:25.869] [info] [Worker] Received payload: R   	car123434 car1234 car124 car54
+[2025-09-25 00:16:25.869] [info] [Worker] Received payload: R car123434|car1234|car124|car54
 [2025-09-25 00:16:25.869] [info] [Worker] Received type: REGISTRY_PAYLOAD
 [2025-09-25 00:16:25.869] [debug] [Worker] Consumer intra message...
 [2025-09-25 00:16:25.869] [debug] [Worker] Number of IDs in payload: 4
@@ -803,15 +803,759 @@ in func: process_subscription_notification_interest
 ```
 #### Subscribe and get notified for subscription for TYPE
 
+Let's subscribe from A to C: 
+![alt text](./read-me-data/bytype-a-c.png)
+
+
+A's logs
+
+```
+[2025-09-25 01:24:38.968] [debug] [Consumer] Extracted content from message: /SNDS/CAR_2/newTypeSubscription:CAR_2&SNDS_ID_scope_0
+[2025-09-25 01:24:38.968] [debug] [Consumer] Extracted content length from message: 53
+[2025-09-25 01:24:38.968] [debug] [Consumer] Extracted message type from message: BY_TYPE_SUBSCRIPTION
+[2025-09-25 01:24:38.968] [info] [Consumer] Received other scope name: CAR_2 in express_subscription_interest
+[2025-09-25 01:24:38.968] [info] [Consumer] Received other scope name: CAR_2, our scope name: SNDS_ID_scope_0 for name: CAR_2 in func: express_subscription_interest
+[2025-09-25 01:24:38.968] [debug] [Consumer] Created name: /SNDS/CAR_2/newTypeSubscription:CAR_2&SNDS_ID_scope_0 in func: express_subscription_interest
+[2025-09-25 01:24:38.968] [debug] [Consumer] Sending actual interest to the network: /SNDS/CAR_2/newTypeSubscription%3ACAR_2%26SNDS_ID_scope_0?CanBePrefix&Lifetime=6000
+[2025-09-25 01:24:38.971] [info] [Consumer] Received Data with name: /SNDS/CAR_2/newTypeSubscription%3ACAR_2%26SNDS_ID_scope_0 in function onData
+[2025-09-25 01:24:38.971] [info] [Consumer] Data packet payload: ACK_SUBSCRIPTION_NEW in function onData
+[2025-09-25 01:24:38.971] [info] [Consumer] Parsed interest: Prefix: SNDS, Name: CAR_2, Command: newTypeSubscription, Params: [CAR_2, SNDS_ID_scope_0] in onData
+[2025-09-25 01:24:38.971] [info] [Consumer] Got ACK ACK_SUBSCRIPTION_NEW. Skipping...
+[2025-09-25 01:24:38.971] [info] [Worker] Received content: /SNDS/CAR_2/newTypeSubscription:CAR_2&SNDS_ID_scope_0
+[2025-09-25 01:24:38.971] [info] [Consumer] Reading packet...
+[2025-09-25 01:24:38.971] [info] [Worker] Received payload: ACK_SUBSCRIPTION_NEW
+[2025-09-25 01:24:38.971] [info] [Worker] Received type: GET_BY_ID_FOR_TYPE_RESPONSE
+[2025-09-25 01:24:38.971] [debug] [Worker] Consumer intra message...
+```
+
+C's logs: 
+
+```
+[2025-09-25 01:24:38.968] [info] [Producer] Received interest in function: onInterest, name: /SNDS/CAR_2/newTypeSubscription%3ACAR_2%26SNDS_ID_scope_0
+[2025-09-25 01:24:38.968] [info] [Producer] Parsed interest: Prefix: SNDS, Name: CAR_2, Command: newTypeSubscription, Params: [CAR_2, SNDS_ID_scope_0]
+[2025-09-25 01:24:38.968] [info] [Producer] Received our_snds_node_id: CAR_2 in func: process_new_subscription_interest
+[2025-09-25 01:24:38.968] [info] [Producer] Got interest indicating new subscription for name: CAR_2, and snds node: SNDS_ID_scope_0
+[2025-09-25 01:24:38.968] [info] [Producer] [event] subscribe_type: node=SNDS_ID_scope_0 -> type=CAR_2
+[2025-09-25 01:24:38.968] [info] [Producer] [resilience] mutate → ver=8 hash=7fc3d0f314d376888565304b531f3ba6
+[2025-09-25 01:24:38.969] [debug] [Producer] [resilience] history versions: 0(37a6259c) 1(e06e4bb1) 2(8c504c48) 3(6ec8bb8e) 4(5b3c8aca) 5(50bcebe2) 6(dc177b2a) 7(97a080cd) 8(7fc3d0f3) 
+[2025-09-25 01:24:38.969] [debug] [Producer] [resilience] ops from v7 → v8:
+[
+  {
+    "op": "add",
+    "path": "/subscribers/byType/CAR_2",
+    "value": {
+      "nodes": {
+        "SNDS_ID_scope_0": true
+      }
+    }
+  }
+]
+[2025-09-25 01:24:38.969] [info] [Producer] [debug][event:on_subscribe_type SNDS_ID_scope_0->CAR_2] summary → types=1 ids=0 subs(byId)=0 subs(byType)=1 announced=6
+[2025-09-25 01:24:38.969] [debug] [Producer] [debug][event:on_subscribe_type SNDS_ID_scope_0->CAR_2] type_registry:
+[2025-09-25 01:24:38.969] [debug] [Producer]   [CAR_2] 
+[2025-09-25 01:24:38.969] [debug] [Producer] [debug][event:on_subscribe_type SNDS_ID_scope_0->CAR_2] subscribed_nodes_for_id:
+[2025-09-25 01:24:38.969] [debug] [Producer] [debug][event:on_subscribe_type SNDS_ID_scope_0->CAR_2] subscribed_nodes_for_type:
+[2025-09-25 01:24:38.969] [debug] [Producer]   [CAR_2] SNDS_ID_scope_0 
+[2025-09-25 01:24:38.969] [debug] [Producer] [debug][event:on_subscribe_type SNDS_ID_scope_0->CAR_2] announcements: /SNDS/CAR_2 /SNDS/state_2 /SNDS/is_alive_2 /SNDS/SNDS_ID_scope_2 /SNDS/CAR_2_registry /SNDS_2 
+[2025-09-25 01:24:38.969] [info] [Producer] [debug][event:on_subscribe_type SNDS_ID_scope_0->CAR_2] broker.journal: entries=0 cursor=0 last_fp=
+[2025-09-25 01:24:38.969] [debug] [Producer] [overlay][event:on_subscribe_type SNDS_ID_scope_0->CAR_2] ver=0 hash=d41d8cd98f00b204e9800998ecf8427e keys=0
+[2025-09-25 01:24:38.969] [info] [Producer] [BY_TYPE] New subscription: SNDS_ID_scope_0 subscribed to CAR_2
+[2025-09-25 01:24:38.969] [info] [Producer] [BY_TYPE] Responding to interest: /SNDS/CAR_2/newTypeSubscription%3ACAR_2%26SNDS_ID_scope_0
+[2025-09-25 01:24:38.969] [debug] [Producer] Sending data to the NDN…
+
+```
+
+
+Let's publish to C's registry through B: 
+
+![alt text](./read-me-data/publish-regc-b.png)
+
+B's logs: 
+
+```
+[2025-09-25 01:31:05.584] [debug] [DigitalTwin] Extracted content from message {id=carA,type=CAR_2}
+[2025-09-25 01:31:05.584] [debug] [DigitalTwin] Extracted content length from message 20
+[2025-09-25 01:31:05.584] [debug] [DigitalTwin] Extracted type from message: BY_ID_AND_TYPE_ADVERTISEMENT
+[2025-09-25 01:31:05.584] [info] [DigitalTwin] Received by Type get request...
+[2025-09-25 01:31:05.584] [debug] [DigitalTwin] The Type is the following: CAR_2
+[2025-09-25 01:31:05.584] [debug] [DigitalTwin] The ID is the following: carA
+Message: /SNDS/CAR_2/byIDAndTypeAdvertisement:carA&CAR_2
+Type: BY_ID_AND_TYPE_ADVERTISEMENT
+Sender: DIGITAL_TWIN
+Payload: 
+HTTP Type: HTTP_EMPTY
+Params:
+[2025-09-25 01:31:05.584] [info] [DigitalTwin] Pushing byType advertisement to the Consumer...
+Message: /SNDS/CAR_2/byIDAndTypeAdvertisement:carA&CAR_2
+Type: BY_ID_AND_TYPE_ADVERTISEMENT
+Sender: DIGITAL_TWIN
+Payload: 
+HTTP Type: HTTP_EMPTY
+Params:
+
+[2025-09-25 01:31:05.584] [debug] [DigitalTwin] Sleeping 2000 ms before sending scope advertisement...
+[2025-09-25 01:31:05.584] [debug] [Consumer] Extracted content from message: /SNDS/CAR_2/byIDAndTypeAdvertisement:carA&CAR_2
+[2025-09-25 01:31:05.584] [debug] [Consumer] Extracted content length from message: 47
+[2025-09-25 01:31:05.584] [debug] [Consumer] Extracted message type from message: BY_ID_AND_TYPE_ADVERTISEMENT
+[2025-09-25 01:31:05.584] [debug] [Consumer] Created name: /SNDS/CAR_2/byIDAndTypeAdvertisement:carA&CAR_2 in func: express_by_id_and_type_advertisement_interest
+[2025-09-25 01:31:05.584] [info] [Consumer] Sending actual Interest /SNDS/CAR_2/byIDAndTypeAdvertisement%3AcarA%26CAR_2?CanBePrefix&Lifetime=6000
+[2025-09-25 01:31:05.588] [info] [Consumer] Received Data with name: /SNDS/CAR_2/byIDAndTypeAdvertisement%3AcarA%26CAR_2 in function onData
+[2025-09-25 01:31:05.588] [info] [Consumer] Data packet payload: ACK_ID_REGISTERED in function onData
+[2025-09-25 01:31:05.588] [info] [Consumer] Parsed interest: Prefix: SNDS, Name: CAR_2, Command: byIDAndTypeAdvertisement, Params: [carA, CAR_2] in onData
+[2025-09-25 01:31:05.588] [info] [Consumer] Got ACK ACK_ID_REGISTERED. Skipping...
+[2025-09-25 01:31:05.588] [info] [Consumer] Reading packet...
+[2025-09-25 01:31:05.588] [info] [Worker] Received content: /SNDS/CAR_2/byIDAndTypeAdvertisement:carA&CAR_2
+[2025-09-25 01:31:05.588] [info] [Worker] Received payload: ACK_ID_REGISTERED
+[2025-09-25 01:31:05.588] [info] [Worker] Received type: GET_BY_ID_FOR_TYPE_RESPONSE
+[2025-09-25 01:31:05.588] [debug] [Worker] Consumer intra message...
+```
+
+A's logs: 
+
+```
+[2025-09-25 01:31:07.585] [info] [Producer] Received interest in function: onInterest, name: /SNDS/SNDS_ID_scope_0/subscriptionNotification%3AcarA%26CAR_2%26SNDS_ID_scope_2
+[2025-09-25 01:31:07.585] [info] [Producer] Parsed interest: Prefix: SNDS, Name: SNDS_ID_scope_0, Command: subscriptionNotification, Params: [carA, CAR_2, SNDS_ID_scope_2]
+[2025-09-25 01:31:07.585] [info] [Producer] Subscription Notification: id='carA', type='CAR_2' (byTYPE), scope='SNDS_ID_scope_0', cb='SNDS_ID_scope_2' -> issuing GET_BY_TYPE_REQUEST
+Message: /SNDS/CAR_2/getByType:CAR_2
+Type: GET_BY_TYPE_REQUEST
+Sender: PRODUCER
+Payload: 
+HTTP Type: HTTP_EMPTY
+Params:
+[2025-09-25 01:31:07.585] [debug] [Producer] Sending message:
+Message: /SNDS/CAR_2/getByType:CAR_2
+Type: GET_BY_TYPE_REQUEST
+Sender: PRODUCER
+Payload: 
+HTTP Type: HTTP_EMPTY
+Params:
+
+in func: process_subscription_notification_interest
+[2025-09-25 01:31:07.585] [debug] [Producer] Sending data to the NDN…
+[2025-09-25 01:31:07.585] [debug] [Consumer] Extracted content from message: /SNDS/CAR_2/getByType:CAR_2
+[2025-09-25 01:31:07.585] [debug] [Consumer] Extracted content length from message: 27
+[2025-09-25 01:31:07.585] [debug] [Consumer] Extracted message type from message: GET_BY_TYPE_REQUEST
+[2025-09-25 01:31:07.585] [debug] [Consumer] Created name: /SNDS/CAR_2/getByType:CAR_2 in func: express_get_by_type_interest
+[2025-09-25 01:31:07.585] [info] [Consumer] Sending actual Interest /SNDS/CAR_2/getByType%3ACAR_2?CanBePrefix&Lifetime=6000
+[2025-09-25 01:31:07.586] [info] [Consumer] Received Data with name: /SNDS/CAR_2/getByType%3ACAR_2 in function onData
+[2025-09-25 01:31:07.586] [info] [Consumer] Data packet payload: RcarA in function onData
+[2025-09-25 01:31:07.586] [info] [Consumer] Parsed interest: Prefix: SNDS, Name: CAR_2, Command: getByType, Params: [CAR_2] in onData
+[2025-09-25 01:31:07.586] [info] [Consumer] Received Registry File
+[2025-09-25 01:31:07.586] [info] [Consumer] In Function: onData sending name CAR_2 to worker RcarA
+[2025-09-25 01:31:07.586] [info] [Consumer] Reading packet...
+[2025-09-25 01:31:07.586] [info] [Worker] Received content: CAR_2
+[2025-09-25 01:31:07.586] [info] [Worker] Received payload: RcarA
+[2025-09-25 01:31:07.586] [info] [Worker] Received type: REGISTRY_PAYLOAD
+[2025-09-25 01:31:07.586] [debug] [Worker] Consumer intra message...
+[2025-09-25 01:31:07.586] [debug] [Worker] Number of IDs in payload: 1
+[2025-09-25 01:31:07.586] [debug] [Worker] Reading ID #1 with size 4
+[2025-09-25 01:31:07.586] [info] [Worker] Parsed ID #1: carA
+[2025-09-25 01:31:07.586] [info] [Worker] Size of ids in registry file: 1
+[2025-09-25 01:31:07.586] [debug] [Worker] Processing registry id: carA
+[2025-09-25 01:31:07.586] [info] [Worker] Pushing request to the consumer for id carA
+[2025-09-25 01:31:07.586] [info] [Worker] Reading packet...
+[2025-09-25 01:31:07.586] [debug] [Consumer] Extracted content from message: /SNDS/CAR_2/getByIDForType:carA&CAR_2
+[2025-09-25 01:31:07.586] [debug] [Consumer] Extracted content length from message: 37
+[2025-09-25 01:31:07.586] [debug] [Consumer] Extracted message type from message: GET_BY_ID_FOR_TYPE_REQUEST
+[2025-09-25 01:31:07.586] [debug] [Consumer] Query.type: CAR_2
+[2025-09-25 01:31:07.586] [debug] [Consumer] Query.id: carA
+[2025-09-25 01:31:07.586] [info] [Consumer] Created name /SNDS/CAR_2/temporalQuery:id%3DcarA&type%3DCAR_2&date%3D&count%3D&timeframe%3D&filters%3D
+[2025-09-25 01:31:07.586] [info] [Consumer] Sending actual Interest /SNDS/CAR_2/temporalQuery%3Aid%3DcarA%26type%3DCAR_2%26date%3D%26count%3D%26timeframe%3D%26filters%3D?CanBePrefix&Lifetime=6000
+[2025-09-25 01:31:07.588] [info] [Consumer] Received Data with name: /SNDS/CAR_2/temporalQuery%3Aid%3DcarA%26type%3DCAR_2%26date%3D%26count%3D%26timeframe%3D%26filters%3D in function onData
+[2025-09-25 01:31:07.588] [info] [Consumer] Data packet payload: null in function onData
+[2025-09-25 01:31:07.588] [info] [Consumer] Parsed interest: Prefix: SNDS, Name: CAR_2, Command: temporalQuery, Params: [id=carA, type=CAR_2, date=, count=, timeframe=, filters=] in onData
+```
+
 #### Temporal Query 
+
+Publish multiple versions of ``car1`` in B: 
+
+![alt text](./read-me-data/publish-vercar1-b.png)
+
+
+Let's check the logs of B's Broker:
+
+```
+Using URI: mongodb://10.0.0.2:27017/?serverSelectionTimeoutMS=60000
+[2025-09-25 01:22:37.802] [info] [Broker] HTTP server listening on 10.0.0.2:10000
+[2025-09-25 01:39:07.828] [info] [Broker] Received /add request: {"count":"","date":"2025-12-28","id":"car1","timeframe":0,"type":""}
+[2025-09-25 01:39:07.829] [warning] [Broker] Missing 'type' in /add body, defaulting to 'GENERIC'
+[2025-09-25 01:39:07.829] [debug] [Broker] Received type: GENERIC and id: car1 inside
+[2025-09-25 01:39:07.829] [debug] [Broker] Constructed ID document: { "_id" : { "_id" : "car1", "timestamp" : { "$date" : 1758753547829 } }, "count" : "", "date" : "2025-12-28", "id" : "car1", "timeframe" : 0, "type" : "GENERIC", "timestamp" : { "$date" : 1758753547829 } }
+[2025-09-25 01:39:07.829] [debug] [Broker] Created type version: GENERIC_VERSIONED
+[2025-09-25 01:39:07.833] [debug] [Broker] Received type: GENERIC and id: car1 inside
+[2025-09-25 01:39:07.833] [debug] [Broker] Constructed ID document: { "_id" : "car1", "count" : "", "date" : "2025-12-28", "id" : "car1", "timeframe" : 0, "type" : "GENERIC", "timestamp" : { "$date" : 1758753547833 } }
+[2025-09-25 01:39:07.833] [debug] [Broker] Constructed filter document: { "_id" : "car1" }
+[2025-09-25 01:39:07.838] [info] [Broker] Inserted 1 versioned, replaced/upserted 1 non-versioned
+[2025-09-25 01:39:07.839] [info] [Broker] Received HTTP request for , with target /state?type=GENERIC
+[2025-09-25 01:39:07.839] [info] [Broker] Collection fingerprint: c2f5b06058659c2d8a964e3a2c55aa12561c45146fcf8311c340e826c3315be9
+[2025-09-25 01:39:07.840] [info] [Broker] Collection GENERIC fingerprint: c2f5b06058659c2d8a964e3a2c55aa12561c45146fcf8311c340e826c3315be9
+[2025-09-25 01:39:13.841] [info] [Broker] Received /add request: {"count":"","date":"2025-12-28","id":"car1","timeframe":0,"type":""}
+[2025-09-25 01:39:13.841] [warning] [Broker] Missing 'type' in /add body, defaulting to 'GENERIC'
+[2025-09-25 01:39:13.841] [debug] [Broker] Received type: GENERIC and id: car1 inside
+[2025-09-25 01:39:13.841] [debug] [Broker] Constructed ID document: { "_id" : { "_id" : "car1", "timestamp" : { "$date" : 1758753553841 } }, "count" : "", "date" : "2025-12-28", "id" : "car1", "timeframe" : 0, "type" : "GENERIC", "timestamp" : { "$date" : 1758753553841 } }
+[2025-09-25 01:39:13.841] [debug] [Broker] Created type version: GENERIC_VERSIONED
+[2025-09-25 01:39:13.842] [debug] [Broker] Received type: GENERIC and id: car1 inside
+[2025-09-25 01:39:13.842] [debug] [Broker] Constructed ID document: { "_id" : "car1", "count" : "", "date" : "2025-12-28", "id" : "car1", "timeframe" : 0, "type" : "GENERIC", "timestamp" : { "$date" : 1758753553842 } }
+[2025-09-25 01:39:13.842] [debug] [Broker] Constructed filter document: { "_id" : "car1" }
+[2025-09-25 01:39:13.842] [info] [Broker] Inserted 1 versioned, replaced/upserted 1 non-versioned
+[2025-09-25 01:39:13.843] [info] [Broker] Received HTTP request for , with target /state?type=GENERIC
+[2025-09-25 01:39:13.843] [info] [Broker] Collection fingerprint: 797238086b694e2f0f3c16493534a95db1e9f82e996ae209ea1fea93ff7dca31
+[2025-09-25 01:39:13.843] [info] [Broker] Collection GENERIC fingerprint: 797238086b694e2f0f3c16493534a95db1e9f82e996ae209ea1fea93ff7dca31
+[2025-09-25 01:39:19.845] [info] [Broker] Received /add request: {"count":"","date":"2025-11-28","id":"car1","timeframe":0,"type":""}
+[2025-09-25 01:39:19.845] [warning] [Broker] Missing 'type' in /add body, defaulting to 'GENERIC'
+[2025-09-25 01:39:19.845] [debug] [Broker] Received type: GENERIC and id: car1 inside
+[2025-09-25 01:39:19.845] [debug] [Broker] Constructed ID document: { "_id" : { "_id" : "car1", "timestamp" : { "$date" : 1758753559845 } }, "count" : "", "date" : "2025-11-28", "id" : "car1", "timeframe" : 0, "type" : "GENERIC", "timestamp" : { "$date" : 1758753559845 } }
+[2025-09-25 01:39:19.845] [debug] [Broker] Created type version: GENERIC_VERSIONED
+[2025-09-25 01:39:19.845] [debug] [Broker] Received type: GENERIC and id: car1 inside
+[2025-09-25 01:39:19.846] [debug] [Broker] Constructed ID document: { "_id" : "car1", "count" : "", "date" : "2025-11-28", "id" : "car1", "timeframe" : 0, "type" : "GENERIC", "timestamp" : { "$date" : 1758753559845 } }
+[2025-09-25 01:39:19.846] [debug] [Broker] Constructed filter document: { "_id" : "car1" }
+[2025-09-25 01:39:19.846] [info] [Broker] Inserted 1 versioned, replaced/upserted 1 non-versioned
+[2025-09-25 01:39:19.847] [info] [Broker] Received HTTP request for , with target /state?type=GENERIC
+[2025-09-25 01:39:19.847] [info] [Broker] Collection fingerprint: e68cb455e86c96702dc7030d8156a91820f33fecb653fe8dd90696a69dcfe4a1
+[2025-09-25 01:39:19.847] [info] [Broker] Collection GENERIC fingerprint: e68cb455e86c96702dc7030d8156a91820f33fecb653fe8dd90696a69dcfe4a1
+[2025-09-25 01:39:23.849] [info] [Broker] Received /add request: {"count":"","date":"2025-10-28","id":"car1","timeframe":0,"type":""}
+[2025-09-25 01:39:23.849] [warning] [Broker] Missing 'type' in /add body, defaulting to 'GENERIC'
+[2025-09-25 01:39:23.849] [debug] [Broker] Received type: GENERIC and id: car1 inside
+[2025-09-25 01:39:23.849] [debug] [Broker] Constructed ID document: { "_id" : { "_id" : "car1", "timestamp" : { "$date" : 1758753563849 } }, "count" : "", "date" : "2025-10-28", "id" : "car1", "timeframe" : 0, "type" : "GENERIC", "timestamp" : { "$date" : 1758753563849 } }
+[2025-09-25 01:39:23.849] [debug] [Broker] Created type version: GENERIC_VERSIONED
+[2025-09-25 01:39:23.849] [debug] [Broker] Received type: GENERIC and id: car1 inside
+[2025-09-25 01:39:23.849] [debug] [Broker] Constructed ID document: { "_id" : "car1", "count" : "", "date" : "2025-10-28", "id" : "car1", "timeframe" : 0, "type" : "GENERIC", "timestamp" : { "$date" : 1758753563849 } }
+[2025-09-25 01:39:23.849] [debug] [Broker] Constructed filter document: { "_id" : "car1" }
+[2025-09-25 01:39:23.850] [info] [Broker] Inserted 1 versioned, replaced/upserted 1 non-versioned
+[2025-09-25 01:39:23.850] [info] [Broker] Received HTTP request for , with target /state?type=GENERIC
+[2025-09-25 01:39:23.851] [info] [Broker] Collection fingerprint: e8ce3eac97699bd07ae71d01a88b5bc46bc7360c6fb9748599da7621c291e007
+[2025-09-25 01:39:23.851] [info] [Broker] Collection GENERIC fingerprint: e8ce3eac97699bd07ae71d01a88b5bc46bc7360c6fb9748599da7621c291e007
+[2025-09-25 01:39:29.853] [info] [Broker] Received /add request: {"count":"","date":"2025-9-28","id":"car1","timeframe":0,"type":""}
+[2025-09-25 01:39:29.853] [warning] [Broker] Missing 'type' in /add body, defaulting to 'GENERIC'
+[2025-09-25 01:39:29.853] [debug] [Broker] Received type: GENERIC and id: car1 inside
+[2025-09-25 01:39:29.853] [debug] [Broker] Constructed ID document: { "_id" : { "_id" : "car1", "timestamp" : { "$date" : 1758753569853 } }, "count" : "", "date" : "2025-9-28", "id" : "car1", "timeframe" : 0, "type" : "GENERIC", "timestamp" : { "$date" : 1758753569853 } }
+[2025-09-25 01:39:29.853] [debug] [Broker] Created type version: GENERIC_VERSIONED
+[2025-09-25 01:39:29.853] [debug] [Broker] Received type: GENERIC and id: car1 inside
+[2025-09-25 01:39:29.853] [debug] [Broker] Constructed ID document: { "_id" : "car1", "count" : "", "date" : "2025-9-28", "id" : "car1", "timeframe" : 0, "type" : "GENERIC", "timestamp" : { "$date" : 1758753569853 } }
+[2025-09-25 01:39:29.853] [debug] [Broker] Constructed filter document: { "_id" : "car1" }
+[2025-09-25 01:39:29.854] [info] [Broker] Inserted 1 versioned, replaced/upserted 1 non-versioned
+[2025-09-25 01:39:29.855] [info] [Broker] Received HTTP request for , with target /state?type=GENERIC
+[2025-09-25 01:39:29.855] [info] [Broker] Collection fingerprint: 8cd1dbfa7cb6bc65b27fc7a53a010b9e26292c865d00bc7b5d19155ad479e2fa
+[2025-09-25 01:39:29.855] [info] [Broker] Collection GENERIC fingerprint: 8cd1dbfa7cb6bc65b27fc7a53a010b9e26292c865d00bc7b5d19155ad479e2fa
+```
+
+Let's get the dump of the database: 
+
+```json
+mini-ndn> b curl http://10.0.0.2:10000/dump
+{
+  "GENERIC": [
+    {
+      "_id": "car2213213asfsdsad",
+      "id": "car2213213asfsdsad",
+      "timestamp": {
+        "$date": 1758736757651
+      },
+      "type": "GENERIC"
+    },
+    {
+      "_id": "car2",
+      "id": "car2",
+      "timestamp": {
+        "$date": 1758736761662
+      },
+      "type": "GENERIC"
+    },
+    {
+      "_id": "car1234",
+      "id": "car1234",
+      "timestamp": {
+        "$date": 1758750923529
+      },
+      "type": "GENERIC"
+    },
+    {
+      "_id": "car1",
+      "count": "",
+      "date": "2025-9-28",
+      "id": "car1",
+      "timeframe": 0,
+      "timestamp": {
+        "$date": 1758753569853
+      },
+      "type": "GENERIC"
+    }
+  ],
+  "GENERIC_VERSIONED": [
+    {
+      "_id": {
+        "_id": "car2213213asfsdsad",
+        "timestamp": {
+          "$date": 1758736758397
+        }
+      },
+      "id": "car2213213asfsdsad",
+      "timestamp": {
+        "$date": 1758736758397
+      },
+      "type": "GENERIC"
+    },
+    {
+      "_id": {
+        "_id": "car2",
+        "timestamp": {
+          "$date": 1758736762417
+        }
+      },
+      "id": "car2",
+      "timestamp": {
+        "$date": 1758736762417
+      },
+      "type": "GENERIC"
+    },
+    {
+      "_id": {
+        "_id": "car2213213asfsdsad",
+        "timestamp": {
+          "$date": 1758736757640
+        }
+      },
+      "id": "car2213213asfsdsad",
+      "timestamp": {
+        "$date": 1758736757640
+      },
+      "type": "GENERIC"
+    },
+    {
+      "_id": {
+        "_id": "car2",
+        "timestamp": {
+          "$date": 1758736761661
+        }
+      },
+      "id": "car2",
+      "timestamp": {
+        "$date": 1758736761661
+      },
+      "type": "GENERIC"
+    },
+    {
+      "_id": {
+        "_id": "car1234",
+        "timestamp": {
+          "$date": 1758750923526
+        }
+      },
+      "id": "car1234",
+      "timestamp": {
+        "$date": 1758750923526
+      },
+      "type": "GENERIC"
+    },
+    {
+      "_id": {
+        "_id": "car1",
+        "timestamp": {
+          "$date": 1758753547829
+        }
+      },
+      "count": "",
+      "date": "2025-12-28",
+      "id": "car1",
+      "timeframe": 0,
+      "timestamp": {
+        "$date": 1758753547829
+      },
+      "type": "GENERIC"
+    },
+    {
+      "_id": {
+        "_id": "car1",
+        "timestamp": {
+          "$date": 1758753553841
+        }
+      },
+      "count": "",
+      "date": "2025-12-28",
+      "id": "car1",
+      "timeframe": 0,
+      "timestamp": {
+        "$date": 1758753553841
+      },
+      "type": "GENERIC"
+    },
+    {
+      "_id": {
+        "_id": "car1",
+        "timestamp": {
+          "$date": 1758753559845
+        }
+      },
+      "count": "",
+      "date": "2025-11-28",
+      "id": "car1",
+      "timeframe": 0,
+      "timestamp": {
+        "$date": 1758753559845
+      },
+      "type": "GENERIC"
+    },
+    {
+      "_id": {
+        "_id": "car1",
+        "timestamp": {
+          "$date": 1758753563849
+        }
+      },
+      "count": "",
+      "date": "2025-10-28",
+      "id": "car1",
+      "timeframe": 0,
+      "timestamp": {
+        "$date": 1758753563849
+      },
+      "type": "GENERIC"
+    },
+    {
+      "_id": {
+        "_id": "car1",
+        "timestamp": {
+          "$date": 1758753569853
+        }
+      },
+      "count": "",
+      "date": "2025-9-28",
+      "id": "car1",
+      "timeframe": 0,
+      "timestamp": {
+        "$date": 1758753569853
+      },
+      "type": "GENERIC"
+    }
+  ]
+}
+```
+
+
+As we can see there are multiple versions of ``car1`` inside the Broker's database. Make sure the post the ID in the NDN network so its discoverable: 
+
+![alt text](./read-me-data/car1-temporal-b.png)
+
+```
+[2025-09-25 01:47:48.761] [info] [Producer] POST /add -> {"id":"car1"}
+[2025-09-25 01:47:48.767] [info] [Producer] Published to broker OK: {"status": "success", "inserted_count_versioned": 1, "upserted_or_modified_count": 1}
+
+[2025-09-25 01:47:48.767] [debug] [Producer] Appending body to broker journal: {"id":"car1"}
+[2025-09-25 01:47:48.767] [info] [Producer] [resilience] mutate → ver=8 hash=550a0a8260c38dfc486f4ac95bfbe143
+[2025-09-25 01:47:48.768] [debug] [Producer] [resilience] history versions: 0(37a6259c) 1(60b95123) 2(7813088c) 3(8416ddb1) 4(39a8f1b1) 5(82ca38de) 6(1498af55) 7(06a3f833) 8(550a0a82) 
+[2025-09-25 01:47:48.768] [debug] [Producer] [resilience] ops from v7 → v8:
+[
+  {
+    "op": "add",
+    "path": "/broker/journal",
+    "value": [
+      {
+        "id": "car1",
+        "payload": {
+          "id": "car1"
+        },
+        "ts": "2025-09-24T22:47:48Z",
+        "type": "GENERIC"
+      }
+    ]
+  }
+]
+[2025-09-25 01:47:48.768] [info] [Worker] Received content: 
+[2025-09-25 01:47:48.768] [info] [Worker] Received payload: ACK_ID_ADVERTISED
+[2025-09-25 01:47:48.768] [info] [Worker] Received type: BY_ID_ADVERTISEMENT
+[2025-09-25 01:47:48.768] [info] [Worker] Received ACK Message with name:  payload: ACK_ID_ADVERTISED...
+Message: 
+Type: CONTROL_MESSAGE
+Sender: WORKER
+Payload: ACK_ID_ADVERTISED
+
+HTTP Type: HTTP_EMPTY
+Params:
+[2025-09-25 01:47:48.768] [debug] [Worker] Writing message to service queue:
+Message: 
+Type: CONTROL_MESSAGE
+Sender: WORKER
+Payload: ACK_ID_ADVERTISED
+
+HTTP Type: HTTP_EMPTY
+Params:
+
+[2025-09-25 01:47:48.768] [info] [Worker] Reading packet...
+Message: BATCH
+Type: GENERIC
+Sender: WORKER
+Payload: {
+  "batch_size": 1,
+  "messages": [
+    {
+      "name": "",
+      "payload": {
+        "raw": "ACK_ID_ADVERTISED\n"
+      },
+      "sender": 6,
+      "type": "CONTROL_MESSAGE"
+    }
+  ]
+}
+
+HTTP Type: HTTP_EMPTY
+Params:
+[2025-09-25 01:47:48.768] [info] [HTTPServer] Read Message from queue:
+Message: BATCH
+Type: GENERIC
+Sender: WORKER
+Payload: {
+  "batch_size": 1,
+  "messages": [
+    {
+      "name": "",
+      "payload": {
+        "raw": "ACK_ID_ADVERTISED\n"
+      },
+      "sender": 6,
+      "type": "CONTROL_MESSAGE"
+    }
+  ]
+}
+
+HTTP Type: HTTP_EMPTY
+Params:
+
+[2025-09-25 01:47:48.769] [info] [Producer] Successfully registered prefix: /SNDS/car1
+```
+
+
+Since there are multiple ``car1`` instances we should expect an [indirect mode response](#indirect-mode)
+
+
+If we instead request an ID ``carNEW``, which is present once in the Broker Database we should get [direct mode response](#direct-mode). Remind we should post the ``carNEW`` to the NDN to be visible.
 
 ##### Direct Mode
 
 ##### Indirect Mode
 
+
+```
+[2025-09-25 01:49:28.968] [info] [Worker] Got new temporal query with hash: 9322238995621266204
+[2025-09-25 01:49:28.968] [info] [Worker] Pushing TemporalQuery {"count":"2","date":"2025-09-28","id":"car1","timeframe":"now","type":""} for ID: car1
+[2025-09-25 01:49:28.968] [info] [Worker] Reading packet...
+[2025-09-25 01:49:28.968] [debug] [Consumer] Extracted content from message: {"count":"2","date":"2025-09-28","id":"car1","timeframe":"now","type":""}
+[2025-09-25 01:49:28.968] [debug] [Consumer] Extracted content length from message: 73
+[2025-09-25 01:49:28.968] [debug] [Consumer] Extracted message type from message: TEMPORAL_QUERY_REQUEST
+[2025-09-25 01:49:28.968] [debug] [Consumer] Query.type: 
+[2025-09-25 01:49:28.968] [debug] [Consumer] Query.id: car1
+[2025-09-25 01:49:28.968] [info] [Consumer] Created name /SNDS/car1/temporalQuery:id%3Dcar1&type%3D&date%3D2025-09-28&count%3D2&timeframe%3Dnow&filters%3D
+[2025-09-25 01:49:28.968] [info] [Consumer] Sending actual Interest /SNDS/car1/temporalQuery%3Aid%3Dcar1%26type%3D%26date%3D2025-09-28%26count%3D2%26timeframe%3Dnow%26filters%3D?CanBePrefix&Lifetime=6000
+[2025-09-25 01:49:28.968] [info] [Producer] Received interest in function: onInterest, name: /SNDS/car1/temporalQuery%3Aid%3Dcar1%26type%3D%26date%3D2025-09-28%26count%3D2%26timeframe%3Dnow%26filters%3D
+[2025-09-25 01:49:28.968] [info] [Producer] Parsed interest: Prefix: SNDS, Name: car1, Command: temporalQuery, Params: [id=car1, type=, date=2025-09-28, count=2, timeframe=now, filters=]
+[2025-09-25 01:49:28.968] [debug] [Producer] Created interest response: /SNDS/car1/temporalQuery%3Aid%3Dcar1%26type%3D%26date%3D2025-09-28%26count%3D2%26timeframe%3Dnow%26filters%3D in: process_temporal_query_interest
+[2025-09-25 01:49:28.968] [debug] [Producer] TemporalQuery → id: car1, date: 2025-09-28, type: , timeframe: now, count: 2, filters: 
+[2025-09-25 01:49:28.968] [debug] [Producer] Requesting to endpoint: /temporal-query?id=car1&type=&count=2&date=2025-09-28&timeframe=now&filters=
+[2025-09-25 01:49:28.970] [info] [Producer] Successfully queried /temporal-query
+[2025-09-25 01:49:28.970] [debug] [Producer] Sending data to the NDN…
+[2025-09-25 01:49:28.972] [info] [Consumer] Received Data with name: /SNDS/car1/temporalQuery%3Aid%3Dcar1%26type%3D%26date%3D2025-09-28%26count%3D2%26timeframe%3Dnow%26filters%3D in function onData
+[2025-09-25 01:49:28.972] [info] [Consumer] Data packet payload: [
+  {
+    "now": [
+      {
+        "_id": {
+          "_id": "car1",
+          "timestamp": {
+            "$date": 1758754068761
+          }
+        }
+      },
+      {
+        "_id": {
+          "_id": "car1",
+          "timestamp": {
+            "$date": 1758754017869
+          }
+        }
+      }
+    ]
+  }
+] in function onData
+[2025-09-25 01:49:28.972] [info] [Consumer] Parsed interest: Prefix: SNDS, Name: car1, Command: temporalQuery, Params: [id=car1, type=, date=2025-09-28, count=2, timeframe=now, filters=] in onData
+[2025-09-25 01:49:28.972] [info] [Consumer] Temporal Query Reponse...
+[2025-09-25 01:49:28.972] [debug] [Consumer] Removed extra characters from payload (first 32 bytes hex): 5b 0a 20 20 7b 0a 20 20 20 20 22 6e 6f 77 22 3a 20 5b 0a 20 20 20 20 20 20 7b 0a 20 20 20 20 20 
+[2025-09-25 01:49:28.972] [debug] [Consumer] Candidate JSON slice:
+[
+  {
+    "now": [
+      {
+        "_id": {
+          "_id": "car1",
+          "timestamp": {
+            "$date": 1758754068761
+          }
+        }
+      },
+      {
+        "_id": {
+          "_id": "car1",
+          "timestamp": {
+            "$date": 1758754017869
+          }
+        }
+      }
+    ]
+  }
+]
+[2025-09-25 01:49:28.972] [debug] [Consumer] Sanitized payload to:
+[
+  {
+    "now": [
+      {
+        "_id": {
+          "_id": "car1",
+          "timestamp": {
+            "$date": 1758754068761
+          }
+        }
+      },
+      {
+        "_id": {
+          "_id": "car1",
+          "timestamp": {
+            "$date": 1758754017869
+          }
+        }
+      }
+    ]
+  }
+]
+[2025-09-25 01:49:28.972] [warning] [Consumer] Direct mode flagged, but unable to extract item; falling back to manifest path.
+[2025-09-25 01:49:28.972] [debug] [Consumer] Created Parent Temporal Query: timeframe=now&date=2025-09-28&id=car1&type=&count=2
+[2025-09-25 01:49:28.972] [debug] [Consumer] Created parent_query_hash: 9322238995621266204 in send_metafile_interests
+[2025-09-25 01:49:28.972] [debug] [Consumer] Parsing key: now
+[2025-09-25 01:49:28.972] [debug] [Consumer] Doc fields -> id=car1, ts(ms)=1758754068761, type=
+[2025-09-25 01:49:28.972] [debug] [Consumer] Adding params...
+[2025-09-25 01:49:28.972] [debug] [Consumer] Added params...
+[2025-09-25 01:49:28.972] [debug] [Consumer] Doc fields -> id=car1, ts(ms)=1758754017869, type=
+[2025-09-25 01:49:28.972] [debug] [Consumer] Adding params...
+[2025-09-25 01:49:28.972] [debug] [Consumer] Added params...
+[2025-09-25 01:49:28.972] [info] [Consumer] Sending Interest (lastInterest=false): /SNDS/car1/version%3Aid%3Dcar1%26type%3D%26date%3D2025-09-24T22%3A47%3A48.761%2B00%3A00%26metafile%3Dtrue%26parentQueryHash%3D9322238995621266204%26lastInterest%3Dfalse
+[2025-09-25 01:49:28.972] [debug] [Consumer] Created interest_name: /SNDS/car1/version%3Aid%3Dcar1%26type%3D%26date%3D2025-09-24T22%3A47%3A48.761%2B00%3A00%26metafile%3Dtrue%26parentQueryHash%3D9322238995621266204%26lastInterest%3Dfalse
+[2025-09-25 01:49:28.972] [info] [Consumer] Sending Interest (lastInterest=true): /SNDS/car1/version%3Aid%3Dcar1%26type%3D%26date%3D2025-09-24T22%3A46%3A57.869%2B00%3A00%26metafile%3Dtrue%26parentQueryHash%3D9322238995621266204%26lastInterest%3Dtrue
+[2025-09-25 01:49:28.972] [debug] [Consumer] Created interest_name: /SNDS/car1/version%3Aid%3Dcar1%26type%3D%26date%3D2025-09-24T22%3A46%3A57.869%2B00%3A00%26metafile%3Dtrue%26parentQueryHash%3D9322238995621266204%26lastInterest%3Dtrue
+[2025-09-25 01:49:28.972] [info] [Producer] Received interest in function: onInterest, name: /SNDS/car1/version%3Aid%3Dcar1%26type%3D%26date%3D2025-09-24T22%3A47%3A48.761%2B00%3A00%26metafile%3Dtrue%26parentQueryHash%3D9322238995621266204%26lastInterest%3Dfalse
+[2025-09-25 01:49:28.972] [info] [Producer] Parsed interest: Prefix: SNDS, Name: car1, Command: version, Params: [id=car1, type=, date=2025-09-24T22:47:48.761+00:00, metafile=true, parentQueryHash=9322238995621266204, lastInterest=false]
+[2025-09-25 01:49:28.972] [debug] [Producer] Created interest response: /SNDS/car1/version%3Aid%3Dcar1%26type%3D%26date%3D2025-09-24T22%3A47%3A48.761%2B00%3A00%26metafile%3Dtrue%26parentQueryHash%3D9322238995621266204%26lastInterest%3Dfalse in process_version_metafile_interest
+[2025-09-25 01:49:28.973] [info] [Producer] ID request received: id = car1
+[2025-09-25 01:49:28.973] [info] [Producer] Successfully queried /get
+[2025-09-25 01:49:28.973] [debug] [Producer] Sending data to the NDN…
+[2025-09-25 01:49:28.973] [info] [Producer] Received interest in function: onInterest, name: /SNDS/car1/version%3Aid%3Dcar1%26type%3D%26date%3D2025-09-24T22%3A46%3A57.869%2B00%3A00%26metafile%3Dtrue%26parentQueryHash%3D9322238995621266204%26lastInterest%3Dtrue
+[2025-09-25 01:49:28.973] [info] [Producer] Parsed interest: Prefix: SNDS, Name: car1, Command: version, Params: [id=car1, type=, date=2025-09-24T22:46:57.869+00:00, metafile=true, parentQueryHash=9322238995621266204, lastInterest=true]
+[2025-09-25 01:49:28.973] [debug] [Producer] Created interest response: /SNDS/car1/version%3Aid%3Dcar1%26type%3D%26date%3D2025-09-24T22%3A46%3A57.869%2B00%3A00%26metafile%3Dtrue%26parentQueryHash%3D9322238995621266204%26lastInterest%3Dtrue in process_version_metafile_interest
+[2025-09-25 01:49:28.973] [info] [Producer] ID request received: id = car1
+[2025-09-25 01:49:28.973] [info] [Consumer] Received Data with name: /SNDS/car1/version%3Aid%3Dcar1%26type%3D%26date%3D2025-09-24T22%3A47%3A48.761%2B00%3A00%26metafile%3Dtrue%26parentQueryHash%3D9322238995621266204%26lastInterest%3Dfalse in function onData
+[2025-09-25 01:49:28.973] [info] [Consumer] Data packet payload: {
+  "_id": "car1",
+  "id": "car1",
+  "timestamp": {
+    "$date": 1758754068765
+  },
+  "type": "GENERIC"
+} in function onData
+[2025-09-25 01:49:28.973] [info] [Consumer] Parsed interest: Prefix: SNDS, Name: car1, Command: version, Params: [id=car1, type=, date=2025-09-24T22:47:48.761+00:00, metafile=true, parentQueryHash=9322238995621266204, lastInterest=false] in onData
+[2025-09-25 01:49:28.973] [info] [Consumer] Temporal Query Data Response from Metafile...
+[2025-09-25 01:49:28.973] [info] [Consumer] Building query URI...
+[2025-09-25 01:49:28.974] [info] [Worker] Received content: /?id=car1&type=&date=2025-09-24T22:47:48.761+00:00&metafile=true&parentQueryHash=9322238995621266204&lastInterest=false
+[2025-09-25 01:49:28.974] [info] [Worker] Received payload: {
+  "_id": "car1",
+  "id": "car1",
+  "timestamp": {
+    "$date": 1758754068765
+  },
+  "type": "GENERIC"
+}
+[2025-09-25 01:49:28.974] [info] [Worker] Received type: VERSION_RESPONSE
+[2025-09-25 01:49:28.974] [debug] [Worker] Consumer intra message...
+[2025-09-25 01:49:28.974] [debug] [Worker] Buffered 1 items for hash 9322238995621266204 (waiting for lastInterest).
+[2025-09-25 01:49:28.974] [info] [Worker] Reading packet...
+[2025-09-25 01:49:28.974] [info] [Producer] Successfully queried /get
+[2025-09-25 01:49:28.974] [debug] [Producer] Sending data to the NDN…
+[2025-09-25 01:49:28.974] [info] [Consumer] Received Data with name: /SNDS/car1/version%3Aid%3Dcar1%26type%3D%26date%3D2025-09-24T22%3A46%3A57.869%2B00%3A00%26metafile%3Dtrue%26parentQueryHash%3D9322238995621266204%26lastInterest%3Dtrue in function onData
+[2025-09-25 01:49:28.974] [info] [Consumer] Data packet payload: {
+  "_id": "car1",
+  "id": "car1",
+  "timestamp": {
+    "$date": 1758754068765
+  },
+  "type": "GENERIC"
+} in function onData
+[2025-09-25 01:49:28.974] [info] [Consumer] Parsed interest: Prefix: SNDS, Name: car1, Command: version, Params: [id=car1, type=, date=2025-09-24T22:46:57.869+00:00, metafile=true, parentQueryHash=9322238995621266204, lastInterest=true] in onData
+[2025-09-25 01:49:28.974] [info] [Consumer] Temporal Query Data Response from Metafile...
+[2025-09-25 01:49:28.974] [info] [Consumer] Building query URI...
+[2025-09-25 01:49:28.974] [info] [Consumer] Reading packet...
+[2025-09-25 01:49:28.974] [info] [Worker] Received content: /?id=car1&type=&date=2025-09-24T22:46:57.869+00:00&metafile=true&parentQueryHash=9322238995621266204&lastInterest=true
+[2025-09-25 01:49:28.974] [info] [Worker] Received payload: {
+  "_id": "car1",
+  "id": "car1",
+  "timestamp": {
+    "$date": 1758754068765
+  },
+  "type": "GENERIC"
+}
+[2025-09-25 01:49:28.974] [info] [Worker] Received type: VERSION_RESPONSE
+[2025-09-25 01:49:28.974] [debug] [Worker] Consumer intra message...
+[2025-09-25 01:49:28.974] [debug] [Worker] Sending BULK temporal response (2 items) for hash 9322238995621266204
+[2025-09-25 01:49:28.974] [debug] [Worker] Response looks like this:
+{
+  "items": [
+    {
+      "_id": "car1",
+      "id": "car1",
+      "timestamp": {
+        "$date": 1758754068765
+      },
+      "type": "GENERIC"
+    },
+    {
+      "_id": "car1",
+      "id": "car1",
+      "timestamp": {
+        "$date": 1758754068765
+      },
+      "type": "GENERIC"
+    }
+  ],
+  "mode": "manifest",
+  "parentQueryHash": "9322238995621266204",
+  "query": "{\"count\":\"2\",\"date\":\"2025-09-28\",\"id\":\"car1\",\"timeframe\":\"now\",\"type\":\"\"}"
+}
+[2025-09-25 01:49:28.974] [info] [Worker] Reading packet...
+
+```
+
 ##### Filters 
 
 #### Resilience
+
+The way to run resilience is explained in the [resilience section](#resilience).
+
+
+The poller can be run through B: 
+
+![alt text](./read-me-data/resilience-poller.png)
+
+The interests sent by resilience: 
+
+
+![alt text](./read-me-data/resilience-interests.png)
+
+
+The interests received in A's scopes ``is_alive_0`` and ``state_0``:
+
+```
+[2025-09-25 02:27:01.893] [info] [Producer] Received interest in function: onInterest, name: /SNDS/state_0/getResilienceMeta%3A
+[2025-09-25 02:27:01.893] [info] [Producer] Parsed interest: Prefix: SNDS, Name: state_0, Command: getResilienceMeta, Params: []
+[2025-09-25 02:27:01.893] [info] [Producer] Received interest in function: onInterest, name: /SNDS/is_alive_0/getResilienceIsAlive%3A4795142743880949268
+[2025-09-25 02:27:01.893] [info] [Producer] Parsed interest: Prefix: SNDS, Name: is_alive_0, Command: getResilienceIsAlive, Params: [4795142743880949268]
+[2025-09-25 02:27:01.893] [debug] [Producer] Sending data to the NDN…
+```
 
 ### Broker
 
@@ -1647,11 +2391,11 @@ where ```entity = (type.empty() ? id : type)```.
 
 Network returns one of two shapes:
 
-a) Direct mode (single item)
+a. Direct mode (single item)
 
   > Payload returns only one items back to the consumer.Consumer detects it (_is_direct_temporal_payload), extracts the item, converts it into a Version envelope (with is_metafile=false, mode="direct"), and sends one VERSION_RESPONSE back to Worker via a canonical query-URI (using build_query_uri).
 
-b) Manifest mode (metafile list)
+b. Manifest mode (metafile list)
 
 > Payload is an array of documents with _id containing { _id: "<id>", timestamp: {"$date": <ms>} }. Consumer fans out: for each doc, it constructs a metafile interest 
 ```
@@ -1661,12 +2405,12 @@ b) Manifest mode (metafile list)
 
 Worker aggregation
 
-a) Direct mode: Worker extracts the single item and immediately returns:
+a. Direct mode: Worker extracts the single item and immediately returns:
 
 ```json
 {"mode":"direct","items":[{...}]}
 ```
-b) Manifest mode:
+b. Manifest mode:
 
 - Worker buffers every VERSION_RESPONSE per parentQueryHash in temporal_buffers[hash].
 - Each slice is sanitized (fix_mixed_utf8_cp1252) and optionally field-filtered (if filters present).
