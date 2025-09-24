@@ -521,7 +521,7 @@ Posting to A's registry through B:
 ![alt text](./read-me-data/post-type-b.png)
 
 Posting to A's registry through C: 
-![alt text](./read-me-data/post-type-c.png)/
+![alt text](./read-me-data/post-type-c.png)
 
 Get A's registry through D:
 
@@ -742,6 +742,65 @@ Publish ``car1234`` in B:
 
 ![alt text](./read-me-data/publish-car1234-b.png)
 
+
+B's logs: 
+
+```
+[2025-09-25 00:55:24.647] [debug] [Consumer] Created name: /SNDS/SNDS_ID_scope_1/scopeNotification:car1234&&SNDS_ID_scope_1 in func: express_scope_interest
+[2025-09-25 00:55:24.647] [debug] [Consumer] Sending actual interest to the network: /SNDS/SNDS_ID_scope_1/scopeNotification%3Acar1234%26%26SNDS_ID_scope_1?CanBePrefix&Lifetime=6000
+[2025-09-25 00:55:24.648] [info] [Producer] Received interest in function: onInterest, name: /SNDS/SNDS_ID_scope_1/scopeNotification%3Acar1234%26%26SNDS_ID_scope_1
+[2025-09-25 00:55:24.648] [info] [Producer] Parsed interest: Prefix: SNDS, Name: SNDS_ID_scope_1, Command: scopeNotification, Params: [car1234, , SNDS_ID_scope_1]
+[2025-09-25 00:55:24.648] [info] [Producer] [BY_ID] Subscription notification for ID name car1234 and/or TYPE: .
+[2025-09-25 00:55:24.648] [info] [Producer] Notifying SNDS node: /SNDS/SNDS_ID_scope_0/subscriptionNotification:car1234&&SNDS_ID_scope_1
+[2025-09-25 00:55:24.648] [debug] [Producer] Sending data to the NDN…
+[2025-09-25 00:55:24.648] [info] [Consumer] Received Data with name: /SNDS/SNDS_ID_scope_1/scopeNotification%3Acar1234%26%26SNDS_ID_scope_1 in function onData
+[2025-09-25 00:55:24.648] [info] [Consumer] Data packet payload: ACK_SUBSCRIPTION_NOTIFICATION in function onData
+[2025-09-25 00:55:24.648] [info] [Consumer] Parsed interest: Prefix: SNDS, Name: SNDS_ID_scope_1, Command: scopeNotification, Params: [car1234, , SNDS_ID_scope_1] in onData
+```
+
+A's logs: 
+
+```
+[2025-09-25 00:55:24.648] [info] [Producer] Received interest in function: onInterest, name: /SNDS/SNDS_ID_scope_0/subscriptionNotification%3Acar1234%26%26SNDS_ID_scope_1
+[2025-09-25 00:55:24.648] [info] [Producer] Parsed interest: Prefix: SNDS, Name: SNDS_ID_scope_0, Command: subscriptionNotification, Params: [car1234, , SNDS_ID_scope_1]
+[2025-09-25 00:55:24.648] [info] [Producer] Subscription Notification: id='car1234', type='' (byID), scope='SNDS_ID_scope_0', cb='SNDS_ID_scope_1' -> issuing GET_BY_ID_REQUEST
+Message: /SNDS/car1234/getByID:car1234
+Type: GET_BY_ID_REQUEST
+Sender: PRODUCER
+Payload: 
+HTTP Type: HTTP_EMPTY
+Params:
+[2025-09-25 00:55:24.648] [debug] [Producer] Sending message:
+Message: /SNDS/car1234/getByID:car1234
+Type: GET_BY_ID_REQUEST
+Sender: PRODUCER
+Payload: 
+HTTP Type: HTTP_EMPTY
+Params:
+
+in func: process_subscription_notification_interest
+[2025-09-25 00:55:24.648] [debug] [Producer] Sending data to the NDN…
+[2025-09-25 00:55:24.648] [debug] [Consumer] Extracted content from message: /SNDS/car1234/getByID:car1234
+[2025-09-25 00:55:24.649] [debug] [Consumer] Extracted content length from message: 29
+[2025-09-25 00:55:24.649] [debug] [Consumer] Extracted message type from message: GET_BY_ID_REQUEST
+[2025-09-25 00:55:24.649] [debug] [Consumer] Query.type: 
+[2025-09-25 00:55:24.649] [debug] [Consumer] Query.id: car1234
+[2025-09-25 00:55:24.649] [info] [Consumer] Created name /SNDS/car1234/temporalQuery:id%3Dcar1234&type%3D&date%3D&count%3D&timeframe%3D&filters%3D
+[2025-09-25 00:55:24.649] [info] [Consumer] Sending actual Interest /SNDS/car1234/temporalQuery%3Aid%3Dcar1234%26type%3D%26date%3D%26count%3D%26timeframe%3D%26filters%3D?CanBePrefix&Lifetime=6000
+[2025-09-25 00:55:24.651] [info] [Consumer] Received Data with name: /SNDS/car1234/temporalQuery%3Aid%3Dcar1234%26type%3D%26date%3D%26count%3D%26timeframe%3D%26filters%3D in function onData
+[2025-09-25 00:55:24.651] [info] [Consumer] Data packet payload: [
+  {
+    "": {
+      "_id": "car1234",
+      "id": "car1234",
+      "timestamp": {
+        "$date": 1758750923529
+      },
+      "type": "GENERIC"
+    }
+  }
+] in function onData
+```
 #### Subscribe and get notified for subscription for TYPE
 
 #### Temporal Query 
