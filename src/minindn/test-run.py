@@ -94,6 +94,7 @@ if __name__ == '__main__':
         is_second = (idx == 1)  # make the second host SECONDARY
         is_primary = not is_second
         registry_key = f"CAR_{idx}"
+        only_a_timeout = (idx == 0)
 
         # --- SAFE per-host Mongo startup (no pkill) ---
 
@@ -154,19 +155,16 @@ if __name__ == '__main__':
         )
 
         # idx is your SNDS ID (0 for host a). Or use (host.name == 'a')
-        only_a_timeout = 'timeout 120s' if idx == 0 else ''
+        #only_a_timeout = 'timeout 120s' if idx == 0 else ''
         #only_a_timeout = '' if idx == 0 else ''
-
         # Prepare seed-from (PRIMARY) flags for Producer:
         # - PRIMARY itself can omit them (Producer defaults to its own broker),
         #   but setting explicitly is fine too.
         seed_from_ip   = primary_ip
         seed_from_port = primary_port
 
-        # Start the SNDS daemon on every host, pointing to the per-node broker via node IP
-        host.cmdPrint(
-            'cd /home/fotis/Github/SeEDS/build && '
-            f'env HOME="{host_home}" {only_a_timeout} ./snds_daemon_bin '
+        cmd_core = (
+            f'./snds_daemon_bin '
             f'--log-level={args.log_level} '
             f'--num-services={number_of_services} '
             '--snds-prefix=SNDS '
@@ -184,8 +182,25 @@ if __name__ == '__main__':
             f'--producer.is-primary={"true" if is_primary else "false"} '
             f'--producer.seed-from-broker-ip={seed_from_ip} '
             f'--producer.seed-from-broker-port={seed_from_port} '
-            f'> "{host_home}/log.txt" 2>&1 &'
         )
+
+        # Start the SNDS daemon on every host, pointing to the per-node broker via node IP
+        if only_a_timeout:
+            host.cmdPrint(
+                'cd /home/fotis/Github/SeEDS/build && '
+                f'( timeout 60s {cmd_core}; '
+                'rc=$?; '
+                'if [ "$rc" -eq 124 ]; then '
+                f'  echo "[TIMEOUT] $(date \"+%Y-%m-%d %H:%M:%S.%3N\") {host.name}: daemon exceeded 120s"; '
+                'fi; '
+                'exit $rc '
+                f') > "{host_home}/log.txt" 2>&1 &'
+            )
+        else:
+            host.cmdPrint(
+                'cd /home/fotis/Github/SeEDS/build && '
+                f'{cmd_core} > "{host_home}/log.txt" 2>&1 &'
+            )
 
         # Per-host packet capture (optional)
         host.cmdPrint(
