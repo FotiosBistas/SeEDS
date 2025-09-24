@@ -625,11 +625,29 @@ sudo python run.py <specify_topology_file_here>
 
 ## Test the project effectively 
 
+### Install mongo locally
+
+```bash
+# Import the MongoDB public GPG key
+curl -fsSL https://www.mongodb.org/static/pgp/server-7.0.asc | sudo gpg -o /usr/share/keyrings/mongodb-server-7.0.gpg --dearmor
+
+# Add the repository
+echo "deb [ signed-by=/usr/share/keyrings/mongodb-server-7.0.gpg ] https://repo.mongodb.org/apt/ubuntu $(lsb_release -sc)/mongodb-org/7.0 multiverse" | sudo tee /etc/apt/sources.list.d/mongodb-org-7.0.list
+
+# Update and install
+sudo apt-get update
+sudo apt-get install -y mongodb-org
+
+# Start the service
+sudo systemctl start mongod
+sudo systemctl enable mongod
+
+```
 
 I spin up three nodes through the ``topology.conf``.
 
-
 ### Requests 
+
 
 Requests are exactly the same as above. Just make sure to publish from one node and ask from another.
 
@@ -904,7 +922,7 @@ The data of A is available in the service despite it crashing. Note here I have 
 
 Also did a second run with subscriptions and registries: 
 
-![alt text](./read-me-data/subs-reg-a.png.png)
+![alt text](./read-me-data/subs-reg-a.png)
 
 
 Here are B's data now: 
@@ -1023,4 +1041,146 @@ And B receives the message:
 [2025-09-24 21:26:48.789] [info] [Producer] [BY_TYPE] New subscription: SNDS_ID_scope_2 subscribed to CAR_0
 [2025-09-24 21:26:48.789] [info] [Producer] [BY_TYPE] Responding to interest: /SNDS/CAR_0/newTypeSubscription%3ACAR_0%26SNDS_ID_scope_2
 [2025-09-24 21:26:48.789] [debug] [Producer] Sending data to the NDN…
+```
+
+
+#### Does this happen sub 200ms? 
+
+
+```
+./resilience_poller_bin --log-level="DEBUG" --ipc-port="47833" --ipc-host="10.0.0.2" --peer-alive="is_alive_0" --peer-state="state_0" --alive-ms="100" --meta-ms="100" --miss-threshold=1
+```
+
+Check when the process stops: 
+
+```
+[TIMEOUT] 2025-09-24 21:53:47.602 a: daemon exceeded 120s
+```
+
+Check when the promotion to primary of B happens: 
+
+```
+[2025-09-24 21:53:47.569] [info] [Producer] [resilience-ipc] Found message type: meta
+[2025-09-24 21:53:47.569] [debug] [Producer] [resilience-ipc] meta v=10 hash=94c4318f96749282dad3ea69fc2b01e5
+[2025-09-24 21:53:47.618] [info] [Producer] [resilience-ipc] Client connected...
+[2025-09-24 21:53:47.619] [info] [Producer] [resilience-ipc] Found message type: role
+[2025-09-24 21:53:47.619] [warning] [Producer] [resilience-ipc] promotion to PRIMARY (reason=alive-missed, misses=1)
+[2025-09-24 21:53:47.619] [info] [Producer] [resilience] mutate → ver=5 hash=ef9ce601ec2b3ac83c68782f3313cbbf
+[2025-09-24 21:53:47.619] [debug] [Producer] [resilience] history versions: 0(37a6259c) 1(2cc785ae) 2(b4284429) 3(fbe59e85) 4(94c4318f) 5(ef9ce601) 
+[2025-09-24 21:53:47.619] [debug] [Producer] [resilience] ops from v4 → v5:
+[
+  {
+    "op": "replace",
+    "path": "/resilience/reason",
+    "value": "alive-missed"
+  },
+  {
+    "op": "replace",
+    "path": "/resilience/role",
+    "value": "primary"
+  },
+  {
+    "op": "replace",
+    "path": "/resilience/since",
+    "value": "2025-09-24T18:53:47Z"
+  },
+  {
+    "op": "add",
+    "path": "/resilience/misses",
+    "value": 1
+  }
+]
+[2025-09-24 21:53:47.619] [warning] [Producer] [resilience-ipc] stop requested; will be joined from main loop
+[2025-09-24 21:53:48.619] [warning] [Producer] [resilience] applying promotion side-effects on main loop
+[2025-09-24 21:53:48.619] [debug] [Producer] [overlay] merge: applying json_patch_against_base (ops=7)
+[2025-09-24 21:53:48.620] [debug] [Producer] [resilience] assign → ver=6 hash=1b35da6a3dacb12481e6462c67ac36ab
+[2025-09-24 21:53:48.620] [debug] [Producer] [overlay] SQUASH → base version 5→6  hash ef9ce601ec2b3ac83c68782f3313cbbf→1b35da6a3dacb12481e6462c67ac36ab  overlay ver=9 hash=193d4e424b04b2168edc061a2944da29
+[2025-09-24 21:53:48.620] [debug] [Producer] [overlay] CLEARED
+[2025-09-24 21:53:48.620] [debug] [Producer] [promotion] rebuilt containers from store:
+[2025-09-24 21:53:48.620] [debug] [Producer]   type_registry[CAR_0] = [car54 ]
+[2025-09-24 21:53:48.620] [debug] [Producer]   type_registry[CAR_1] = []
+[2025-09-24 21:53:48.620] [debug] [Producer]   subscribed_nodes_for_type[CAR_0] = [SNDS_ID_scope_0 ]
+[2025-09-24 21:53:48.620] [debug] [Producer]   announcements = [/SNDS_0 /SNDS/state_0 /SNDS/SNDS_ID_scope_0 /SNDS/is_alive_0 /SNDS/CAR_0 /SNDS/CAR_0_registry /SNDS/CAR_1 /SNDS/state_1 /SNDS/is_alive_1 /SNDS/CAR_1_registry /SNDS/SNDS_ID_scope_1 /SNDS_1 ]
+[2025-09-24 21:53:48.620] [info] [Producer] [promotion] summary: types=2 ids=1 subs(byId)=0 subs(byType)=1 announced=12
+[2025-09-24 21:53:48.620] [info] [Producer] [promotion] (re)announcing /SNDS_0
+[2025-09-24 21:53:48.620] [info] [Producer] [promotion] (re)announcing /SNDS/state_0
+[2025-09-24 21:53:48.620] [info] [Producer] [promotion] (re)announcing /SNDS/SNDS_ID_scope_0
+[2025-09-24 21:53:48.620] [info] [Producer] [promotion] (re)announcing /SNDS/is_alive_0
+[2025-09-24 21:53:48.620] [info] [Producer] [promotion] (re)announcing /SNDS/CAR_0
+[2025-09-24 21:53:48.620] [info] [Producer] [promotion] (re)announcing /SNDS/CAR_0_registry
+[2025-09-24 21:53:48.620] [info] [Producer] [promotion] (re)announcing /SNDS/CAR_1
+[2025-09-24 21:53:48.620] [info] [Producer] [promotion] (re)announcing /SNDS/state_1
+[2025-09-24 21:53:48.620] [info] [Producer] [promotion] (re)announcing /SNDS/is_alive_1
+[2025-09-24 21:53:48.620] [info] [Producer] [promotion] (re)announcing /SNDS/CAR_1_registry
+[2025-09-24 21:53:48.620] [info] [Producer] [promotion] (re)announcing /SNDS/SNDS_ID_scope_1
+[2025-09-24 21:53:48.620] [info] [Producer] [promotion] (re)announcing /SNDS_1
+[2025-09-24 21:53:48.620] [info] [Producer] Getting from IP: 10.0.0.2 and port: 10000
+[2025-09-24 21:53:48.620] [debug] [Producer] HTTP GET /state?type=CAR_0
+[2025-09-24 21:53:48.622] [info] [Producer] [resilience] mutate → ver=7 hash=91554cef1da8effb57dd58c504971109
+[2025-09-24 21:53:48.622] [debug] [Producer] [resilience] history versions: 0(37a6259c) 1(2cc785ae) 2(b4284429) 3(fbe59e85) 4(94c4318f) 5(ef9ce601) 6(1b35da6a) 7(91554cef) 
+[2025-09-24 21:53:48.622] [debug] [Producer] [resilience] ops from v6 → v7:
+[
+  {
+    "op": "replace",
+    "path": "/broker/collections/CAR_0/lastSeen",
+    "value": "2025-09-24T18:53:48Z"
+  }
+]
+[2025-09-24 21:53:48.622] [info] [Producer] Getting from IP: 10.0.0.2 and port: 10000
+[2025-09-24 21:53:48.622] [debug] [Producer] HTTP GET /state?type=CAR_1
+[2025-09-24 21:53:48.623] [info] [Producer] [resilience] mutate → ver=8 hash=29dfba80f7bdcff77e7d65b53a3bb1bd
+[2025-09-24 21:53:48.623] [debug] [Producer] [resilience] history versions: 0(37a6259c) 1(2cc785ae) 2(b4284429) 3(fbe59e85) 4(94c4318f) 5(ef9ce601) 6(1b35da6a) 7(91554cef) 8(29dfba80) 
+[2025-09-24 21:53:48.623] [debug] [Producer] [resilience] ops from v7 → v8:
+[
+  {
+    "op": "add",
+    "path": "/broker/collections/CAR_1",
+    "value": {
+      "algo": "SHA-256",
+      "count": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "lastSeen": "2025-09-24T18:53:48Z"
+    }
+  }
+]
+[2025-09-24 21:53:48.624] [info] [Producer] Successfully registered prefix: /SNDS_0
+[2025-09-24 21:53:48.624] [info] [Producer] Successfully registered prefix: /SNDS/state_0
+[2025-09-24 21:53:48.625] [info] [Producer] Successfully registered prefix: /SNDS/SNDS_ID_scope_0
+[2025-09-24 21:53:48.625] [info] [Producer] Successfully registered prefix: /SNDS/is_alive_0
+[2025-09-24 21:53:48.625] [info] [Producer] Successfully registered prefix: /SNDS/CAR_0
+[2025-09-24 21:53:48.625] [info] [Producer] Successfully registered prefix: /SNDS/CAR_0_registry
+[2025-09-24 21:53:48.627] [info] [Producer] Successfully registered prefix: /SNDS/CAR_1
+[2025-09-24 21:53:48.627] [info] [Producer] Successfully registered prefix: /SNDS/state_1
+[2025-09-24 21:53:48.627] [info] [Producer] Successfully registered prefix: /SNDS/is_alive_1
+[2025-09-24 21:53:48.627] [info] [Producer] Successfully registered prefix: /SNDS/CAR_1_registry
+[2025-09-24 21:53:48.627] [info] [Producer] Successfully registered prefix: /SNDS/SNDS_ID_scope_1
+[2025-09-24 21:53:48.627] [info] [Producer] Successfully registered prefix: /SNDS_1
+```
+
+
+Check when the message to promote is received compared to the timestamp when the SNDS Service of A crashed: 
+
+```
+[TIMEOUT] 2025-09-24 21:53:47.602 a: daemon exceeded 120s
+[2025-09-24 21:53:47.619] [warning] [Producer] [resilience-ipc] promotion to PRIMARY (reason=alive-missed, misses=1)
+```
+
+So it happened in 619 - 602 = 17ms. Of course the topology is set to have minimal delay: 
+
+```test-topology.conf
+[nodes]
+a: _ nfd-log-level=DEBUG
+b: _ nfd-log-level=DEBUG
+c: _ nfd-log-level=DEBUG
+d: _ nfd-log-level=DEBUG
+
+[links]
+a:b delay=10ms
+b:a delay=10ms
+b:c delay=10ms
+c:b delay=10ms
+c:a delay=10ms
+a:c delay=10ms
+d:a delay=10ms
+a:d delay=10ms
 ```
