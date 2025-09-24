@@ -90,8 +90,9 @@ if __name__ == '__main__':
         node_ip   = host.IP()                                                  # unique Mininet IP
         host.cmdPrint(f'mkdir -p "{host_home}" "{mongo_dir}"')
 
-        is_last = (idx == number_of_services - 1)  # make last host SECONDARY
-        is_primary = not is_last
+        #is_last = (idx == number_of_services - 1)  # make last host SECONDARY
+        is_second = (idx == 1)  # make the second host SECONDARY
+        is_primary = not is_second
         registry_key = f"CAR_{idx}"
 
         # --- SAFE per-host Mongo startup (no pkill) ---

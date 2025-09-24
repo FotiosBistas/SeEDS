@@ -652,13 +652,51 @@ With the above ideas you can also use the rest of the requests like add, get etc
 
 ### Resilience
 
-In node D you can set up the resilience by running through the terminal: 
+Currently the way I have set up the script ``test-run.py`` is that the second one becomes the secondary node: 
+
+```py
+sudo python ./topologies/test-topology.conf
+```
+
+You can set it up however you like. This is just a flag, which signifies whether the node is secondary:
+
+```python
+# Start the SNDS daemon on every host, pointing to the per-node broker via node IP
+host.cmdPrint(
+  'cd /home/fotis/Github/SeEDS/build && '
+  f'env HOME="{host_home}" {only_a_timeout} ./snds_daemon_bin '
+  f'--log-level={args.log_level} '
+  f'--num-services={number_of_services} '
+  '--snds-prefix=SNDS '
+  '--state-prefix=state '
+  '--is-alive-prefix=is_alive '
+  f'--snds-id={idx} '
+  '--id-scope-prefix=SNDS_ID_scope_ '
+  '--registry-file-postfix=_registry '
+  f'--producer.broker-ip={node_ip} '
+  '--producer.broker-port=10000 '
+  f'--producer.registry-type={registry_key} '
+  '--producer.enable-resilience-ipc=true '
+  f'--producer.resilience-ipc-host={node_ip} '
+  f'--producer.resilience-ipc-port={47832 + idx} '
+  f'--producer.is-primary={"true" if is_primary else "false"} '
+  f'--producer.seed-from-broker-ip={seed_from_ip} '
+  f'--producer.seed-from-broker-port={seed_from_port} '
+  f'> "{host_home}/log.txt" 2>&1 &'
+)
+```
+
+Notice the is-primary flag here.
+
+In node B, which is the last of the topology, you can set up the resilience by running through the terminal: 
 
 ```
-./resilience_poller_bin --log-level="DEBUG" --ipc-port="47835"
+./resilience_poller_bin --log-level="DEBUG" --ipc-port="47833" --ipc-host="10.0.0.16" --peer-alive="is_alive_0" --peer-state="state_0" --alive-ms="200" --meta-ms="200"
 ```
 
-This way D is going to become the `secondary` of A. You can set up A to exit the process after 120s to simulate a crash of A.
+This way B is going to become the `secondary` of A, because we are listening to the resilience scopes of A ``state_0`` and ``is_alive_0``. You can see the IPs of each host through the logs.txt. Assigning the port and the ip is **crucial** here, because the secondary node receives the patches through the IPC (inter process communication). You can also set it up through the MiniNDN terminal. 
+
+You can set up A to exit the process after 120s to simulate a crash of A.
 
 ```
 host.cmdPrint(
@@ -668,4 +706,197 @@ host.cmdPrint(
 )
 ```
 
-You should see D merging of all its data with A.
+
+
+
+You should see B merging of all its data with A. We have only published through A: 
+
+![alt text](./read-me-data/publish-data-a.png)
+
+
+Let's dump the database of A and see it's contents: 
+
+```json
+mini-ndn> a curl http://10.0.0.1:10000/dump
+{
+  "GENERIC": [
+    {
+      "_id": "car2213213asfsdsad",
+      "id": "car2213213asfsdsad",
+      "timestamp": {
+        "$date": 1758736757651
+      },
+      "type": "GENERIC"
+    },
+    {
+      "_id": "car2",
+      "id": "car2",
+      "timestamp": {
+        "$date": 1758736761662
+      },
+      "type": "GENERIC"
+    }
+  ],
+  "GENERIC_VERSIONED": [
+    {
+      "_id": {
+        "_id": "car2213213asfsdsad",
+        "timestamp": {
+          "$date": 1758736757640
+        }
+      },
+      "id": "car2213213asfsdsad",
+      "timestamp": {
+        "$date": 1758736757640
+      },
+      "type": "GENERIC"
+    },
+    {
+      "_id": {
+        "_id": "car2",
+        "timestamp": {
+          "$date": 1758736761661
+        }
+      },
+      "id": "car2",
+      "timestamp": {
+        "$date": 1758736761661
+      },
+      "type": "GENERIC"
+    }
+  ]
+}
+```
+
+
+Let's dump B's database: 
+
+```json
+mini-ndn> b curl http://10.0.0.2:10000/dump
+{
+  "GENERIC": [
+    {
+      "_id": "car2213213asfsdsad",
+      "id": "car2213213asfsdsad",
+      "timestamp": {
+        "$date": 1758736758407
+      },
+      "type": "GENERIC"
+    },
+    {
+      "_id": "car2",
+      "id": "car2",
+      "timestamp": {
+        "$date": 1758736762418
+      },
+      "type": "GENERIC"
+    }
+  ],
+  "GENERIC_VERSIONED": [
+    {
+      "_id": {
+        "_id": "car2213213asfsdsad",
+        "timestamp": {
+          "$date": 1758736758397
+        }
+      },
+      "id": "car2213213asfsdsad",
+      "timestamp": {
+        "$date": 1758736758397
+      },
+      "type": "GENERIC"
+    },
+    {
+      "_id": {
+        "_id": "car2",
+        "timestamp": {
+          "$date": 1758736762417
+        }
+      },
+      "id": "car2",
+      "timestamp": {
+        "$date": 1758736762417
+      },
+      "type": "GENERIC"
+    }
+  ]
+}
+```
+
+We can see through B's terminal, which runs the resilience poller that the SNDS service of A has crashed. Note that the last message is when the poller received the crash report after 3 retries:
+
+![alt text](./read-me-data/resilience-poller-b.png)
+
+
+Let's see how all of the data is republished through B: 
+
+```
+[2025-09-24 20:59:58.420] [warning] [Producer] [resilience] applying promotion side-effects on main loop
+[2025-09-24 20:59:58.420] [debug] [Producer] [overlay] merge: applying json_patch_against_base (ops=10)
+[2025-09-24 20:59:58.420] [debug] [Producer] [resilience] assign → ver=6 hash=3492bb151e0cc6340d5b972c3294d625
+[2025-09-24 20:59:58.420] [debug] [Producer] [overlay] SQUASH → base version 5→6  hash 1f453d6893773fe014bb6a4b381cac23→3492bb151e0cc6340d5b972c3294d625  overlay ver=11 hash=3da45d0bde2d0ff8e8034f5693871a27
+[2025-09-24 20:59:58.420] [debug] [Producer] [overlay] CLEARED
+[2025-09-24 20:59:58.420] [debug] [Producer] [promotion] rebuilt containers from store:
+[2025-09-24 20:59:58.420] [debug] [Producer]   type_registry[CAR_1] = []
+[2025-09-24 20:59:58.420] [debug] [Producer]   announcements = [/SNDS_0 /SNDS/SNDS_ID_scope_1 /SNDS/CAR_1_registry /SNDS_1 /SNDS/is_alive_1 /SNDS/state_1 /SNDS/CAR_1 /SNDS/CAR_0 /SNDS/CAR_0_registry /SNDS/is_alive_0 /SNDS/car2 /SNDS/SNDS_ID_scope_0 /SNDS/car2213213asfsdsad /SNDS/state_0 ]
+[2025-09-24 20:59:58.420] [info] [Producer] [promotion] summary: types=1 ids=0 subs(byId)=0 subs(byType)=0 announced=14
+[2025-09-24 20:59:58.421] [info] [Producer] [promotion] (re)announcing /SNDS_0
+[2025-09-24 20:59:58.424] [info] [Producer] [promotion] (re)announcing /SNDS/SNDS_ID_scope_1
+[2025-09-24 20:59:58.424] [info] [Producer] [promotion] (re)announcing /SNDS/CAR_1_registry
+[2025-09-24 20:59:58.424] [info] [Producer] [promotion] (re)announcing /SNDS_1
+[2025-09-24 20:59:58.424] [info] [Producer] [promotion] (re)announcing /SNDS/is_alive_1
+[2025-09-24 20:59:58.424] [info] [Producer] [promotion] (re)announcing /SNDS/state_1
+[2025-09-24 20:59:58.424] [info] [Producer] [promotion] (re)announcing /SNDS/CAR_1
+[2025-09-24 20:59:58.424] [info] [Producer] [promotion] (re)announcing /SNDS/CAR_0
+[2025-09-24 20:59:58.424] [info] [Producer] [promotion] (re)announcing /SNDS/CAR_0_registry
+[2025-09-24 20:59:58.424] [info] [Producer] [promotion] (re)announcing /SNDS/is_alive_0
+[2025-09-24 20:59:58.425] [info] [Producer] [promotion] (re)announcing /SNDS/car2
+[2025-09-24 20:59:58.425] [info] [Producer] [promotion] (re)announcing /SNDS/SNDS_ID_scope_0
+[2025-09-24 20:59:58.425] [info] [Producer] [promotion] (re)announcing /SNDS/car2213213asfsdsad
+[2025-09-24 20:59:58.425] [info] [Producer] [promotion] (re)announcing /SNDS/state_0
+[2025-09-24 20:59:58.425] [info] [Producer] Getting from IP: 10.0.0.2 and port: 10000
+[2025-09-24 20:59:58.425] [debug] [Producer] HTTP GET /state?type=CAR_1
+[2025-09-24 20:59:58.426] [info] [Producer] [resilience] mutate → ver=7 hash=242d7dde27ce09f34e9f576a6f77c264
+[2025-09-24 20:59:58.427] [debug] [Producer] [resilience] history versions: 0(37a6259c) 1(194c8ce9) 2(0b70c131) 3(69615fd2) 4(5ab89b5b) 5(1f453d68) 6(3492bb15) 7(242d7dde) 
+[2025-09-24 20:59:58.427] [debug] [Producer] [resilience] ops from v6 → v7:
+[
+  {
+    "op": "add",
+    "path": "/broker/collections/CAR_1",
+    "value": {
+      "algo": "SHA-256",
+      "count": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "lastSeen": "2025-09-24T17:59:58Z"
+    }
+  }
+]
+[2025-09-24 20:59:58.428] [info] [Producer] Successfully registered prefix: /SNDS_0
+[2025-09-24 20:59:58.428] [info] [Producer] Successfully registered prefix: /SNDS/SNDS_ID_scope_1
+[2025-09-24 20:59:58.428] [info] [Producer] Successfully registered prefix: /SNDS/CAR_1_registry
+[2025-09-24 20:59:58.428] [info] [Producer] Successfully registered prefix: /SNDS_1
+[2025-09-24 20:59:58.429] [info] [Producer] Successfully registered prefix: /SNDS/is_alive_1
+[2025-09-24 20:59:58.429] [info] [Producer] Successfully registered prefix: /SNDS/state_1
+[2025-09-24 20:59:58.431] [info] [Producer] Successfully registered prefix: /SNDS/CAR_1
+[2025-09-24 20:59:58.431] [info] [Producer] Successfully registered prefix: /SNDS/CAR_0
+[2025-09-24 20:59:58.431] [info] [Producer] Successfully registered prefix: /SNDS/CAR_0_registry
+[2025-09-24 20:59:58.431] [info] [Producer] Successfully registered prefix: /SNDS/is_alive_0
+[2025-09-24 20:59:58.431] [info] [Producer] Successfully registered prefix: /SNDS/car2
+[2025-09-24 20:59:58.431] [info] [Producer] Successfully registered prefix: /SNDS/SNDS_ID_scope_0
+[2025-09-24 20:59:58.431] [info] [Producer] Successfully registered prefix: /SNDS/car2213213asfsdsad
+[2025-09-24 20:59:58.432] [info] [Producer] Successfully registered prefix: /SNDS/state_0
+[2025-09-24 21:10:15.069] [info] [Producer] Received interest in function: onInterest, name: /SNDS/car2/temporalQuery%3Aid%3Dcar2%26type%3D%26date%3D%26count%3D%26timeframe%3D%26filters%3D
+[2025-09-24 21:10:15.069] [info] [Producer] Parsed interest: Prefix: SNDS, Name: car2, Command: temporalQuery, Params: [id=car2, type=, date=, count=, timeframe=, filters=]
+[2025-09-24 21:10:15.069] [debug] [Producer] Created interest response: /SNDS/car2/temporalQuery%3Aid%3Dcar2%26type%3D%26date%3D%26count%3D%26timeframe%3D%26filters%3D in: process_temporal_query_interest
+[2025-09-24 21:10:15.069] [debug] [Producer] TemporalQuery → id: car2, date: , type: , timeframe: , count: , filters: 
+[2025-09-24 21:10:15.069] [debug] [Producer] Requesting to endpoint: /temporal-query?id=car2&type=&count=&date=&timeframe=&filters=
+[2025-09-24 21:10:15.070] [info] [Producer] Successfully queried /temporal-query
+[2025-09-24 21:10:15.070] [debug] [Producer] Sending data to the NDN…
+```
+
+Let's now ask for A's data through some other Node like C: 
+
+![alt text](./read-me-data/retrieve-data-c.png)
+
+
+The data of A is available in the service despite it crashing. Note here I have only shown the IDs and the Broker, but subscriptions, registry also get inherited by B.
