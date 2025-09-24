@@ -120,8 +120,8 @@ int main(int argc, char** argv)
         ("meta-ms",  "Meta probe period (ms)",      cxxopts::value<int>()->default_value("2000"))
         ("ipc-host", "IPC host",                    cxxopts::value<std::string>()->default_value("127.0.0.1"))
         ("ipc-port", "IPC port",                    cxxopts::value<uint16_t>()->default_value("47832"))
-        ("log-level","Log level (trace|debug|info|warn|error|critical|off)",
-                    cxxopts::value<std::string>()->default_value("info"))
+        ("log-level","Log level (trace|debug|info|warn|error|critical|off)", cxxopts::value<std::string>()->default_value("info"))
+        ("miss-threshold", "Consecutive missed heartbeats before promotion", cxxopts::value<int>()->default_value("3"))
         ("h,help",   "Show help");
     auto result = opts.parse(argc, argv);
     if (result.count("help")) 
@@ -138,13 +138,20 @@ int main(int argc, char** argv)
     const std::string ipc_host   = result["ipc-host"].as<std::string>();
     const uint16_t    ipc_port   = result["ipc-port"].as<uint16_t>();
     const auto        lvl        = parse_level(result["log-level"].as<std::string>(), spdlog::level::info);
+    const int miss_threshold_raw = result["miss-threshold"].as<int>();
+    const int miss_threshold = std::max(1, miss_threshold_raw); // clamp to ≥1
 
     // ---- logger ----
     auto logger = spdlog::stdout_color_mt("poller");
     logger->set_level(lvl);
     logger->set_pattern("[%Y-%m-%d %H:%M:%S.%e] [%^%l%$] %v");
-    logger->info("[main] starting poller: prefix='{}' alive='{}' state='{}' alive_ms={} meta_ms={}",
-                prefix, peer_alive, peer_state, alive_ms, meta_ms);
+    if (miss_threshold_raw < 1 && logger) 
+    {
+        logger->warn("[main] miss-threshold {} is invalid; clamped to 1", miss_threshold_raw);
+    }
+
+    logger->info("[main] starting poller: prefix='{}' alive='{}' state='{}' alive_ms={} meta_ms={} miss_threshold={}",
+             prefix, peer_alive, peer_state, alive_ms, meta_ms, miss_threshold);
     logger->info("[main] starting IPC communication: ipc_host='{}', ipc_port='{}'", ipc_host, ipc_port);
 
     // ---- face & signals ----
@@ -185,30 +192,33 @@ int main(int argc, char** argv)
         }
     };
     // wire callbacks
-    poller.on_alive = [&, logger](bool ok) 
+    poller.on_alive = [&, logger, miss_threshold](bool ok) 
     {
         if (ok) 
         {
-            if (miss_streak.load() != 0 && logger) logger->info("[poller] heartbeat OK (miss streak {} -> 0)", miss_streak.load());
+            if (miss_streak.load() != 0 && logger) 
+            {
+                logger->info("[poller] heartbeat OK (miss streak {} -> 0)", miss_streak.load());
+            }
             miss_streak.store(0);
             return;
         }
 
         const int m = miss_streak.fetch_add(1) + 1;
-        if (logger) logger->warn("[poller] heartbeat missed (streak = {})", m);
+        if (logger) logger->warn("[poller] heartbeat missed (streak = {} / {})", m, miss_threshold);
 
-        if (m >= 3 && !promoted.exchange(true)) 
+        if (m >= miss_threshold && !promoted.exchange(true)) 
         {
-            if (logger) logger->warn("[poller] promoting to PRIMARY ({} consecutive misses)", m);
+            if (logger) logger->warn("[poller] promoting to PRIMARY ({} consecutive misses, threshold={})", m, miss_threshold);
             nlohmann::json role = 
             {
-                {"role",   "primary"},
-                {"reason", "alive-missed"},
-                {"misses", m}
+                {"role",      "primary"},
+                {"reason",    "alive-missed"},
+                {"misses",    m},
+                {"threshold", miss_threshold}
             };
             ipc_send("role", role.dump());
 
-            // --- stop this process cleanly after promotion ---
             if (logger) logger->warn("[poller] stopping poller and IO after promotion");
             poller.stop();
             face.getIoContext().stop();
@@ -219,7 +229,8 @@ int main(int argc, char** argv)
         if (logger) logger->info("[poller] remote version={} hash={}", m.version, m.hash);
 
         // Recreate the meta JSON the producer expects to log
-        nlohmann::json meta = {
+        nlohmann::json meta = 
+        {
             {"version", m.version},
             {"hash",    m.hash},
             {"ts",      m.ts}
