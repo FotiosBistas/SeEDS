@@ -493,7 +493,7 @@ void Worker::process_subscription_request
 
     if(by_id)
     {
-        std::string node_scope_name = getSNDSNodeScopeNameForSubscription(name, id_scope_prefix, number_of_snds_services);
+        node_scope_name = getSNDSNodeScopeNameForSubscription(name, id_scope_prefix, number_of_snds_services);
         m_logger->info("Created node scope name: {} for Name: {} with URL: {}", node_scope_name, name, subURL);
         m_logger->info("Hi this is me: {} I'm going to ask node: {} to subscribe to: {}", snds_id_scope_name, node_scope_name, name);
     }
