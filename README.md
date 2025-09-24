@@ -691,7 +691,7 @@ Notice the is-primary flag here.
 In node B, which is the last of the topology, you can set up the resilience by running through the terminal: 
 
 ```
-./resilience_poller_bin --log-level="DEBUG" --ipc-port="47833" --ipc-host="10.0.0.16" --peer-alive="is_alive_0" --peer-state="state_0" --alive-ms="200" --meta-ms="200"
+./resilience_poller_bin --log-level="DEBUG" --ipc-port="47833" --ipc-host="10.0.0.16" --peer-alive="is_alive_0" --peer-state="state_0" --alive-ms="200" --meta-ms="200" --miss-threshold=1
 ```
 
 This way B is going to become the `secondary` of A, because we are listening to the resilience scopes of A ``state_0`` and ``is_alive_0``. You can see the IPs of each host through the logs.txt. Assigning the port and the ip is **crucial** here, because the secondary node receives the patches through the IPC (inter process communication). You can also set it up through the MiniNDN terminal. 
@@ -900,3 +900,127 @@ Let's now ask for A's data through some other Node like C:
 
 
 The data of A is available in the service despite it crashing. Note here I have only shown the IDs and the Broker, but subscriptions, registry also get inherited by B.
+
+
+Also did a second run with subscriptions and registries: 
+
+![alt text](./read-me-data/subs-reg-a.png.png)
+
+
+Here are B's data now: 
+
+
+```
+[2025-09-24 21:26:37.438] [warning] [Producer] [resilience] applying promotion side-effects on main loop
+[2025-09-24 21:26:37.438] [debug] [Producer] [overlay] merge: applying json_patch_against_base (ops=7)
+[2025-09-24 21:26:37.438] [debug] [Producer] [resilience] assign → ver=6 hash=7372eeb2a41c982eb0221e3de1002dab
+[2025-09-24 21:26:37.438] [debug] [Producer] [overlay] SQUASH → base version 5→6  hash 29930bc8a3bff6a66c6ac8211dc06b35→7372eeb2a41c982eb0221e3de1002dab  overlay ver=9 hash=193d4e424b04b2168edc061a2944da29
+[2025-09-24 21:26:37.438] [debug] [Producer] [overlay] CLEARED
+[2025-09-24 21:26:37.438] [debug] [Producer] [promotion] rebuilt containers from store:
+[2025-09-24 21:26:37.438] [debug] [Producer]   type_registry[CAR_0] = [car54 ]
+[2025-09-24 21:26:37.438] [debug] [Producer]   type_registry[CAR_1] = []
+[2025-09-24 21:26:37.438] [debug] [Producer]   subscribed_nodes_for_type[CAR_0] = [SNDS_ID_scope_0 ]
+[2025-09-24 21:26:37.438] [debug] [Producer]   announcements = [/SNDS_0 /SNDS/state_0 /SNDS/SNDS_ID_scope_0 /SNDS/is_alive_0 /SNDS/CAR_0 /SNDS/CAR_0_registry /SNDS/CAR_1 /SNDS/state_1 /SNDS/is_alive_1 /SNDS/CAR_1_registry /SNDS/SNDS_ID_scope_1 /SNDS_1 ]
+[2025-09-24 21:26:37.438] [info] [Producer] [promotion] summary: types=2 ids=1 subs(byId)=0 subs(byType)=1 announced=12
+[2025-09-24 21:26:37.438] [info] [Producer] [promotion] (re)announcing /SNDS_0
+[2025-09-24 21:26:37.438] [info] [Producer] [promotion] (re)announcing /SNDS/state_0
+[2025-09-24 21:26:37.439] [info] [Producer] [promotion] (re)announcing /SNDS/SNDS_ID_scope_0
+[2025-09-24 21:26:37.439] [info] [Producer] [promotion] (re)announcing /SNDS/is_alive_0
+[2025-09-24 21:26:37.439] [info] [Producer] [promotion] (re)announcing /SNDS/CAR_0
+[2025-09-24 21:26:37.439] [info] [Producer] [promotion] (re)announcing /SNDS/CAR_0_registry
+[2025-09-24 21:26:37.439] [info] [Producer] [promotion] (re)announcing /SNDS/CAR_1
+[2025-09-24 21:26:37.439] [info] [Producer] [promotion] (re)announcing /SNDS/state_1
+[2025-09-24 21:26:37.439] [info] [Producer] [promotion] (re)announcing /SNDS/is_alive_1
+[2025-09-24 21:26:37.439] [info] [Producer] [promotion] (re)announcing /SNDS/CAR_1_registry
+[2025-09-24 21:26:37.439] [info] [Producer] [promotion] (re)announcing /SNDS/SNDS_ID_scope_1
+[2025-09-24 21:26:37.440] [info] [Producer] [promotion] (re)announcing /SNDS_1
+[2025-09-24 21:26:37.440] [info] [Producer] Getting from IP: 10.0.0.2 and port: 10000
+[2025-09-24 21:26:37.440] [debug] [Producer] HTTP GET /state?type=CAR_0
+[2025-09-24 21:26:37.441] [info] [Producer] [resilience] mutate → ver=7 hash=45c6ea954f7d4d819d96d644850dd23b
+[2025-09-24 21:26:37.442] [debug] [Producer] [resilience] history versions: 0(37a6259c) 1(a4703547) 2(d8b1f0f6) 3(327a56af) 4(32a3f5e2) 5(29930bc8) 6(7372eeb2) 7(45c6ea95) 
+[2025-09-24 21:26:37.442] [debug] [Producer] [resilience] ops from v6 → v7:
+[
+  {
+    "op": "replace",
+    "path": "/broker/collections/CAR_0/lastSeen",
+    "value": "2025-09-24T18:26:37Z"
+  }
+]
+[2025-09-24 21:26:37.442] [info] [Producer] Getting from IP: 10.0.0.2 and port: 10000
+[2025-09-24 21:26:37.442] [debug] [Producer] HTTP GET /state?type=CAR_1
+[2025-09-24 21:26:37.443] [info] [Producer] [resilience] mutate → ver=8 hash=76ec77d0ac1971096757b9d01c80be4e
+[2025-09-24 21:26:37.443] [debug] [Producer] [resilience] history versions: 0(37a6259c) 1(a4703547) 2(d8b1f0f6) 3(327a56af) 4(32a3f5e2) 5(29930bc8) 6(7372eeb2) 7(45c6ea95) 8(76ec77d0) 
+[2025-09-24 21:26:37.443] [debug] [Producer] [resilience] ops from v7 → v8:
+[
+  {
+    "op": "add",
+    "path": "/broker/collections/CAR_1",
+    "value": {
+      "algo": "SHA-256",
+      "count": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "lastSeen": "2025-09-24T18:26:37Z"
+    }
+  }
+]
+[2025-09-24 21:26:37.444] [info] [Producer] Successfully registered prefix: /SNDS_0
+[2025-09-24 21:26:37.446] [info] [Producer] Successfully registered prefix: /SNDS/state_0
+[2025-09-24 21:26:37.446] [info] [Producer] Successfully registered prefix: /SNDS/SNDS_ID_scope_0
+[2025-09-24 21:26:37.446] [info] [Producer] Successfully registered prefix: /SNDS/is_alive_0
+[2025-09-24 21:26:37.447] [info] [Producer] Successfully registered prefix: /SNDS/CAR_0
+[2025-09-24 21:26:37.447] [info] [Producer] Successfully registered prefix: /SNDS/CAR_0_registry
+[2025-09-24 21:26:37.447] [info] [Producer] Successfully registered prefix: /SNDS/CAR_1
+[2025-09-24 21:26:37.447] [info] [Producer] Successfully registered prefix: /SNDS/state_1
+[2025-09-24 21:26:37.447] [info] [Producer] Successfully registered prefix: /SNDS/is_alive_1
+[2025-09-24 21:26:37.447] [info] [Producer] Successfully registered prefix: /SNDS/CAR_1_registry
+[2025-09-24 21:26:37.447] [info] [Producer] Successfully registered prefix: /SNDS/SNDS_ID_scope_1
+[2025-09-24 21:26:37.447] [info] [Producer] Successfully registered prefix: /SNDS_1
+```
+
+Pay attention to: 
+
+```
+[2025-09-24 21:26:37.438] [debug] [Producer] [overlay] CLEARED
+[2025-09-24 21:26:37.438] [debug] [Producer] [promotion] rebuilt containers from store:
+[2025-09-24 21:26:37.438] [debug] [Producer]   type_registry[CAR_0] = [car54 ]
+[2025-09-24 21:26:37.438] [debug] [Producer]   type_registry[CAR_1] = []
+[2025-09-24 21:26:37.438] [debug] [Producer]   subscribed_nodes_for_type[CAR_0] = [SNDS_ID_scope_0 ]
+[2025-09-24 21:26:37.438] [debug] [Producer]   announcements = [/SNDS_0 /SNDS/state_0 /SNDS/SNDS_ID_scope_0 /SNDS/is_alive_0 /SNDS/CAR_0 /SNDS/CAR_0_registry /SNDS/CAR_1 /SNDS/state_1 /SNDS/is_alive_1 /SNDS/CAR_1_registry /SNDS/SNDS_ID_scope_1 /SNDS_1 ]
+```
+
+Let's try to subscribe to node A's ex registry ``CAR_0`` through C: 
+
+![alt text](./read-me-data/subto-a-c.png)
+
+And B receives the message: 
+
+```
+[2025-09-24 21:26:48.788] [info] [Producer] Received interest in function: onInterest, name: /SNDS/CAR_0/newTypeSubscription%3ACAR_0%26SNDS_ID_scope_2
+[2025-09-24 21:26:48.788] [info] [Producer] Parsed interest: Prefix: SNDS, Name: CAR_0, Command: newTypeSubscription, Params: [CAR_0, SNDS_ID_scope_2]
+[2025-09-24 21:26:48.789] [info] [Producer] Received our_snds_node_id: CAR_0 in func: process_new_subscription_interest
+[2025-09-24 21:26:48.789] [info] [Producer] Got interest indicating new subscription for name: CAR_0, and snds node: SNDS_ID_scope_2
+[2025-09-24 21:26:48.789] [info] [Producer] [event] subscribe_type: node=SNDS_ID_scope_2 -> type=CAR_0
+[2025-09-24 21:26:48.789] [info] [Producer] [resilience] mutate → ver=9 hash=e251a7d99bdb6c6192744e9d30f595e5
+[2025-09-24 21:26:48.789] [debug] [Producer] [resilience] history versions: 0(37a6259c) 1(a4703547) 2(d8b1f0f6) 3(327a56af) 4(32a3f5e2) 5(29930bc8) 6(7372eeb2) 7(45c6ea95) 8(76ec77d0) 9(e251a7d9) 
+[2025-09-24 21:26:48.789] [debug] [Producer] [resilience] ops from v8 → v9:
+[
+  {
+    "op": "add",
+    "path": "/subscribers/byType/CAR_0/nodes/SNDS_ID_scope_2",
+    "value": true
+  }
+]
+[2025-09-24 21:26:48.789] [info] [Producer] [debug][event:on_subscribe_type SNDS_ID_scope_2->CAR_0] summary → types=2 ids=1 subs(byId)=0 subs(byType)=2 announced=12
+[2025-09-24 21:26:48.789] [debug] [Producer] [debug][event:on_subscribe_type SNDS_ID_scope_2->CAR_0] type_registry:
+[2025-09-24 21:26:48.789] [debug] [Producer]   [CAR_0] car54 
+[2025-09-24 21:26:48.789] [debug] [Producer]   [CAR_1] 
+[2025-09-24 21:26:48.789] [debug] [Producer] [debug][event:on_subscribe_type SNDS_ID_scope_2->CAR_0] subscribed_nodes_for_id:
+[2025-09-24 21:26:48.789] [debug] [Producer] [debug][event:on_subscribe_type SNDS_ID_scope_2->CAR_0] subscribed_nodes_for_type:
+[2025-09-24 21:26:48.789] [debug] [Producer]   [CAR_0] SNDS_ID_scope_2 SNDS_ID_scope_0 
+[2025-09-24 21:26:48.789] [debug] [Producer] [debug][event:on_subscribe_type SNDS_ID_scope_2->CAR_0] announcements: /SNDS_0 /SNDS/state_0 /SNDS/SNDS_ID_scope_0 /SNDS/is_alive_0 /SNDS/CAR_0 /SNDS/CAR_0_registry /SNDS/CAR_1 /SNDS/state_1 /SNDS/is_alive_1 /SNDS/CAR_1_registry /SNDS/SNDS_ID_scope_1 /SNDS_1 
+[2025-09-24 21:26:48.789] [info] [Producer] [debug][event:on_subscribe_type SNDS_ID_scope_2->CAR_0] broker.journal: entries=0 cursor=0 last_fp=
+[2025-09-24 21:26:48.789] [debug] [Producer] [overlay][event:on_subscribe_type SNDS_ID_scope_2->CAR_0] ver=0 hash=d41d8cd98f00b204e9800998ecf8427e keys=0
+[2025-09-24 21:26:48.789] [info] [Producer] [BY_TYPE] New subscription: SNDS_ID_scope_2 subscribed to CAR_0
+[2025-09-24 21:26:48.789] [info] [Producer] [BY_TYPE] Responding to interest: /SNDS/CAR_0/newTypeSubscription%3ACAR_0%26SNDS_ID_scope_2
+[2025-09-24 21:26:48.789] [debug] [Producer] Sending data to the NDN…
+```
