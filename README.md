@@ -2965,8 +2965,8 @@ Names are built under your SNDS prefix with per-peer components:
 #### Liveness probe
 
 - Purpose: “Are you up, and did you see my nonce?”
-- Interest name: /<SNDS-prefix>/<peer_is_alive_name>/GET_RESILIENCE_IS_ALIVE/<nonce>
-- Example: /SNDS/is_alive_2/GET_RESILIENCE_IS_ALIVE/123456789
+- Interest name: /<SNDS-prefix>/<peer_is_alive_name>/getResilienceIsAlive:<nonce>
+- Example: /SNDS/is_alive_2/getResilienceIsAlive:123456789
 - Data (JSON):
 
 ```json
@@ -2977,8 +2977,8 @@ Names are built under your SNDS prefix with per-peer components:
 #### Head metadata
 
 - Purpose: “What version and hash is your current state?”
-- Interest name: /<SNDS-prefix>/<peer_state_name>/GET_RESILIENCE_META
-- Example: /SNDS/state_2/GET_RESILIENCE_META
+- Interest name: /<SNDS-prefix>/<peer_state_name>/getResilienceMeta
+- Example: /SNDS/state_2/getResilienceMeta
 - Data (JSON):
 ```json
 { "version": 42, "hash": "7c4ff521...md5...", "ts": "2025-06-26T14:31:00Z" }
@@ -2988,8 +2988,8 @@ Names are built under your SNDS prefix with per-peer components:
 #### Patch (delta) request
 
 - Purpose: “Give me the JSON Patch from my version → your version.”
-- Interest name:/<SNDS-prefix>/<peer_state_name>/GET_RESILIENCE_PATCH/<from_version>/<to_version>
-- Example: /SNDS/state_2/GET_RESILIENCE_PATCH/40/42
+- Interest name:/<SNDS-prefix>/<peer_state_name>/getResiliencePatch:<from_version>&<to_version>
+- Example: /SNDS/state_2/getResiliencePatch:40&42
 - Success Data (JSON):
 ```json
 {
@@ -3009,8 +3009,8 @@ Names are built under your SNDS prefix with per-peer components:
 
 #### Snapshot (full state) request
 - Purpose: “Give me the full state at your head (or at the specified version).”
-- Interest name:/<SNDS-prefix>/<peer_state_name>/GET_RESILIENCE_SNAPSHOT/<to_version>
-- Example: /SNDS/state_2/GET_RESILIENCE_SNAPSHOT/42
+- Interest name:/<SNDS-prefix>/<peer_state_name>/getResilienceSnapshot:<to_version>
+- Example: /SNDS/state_2/getResilienceSnapshot:42
 - Success Data (JSON):
 ```json
 {
