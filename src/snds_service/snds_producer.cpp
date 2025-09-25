@@ -732,61 +732,52 @@ void SNDSProducer::process_resilience_meta_interest(const parsed_interest_name::
 
 void SNDSProducer::process_version_metafile_interest(const parsed_interest_name::ParsedInterestName& interest)
 {
-    auto interest_response = parsed_interest_name::to_custom_ndn_name(interest, true);
+    const auto interest_response = parsed_interest_name::to_custom_ndn_name(interest, true);
     m_logger->debug("Created interest response: {} in {}", interest_response, __func__);
 
-    auto maybe_id = interest.get_interest_parameter(0);
+    // Parse all k=v params into a map
+    const auto params = parsed_interest_name::parse_params_map(interest);
 
-    if(!maybe_id.has_value())
+    // id (required)
+    auto id_it = params.find("id");
+    if (id_it == params.end() || id_it->second.empty()) 
     {
-        m_logger->error("Receveid ID with no value...");
+        m_logger->error("Received metafile Interest without a valid 'id' parameter");
         return;
     }
+    const std::string& id = id_it->second;
 
-    auto pair = parsed_interest_name::parse_param(maybe_id.value());
+    // type (optional)
+    std::string type_param;
+    if (auto t = params.find("type"); t != params.end() && !t->second.empty()) 
+    {
+        type_param = t->second;
+    }
 
-    auto id_key = pair.first;
-    auto id= pair.second;
+    m_logger->info("Metafile request received: id={}, type='{}'", id, type_param);
 
-    m_logger->info("ID request received: {} = {}", id_key, id);
-    // In local ID requests, we assume the name field itself is the requested ID.
+    // Build /get endpoint
+    std::string endpoint = "/get?id=" + url_encode(id);
+    if (!type_param.empty()) 
+    {
+        endpoint += "&type=" + url_encode(type_param);
+    }
+
     httplib::Client cli(broker_ip.c_str(), broker_port);
-    std::string endpoint = fmt::format
-    (
-      	"/get?id={}",
-        url_encode(id)
-    );
-
     auto res = cli.Get(endpoint.c_str());
 
-    if (res && res->status == 200) 
-    {
-        //get the most recent one theoritically
-        m_logger->info("Successfully queried /get");
-        //TODO SIGNING 
+    if (res && res->status == 200)
+     {
+        m_logger->info("Successfully queried {}", endpoint);
+        // TODO: sign
         sendData(interest_response, res->body);
     } 
     else 
     {
-        m_logger->error("Failed to query /get: {}", res ? res->body : "No response");
+        m_logger->error("Failed to query {}: {}", endpoint, res ? res->body : "No response");
         auto nack_message = snds_intra_message::to_string(snds_intra_message::SNDS_CONTROL_MESSAGE_TYPE::NACK_ERROR);
         sendData(interest_response, nack_message);
-        //sendData(interest_response, "dummy_payload");
-        //sendData(interest_response, R"({
-        //    "mode": "direct",
-        //    "items": [
-        //        {
-        //            "id": "dummy_id",
-        //            "type": "DUMMY_TYPE",
-        //            "count": 0,
-        //            "date": "1970-01-01T00:00:00Z",
-        //            "timeframe": "before after"
-        //        }
-        //    ]
-        //    })"
-        //);
     }
-
 }
 
 void SNDSProducer::process_subscription_notification_interest

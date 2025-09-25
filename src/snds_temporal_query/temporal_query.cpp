@@ -71,11 +71,12 @@ std::string temporal_query::timeframe_to_string(temporal_query::Timeframe frame)
 /// Turn a CSV of filter-keys into a vector<Filter> (value left empty)
 std::vector<temporal_query::Filter> temporal_query::parse_filters(std::string_view csv) 
 {
+    static constexpr const char filter_packing_delimeter = '|';
     std::vector<Filter> out{};
     std::string temp{csv};
     std::stringstream ss(temp);
     std::string item;
-    while (std::getline(ss, item, ',')) 
+    while (std::getline(ss, item, filter_packing_delimeter)) 
     {
         if (!item.empty()) 
         {
@@ -110,13 +111,14 @@ temporal_query::TemporalQuery temporal_query::from_params(const std::unordered_m
 }
 
 /// Join filters back into a CSV of keys
-std::string temporal_query::filters_to_csv(const std::vector<temporal_query::Filter>& filters) 
+std::string temporal_query::pack_filters(const std::vector<temporal_query::Filter>& filters) 
 {
+    static constexpr const char filter_packing_delimeter = '|';
     std::string out;
     bool first = true;
     for (auto const &f : filters) 
     {
-        if (!first) out += ',';
+        if (!first) out += filter_packing_delimeter;
         out += f.key;
         first = false;
     }
@@ -179,7 +181,7 @@ std::string temporal_query::to_path
 
     if (include_filters && !q.filters.empty()) 
     {
-        append(url_encode("filters=") + url_encode(filters_to_csv(q.filters)));
+        append(url_encode("filters=") + url_encode(pack_filters(q.filters)));
     }
 
     return oss.str();
@@ -217,7 +219,7 @@ std::vector<std::string> temporal_query::to_fields
     if (include_timeframe) fields.emplace_back(kv("timeframe", timeframe_to_string(q.frame)));
     if (include_filters) 
     {
-        const auto csv = filters_to_csv(q.filters);
+        const auto csv = pack_filters(q.filters);
         fields.emplace_back(kv("filters", csv));
     }
 
@@ -254,7 +256,7 @@ std::string temporal_query::serialize_temporal_query(const temporal_query::Tempo
 
     if (!q.filters.empty())
     {
-        j["filters"] = filters_to_csv(q.filters);
+        j["filters"] = pack_filters(q.filters);
     }
     return j.dump();
 }
@@ -284,7 +286,7 @@ std::string temporal_query::serialize_kv(const temporal_query::TemporalQuery& q)
         for (auto& [k, v] : extras) append(k, v);
     }
 
-    if (!q.filters.empty()) append("filters", filters_to_csv(q.filters));
+    if (!q.filters.empty()) append("filters", pack_filters(q.filters));
 
     return out;
 }

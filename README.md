@@ -320,6 +320,19 @@ curl -G http://localhost:8080/ \
   -H "Accept: application/json"
 ```
 
+A full temporal query: 
+
+```
+curl -i -X GET "http://localhost:8080" \
+  --data-urlencode "id=car1" \
+  --data-urlencode "timeframe=now" \
+  --data-urlencode "count=5" \
+  --data-urlencode "date=2025-09-28" \
+  --data-urlencode "type=CAR" \
+  --data-urlencode "filters=sensor|battery" \
+  -H "Accept: application/json"
+```
+
 # Run the MiniNDN
 
 
@@ -365,6 +378,81 @@ A good GUI I use for mongo is Compass: https://www.mongodb.com/try/download/comp
 
 
 Just download the apt file and install it. Connect to the local cluster ( you can connect to any cluster you want ): "mongodb://127.0.0.1:27017"
+
+
+### Populate database
+
+```
+mongosh SeEDS --eval 'db.CAR_VERSIONED.insertOne({
+  _id: { _id: "car001", timestamp: new Date("2025-09-25T09:30:00Z") },
+  id: "car001",
+  type: "CAR",
+  speed: 62,
+  engine_temp: 85.2,
+  battery: 91,
+  timestamp: new Date("2025-09-25T09:30:00Z")
+})'
+```
+
+```
+mongosh SeEDS --eval 'db.CAR_VERSIONED.insertOne({
+  _id: { _id: "car001", timestamp: new Date("2025-09-25T09:00:00Z") },
+  id: "car001",
+  type: "CAR",
+  speed: 50,
+  engine_temp: 80.1,
+  battery: 95,
+  timestamp: new Date("2025-09-25T09:00:00Z")
+})'
+```
+
+```
+mongosh SeEDS --eval 'db.CAR_VERSIONED.insertOne({
+  _id: { _id: "car001", timestamp: new Date("2025-09-25T09:30:00Z") },
+  id: "car001",
+  type: "CAR",
+  speed: 62,
+  engine_temp: 85.2,
+  battery: 91,
+  timestamp: new Date("2025-09-25T09:30:00Z")
+})'
+```
+
+```
+mongosh SeEDS --eval 'db.CAR_VERSIONED.insertOne({
+  _id: { _id: "car001", timestamp: new Date("2025-09-25T10:00:00Z") },
+  id: "car001",
+  type: "CAR",
+  speed: 75,
+  engine_temp: 92.4,
+  battery: 87,
+  timestamp: new Date("2025-09-25T10:00:00Z")
+})'
+```
+
+```
+mongosh SeEDS --eval 'db.CAR_VERSIONED.insertOne({
+  _id: { _id: "car002", timestamp: new Date("2025-09-25T09:40:00Z") },
+  id: "car002",
+  type: "CAR",
+  speed: 70,
+  engine_temp: 90.1,
+  battery: 78,
+  timestamp: new Date("2025-09-25T09:40:00Z")
+})'
+```
+
+```
+mongosh SeEDS --eval 'db.CAR_VERSIONED.insertOne({
+  _id: { _id: "car003", timestamp: new Date("2025-09-25T09:50:00Z") },
+  id: "car003",
+  type: "CAR",
+  speed: 55,
+  engine_temp: 79.4,
+  battery: 95,
+  timestamp: new Date("2025-09-25T09:50:00Z")
+})'
+```
 
 
 ## Run 
@@ -1616,15 +1704,125 @@ If we instead request an ID ``carNEW1``, which is present once in the Broker Dat
 
 Publish through A: 
 
-![alt text](image-2.png)
+![alt text](/read-me-data/publish-temp-from-a.png)
 
 Request through B:
 
-![alt text](requesting-temp-from-b.png)
+![alt text](/read-me-data/requesting-temp-from-b.png)
 
-![alt text](requesting-temp-from-b-1.png)
+![alt text](/read-me-data/requesting-temp-from-b-1.png)
 
-##### Filters 
+#### Filters 
+
+In a single node that has a populated database like this: 
+
+![alt text](./read-me-data/populated_database.png)
+
+Post the ID ``car001`` to the network: 
+
+```
+fotis@fotis-MS-7B86:~/Github/SeEDS$ curl -X POST http://localhost:8080/   --data-urlencode "id=car001"   -H "Accept: application/json"
+```
+
+```
+fotis@fotis-MS-7B86:~/Github/SeEDS$ curl -i -X GET "http://localhost:8080"   --data-urlencode "id=car001"   --data-urlencode "timeframe=now+before+after"   --data-urlencode "count=3"   --data-urlencode "date=2025-10-28"   --data-urlencode "type=CAR"  --data-urlencode "filters=id" "Accept: application/json"
+```
+
+Result: 
+
+```
+[2025-09-25 09:23:25.777] [info] [Worker] Received type: VERSION_RESPONSE
+[2025-09-25 09:23:25.777] [debug] [Worker] Consumer intra message...
+[2025-09-25 09:23:25.777] [debug] [Worker] Parent Query is: {"count":"3","date":"2025-10-28","filters":"id","id":"car001","timeframe":"now+before+after","type":"CAR"}
+[2025-09-25 09:23:25.777] [debug] [Worker] Processing slice/doc: {
+  "_id": "car001",
+  "battery": 95,
+  "engine_temp": 80.1,
+  "id": "car001",
+  "speed": 50,
+  "timestamp": {
+    "$date": 1758790800000
+  },
+  "type": "CAR"
+} and trying to apply filters...
+[2025-09-25 09:23:25.777] [debug] [Worker] Trying to apply filter: id
+[2025-09-25 09:23:25.777] [debug] [Worker] Sending BULK temporal response (4 items) for hash 15316310682379764155
+[2025-09-25 09:23:25.777] [debug] [Worker] Response looks like this:
+{
+  "items": [
+    {
+      "id": "car001"
+    },
+    {
+      "id": "car001"
+    },
+    {
+      "id": "car001"
+    },
+    {
+      "id": "car001"
+    }
+  ],
+  "mode": "manifest",
+  "parentQueryHash": "15316310682379764155",
+  "query": "{\"count\":\"3\",\"date\":\"2025-10-28\",\"filters\":\"id\",\"id\":\"car001\",\"timeframe\":\"now+before+after\",\"type\":\"CAR\"}"
+}
+[2025-09-25 09:23:25.777] [info] [Worker] Reading packet..
+```
+
+Another request: 
+```
+fotis@fotis-MS-7B86:~/Github/SeEDS$ curl -i -X GET "http://localhost:8080"   --data-urlencode "id=car001"   --data-urlencode "timeframe=now+before+after"   --data-urlencode "count=3"   --data-urlencode "date=2025-10-28"   --data-urlencode "type=CAR"  --data-urlencode "filters=engine_temp|battery" "Accept: application/json"
+```
+
+
+Result: 
+
+```
+}
+[2025-09-25 09:26:35.759] [info] [Worker] Received type: VERSION_RESPONSE
+[2025-09-25 09:26:35.759] [debug] [Worker] Consumer intra message...
+[2025-09-25 09:26:35.759] [debug] [Worker] Parent Query is: {"count":"3","date":"2025-10-28","filters":"engine_temp|battery","id":"car001","timeframe":"now+before+after","type":"CAR"}
+[2025-09-25 09:26:35.759] [debug] [Worker] Processing slice/doc: {
+  "_id": "car001",
+  "battery": 95,
+  "engine_temp": 80.1,
+  "id": "car001",
+  "speed": 50,
+  "timestamp": {
+    "$date": 1758790800000
+  },
+  "type": "CAR"
+} and trying to apply filters...
+[2025-09-25 09:26:35.759] [debug] [Worker] Trying to apply filter: battery
+[2025-09-25 09:26:35.759] [debug] [Worker] Trying to apply filter: engine_temp
+[2025-09-25 09:26:35.759] [debug] [Worker] Sending BULK temporal response (4 items) for hash 10417565441930388828
+[2025-09-25 09:26:35.759] [debug] [Worker] Response looks like this:
+{
+  "items": [
+    {
+      "battery": 95,
+      "engine_temp": 80.1
+    },
+    {
+      "battery": 95,
+      "engine_temp": 80.1
+    },
+    {
+      "battery": 95,
+      "engine_temp": 80.1
+    },
+    {
+      "battery": 95,
+      "engine_temp": 80.1
+    }
+  ],
+  "mode": "manifest",
+  "parentQueryHash": "10417565441930388828",
+  "query": "{\"count\":\"3\",\"date\":\"2025-10-28\",\"filters\":\"engine_temp|battery\",\"id\":\"car001\",\"timeframe\":\"now+before+after\",\"type\":\"CAR\"}"
+}
+[2025-09-25 09:26:35.759] [info] [Worker] Reading packet...
+```
 
 #### Resilience Requests
 

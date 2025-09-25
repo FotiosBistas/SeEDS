@@ -45,7 +45,7 @@ static constexpr const char* GET_PARAMETER_ID_TAG      = "id";
 /** @brief Query key for a logical type/category (e.g., collection name). */
 static constexpr const char* GET_PARAMETER_TYPE_TAG    = "type";
 /** @brief Query key for a field filter (comma- or app-specific). */
-static constexpr const char* GET_PARAMETER_FIELDS_TAG  = "filters";
+static constexpr const char* GET_PARAMETER_FILTERS_TAG  = "filters";
 /** @brief Query key carrying a subscription callback URL (when applicable). */
 static constexpr const char* GET_PARAMETER_SUB_URL_TAG = "suburl";
 /** @brief Query key flag indicating subscription semantics (true/1). */
@@ -146,10 +146,10 @@ struct QueryParam<bool>
     M(count,            GET_PARAMETER_COUNT_TAG,                  false, std::string) \
     M(date,             GET_PARAMETER_DATE_TAG,                   true,  std::string) \
     M(timeframe,        GET_PARAMETER_TIMEFRAME_TAG,              true,  std::string) \
-    M(filters,          GET_PARAMETER_FIELDS_TAG,                 true,  std::string) \
+    M(filters,          GET_PARAMETER_FILTERS_TAG,                true,  std::string) \
     M(parent_query_hash,GET_PARAMETER_PARENT_QUERY_HASH_TAG,      true,  std::string) \
     M(subscription_url, GET_PARAMETER_SUB_URL_TAG,                false, std::string) \
-	M(metafile,         GET_PARAMETER_IS_METAFILE_TAG,            true,  std::string) \
+	  M(metafile,         GET_PARAMETER_IS_METAFILE_TAG,            true,  std::string) \
     M(last_interest,    GET_PARAMETER_LAST_METAFILE_INTEREST_TAG, true,  std::string) \
     M(is_subscription,  GET_PARAMETER_IS_SUB_TAG,                 false, bool)       
 //------------------------------------------------------------------------------

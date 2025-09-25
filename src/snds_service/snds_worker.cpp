@@ -277,8 +277,17 @@ nlohmann::json Worker::apply_filters_to_doc(const nlohmann::json& doc, const std
     if (doc.is_object()) 
     {
         nlohmann::json out = nlohmann::json::object();
-        for (const auto& k : keep) if (doc.contains(k)) out[k] = doc[k];
+        for (const auto& k : keep) 
+        {
+            m_logger->debug("Trying to apply filter: {}", k);
+            if (doc.contains(k))
+            {
+                m_logger->debug("Doc: {} contains filter: {}", doc, k);
+                out[k] = doc[k];
+            }
+        }
         return out;
+
     }
 
     if (doc.is_array()) 
@@ -288,7 +297,15 @@ nlohmann::json Worker::apply_filters_to_doc(const nlohmann::json& doc, const std
         {
             if (!el.is_object()) continue;
             nlohmann::json obj = nlohmann::json::object();
-            for (const auto& k : keep) if (el.contains(k)) obj[k] = el[k];
+            for (const auto& k : keep)
+            {
+                m_logger->debug("Trying to apply filter: {}", k);
+                if (el.contains(k)) 
+                {
+                    m_logger->debug("Doc: {} contains filter: {}", doc, k);
+                    obj[k] = el[k];
+                }
+            }
             out.push_back(std::move(obj));
         }
         return out;
@@ -305,12 +322,29 @@ void Worker::process_temporal_query_response
     bool is_direct_mode
 )
 {
-    // =======================
-    // DIRECT MODE (no parent query state)
-    // =======================
     if (is_direct_mode) 
     {
         m_logger->info("Direct mode...");
+
+        // Try to fetch parent query state if a hash was provided
+        const bool have_hash = !parent_query_hash.empty();
+        temporal_query::TemporalQuery parent_query{};
+        bool have_parent = false;
+        if (have_hash) 
+        {
+            if (auto itpq = pending_temporal_queries.find(parent_query_hash); itpq != pending_temporal_queries.end())
+            {
+                parent_query = itpq->second;
+                have_parent  = true;
+                m_logger->debug("Direct mode: found parent query for hash {} -> {}", parent_query_hash, temporal_query::serialize_temporal_query(parent_query));
+            }
+            else 
+            {
+                m_logger->debug("Direct mode: no parent state for hash {}", parent_query_hash);
+            }
+        }
+
+        // Parse the item (single object expected)
         nlohmann::json item;
         if (!_extract_direct_temporal_item(content, item)) 
         {
@@ -318,9 +352,8 @@ void Worker::process_temporal_query_response
             return;
         }
 
-        // ---- Clear pending GET_BY_ID for this ID (if present) ----
-        // Prefer "id", fall back to "_id"
-        const std::string resolved_id = item.value("id", item.value("_id", std::string{}));
+        // Clear pending GET_BY_ID/GET_BY_TYPE
+        const std::string resolved_id   = item.value("id", item.value("_id", std::string{}));
         if (!resolved_id.empty()) 
         {
             const auto erased = pending_get_by_id_requests.erase(resolved_id);
@@ -331,7 +364,6 @@ void Worker::process_temporal_query_response
             m_logger->warn("Direct mode item had no 'id'/'_id'; cannot clear pending_get_by_id_requests");
         }
 
-        //same thing here
         const std::string resolved_type = item.value("type", std::string{});
         if (!resolved_type.empty()) 
         {
@@ -339,16 +371,132 @@ void Worker::process_temporal_query_response
             m_logger->debug("Cleared pending_get_by_type_requests for '{}': erased={}", resolved_type, erasedT);
         }
 
-        // (Optional) apply ad-hoc filtering here if you want; no parent_query is available.
-        // Build a uniform response envelope the HTTP layer expects.
+        // Helpers to collect filters from multiple sources and merge them
+        auto extract_keep_from = [&](const nlohmann::json* node) 
+        {
+            std::unordered_set<std::string> keep;
+            if (!node || node->is_null()) return keep;
+
+            const auto& filters = *node;
+            if (filters.is_array()) 
+            {
+                for (const auto& f : filters) 
+                {
+                    if (f.is_object()) 
+                    {
+                        if (auto it = f.find("key"); it != f.end() && it->is_string()) keep.insert(it->get<std::string>());
+                    } 
+                    else if (f.is_string()) 
+                    {
+                        keep.insert(f.get<std::string>());
+                    }
+                }
+            } 
+            else if (filters.is_object()) 
+            {
+                for (auto it = filters.begin(); it != filters.end(); ++it) 
+                {
+                    if (it.value().is_boolean() ? it.value().get<bool>() : true) keep.insert(it.key());
+                }
+            }
+            return keep;
+        };
+
+        auto parse_qs_filters = [&](const std::string& s) 
+        {
+            std::unordered_set<std::string> keep;
+            // extract query string after "/?"
+            const std::string marker = "/?";
+            auto pos = s.find(marker);
+            if (pos == std::string::npos) return keep;
+            std::string_view qs = std::string_view(s).substr(pos + marker.size());
+
+            // parse k=v&...
+            size_t start = 0;
+            while (start <= qs.size()) 
+            {
+                size_t amp = qs.find('&', start);
+                std::string_view pair = (amp == std::string::npos) ? qs.substr(start) : qs.substr(start, amp - start);
+                if (!pair.empty()) 
+                {
+                    size_t eq = pair.find('=');
+                    std::string key = url_decode(eq == std::string::npos ? std::string(pair) : std::string(pair.substr(0, eq)));
+                    std::string val = url_decode(eq == std::string::npos ? std::string() : std::string(pair.substr(eq + 1)));
+                    if (key == "filters" && !val.empty()) 
+                    {
+                        // Reuse your temporal_query parser for consistency
+                        auto fl = temporal_query::parse_filters(val);
+                        for (const auto& f : fl) keep.insert(f.key);
+                    }
+                }
+                if (amp == std::string::npos) break;
+                start = amp + 1;
+            }
+            return keep;
+        };
+
+        auto merge_keep = [](std::unordered_set<std::string>& dst, const std::unordered_set<std::string>& src)
+        {
+            dst.insert(src.begin(), src.end());
+        };
+
+        // Build the keep set with this precedence:
+        // 1) item.filters (or item.query.filters / item._meta.filters)
+        // 2) querystring filters from `content`
+        // 3) parent_query.filters (if state exists)
+        std::unordered_set<std::string> keep;
+
+        if (auto itf = item.find("filters"); itf != item.end()) merge_keep(keep, extract_keep_from(&(*itf)));
+        if (keep.empty()) 
+        {
+            if (auto q = item.find("query"); q != item.end()) 
+            {
+                if (auto it = q->find("filters"); it != q->end()) merge_keep(keep, extract_keep_from(&(*it)));
+            }
+        }
+        if (keep.empty()) 
+        {
+            if (auto m = item.find("_meta"); m != item.end()) 
+            {
+                if (auto it = m->find("filters"); it != m->end()) merge_keep(keep, extract_keep_from(&(*it)));
+            }
+        }
+
+        // merge querystring filters
+        merge_keep(keep, parse_qs_filters(content));
+
+        // merge parent query filters last (lowest precedence if others are present)
+        if (have_parent && !parent_query.filters.empty()) 
+        {
+            std::unordered_set<std::string> k2;
+            for (const auto& f : parent_query.filters) k2.insert(f.key);
+            merge_keep(keep, k2);
+        }
+
+        if (!keep.empty()) 
+        {
+            m_logger->debug("Applying {} filter keys in direct mode", keep.size());
+            item = apply_filters_to_doc(item, keep);
+        } 
+        else 
+        {
+            m_logger->debug("Direct mode: no filters discovered; returning full item");
+        }
+
+        // Build response
         nlohmann::json bundle;
         bundle["mode"]  = "direct";
         bundle["items"] = nlohmann::json::array();
         bundle["items"].push_back(std::move(item));
 
+        if (have_parent) 
+        {
+            bundle["parentQueryHash"] = parent_query_hash;
+            bundle["query"]           = temporal_query::serialize_temporal_query(parent_query);
+        }
+
         std::string out = bundle.dump(2);
-        auto message = std::make_unique<snds_intra_message::SNDS_INTRA_MESSAGE>
-        (
+        auto message = std::make_unique<snds_intra_message::SNDS_INTRA_MESSAGE>(
             /*name*/"",
             snds_intra_message::SNDS_INTRA_MESSAGE_TYPE::TEMPORAL_QUERY_RESPONSE,
             snds_intra_message::SNDS_CLIENT_TYPES::WORKER,
@@ -356,6 +504,13 @@ void Worker::process_temporal_query_response
             snds_intra_message::HTTP_MESSAGE_TYPE::HTTP_EMPTY
         );
         v_to_service->writeMessage(std::move(message));
+
+        // If we had parent state and this was the last chunk, clean it up
+        if (have_parent && last_interest) 
+        {
+            temporal_buffers.erase(parent_query_hash);
+            pending_temporal_queries.erase(parent_query_hash);
+        }
         return;
     }
 
@@ -371,6 +526,8 @@ void Worker::process_temporal_query_response
 
     // Safe: we have state
     const auto parent_query = it->second;
+
+    m_logger->debug("Parent Query is: {}", temporal_query::serialize_temporal_query(parent_query));
 
     // Precompute keep-set once for this batch
     std::unordered_set<std::string> keep;
@@ -412,6 +569,8 @@ void Worker::process_temporal_query_response
             m_logger->error("Slice #{} parse discarded; skipping.", idx);
             continue;
         }
+
+        m_logger->debug("Processing slice/doc: {} and trying to apply filters...", doc.dump(2));
 
         nlohmann::json filtered = apply_filters_to_doc(doc, keep);
         bucket.push_back(std::move(filtered));

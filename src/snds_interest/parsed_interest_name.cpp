@@ -24,7 +24,7 @@ std::map<std::string, std::string> parsed_interest_name::parse_params_map(const 
 void parsed_interest_name::add_param(parsed_interest_name::ParsedInterestName& pi, std::string key, std::string value) 
 {
     // store as "key=value" (raw). 
-    pi.params.emplace_back(std::move(key) + "=" + std::move(value));
+    pi.params.emplace_back(key + "=" + value);
 }
 
 std::string parsed_interest_name::build_query_uri(std::string_view base_path, const std::vector<std::string>& kv_tokens, bool encode_values)

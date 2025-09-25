@@ -277,7 +277,7 @@ std::string Broker::get_from_database(const temporal_query::Timeframe& frame, bs
         auto collection = this->client[this->database][correct_type];
         auto [base_timestamp, parsed_timestamp] = parse_timestamp(date);
         auto pipeline = create_date_pipeline(frame, count, id, base_timestamp, parsed_timestamp);
-        filter_to_only_id(pipeline);
+        //filter_to_only_id(pipeline);
         auto cursor = collection.aggregate(pipeline);
 
 

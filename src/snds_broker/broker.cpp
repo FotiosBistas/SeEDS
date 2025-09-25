@@ -461,7 +461,7 @@ nlohmann::json Broker::get_one(const std::string& request){
         logger->debug("Type is: {}", type);
         logger->debug("ID is: {}", id);
 
-        auto collection = this->client[this->database][type];;
+        auto collection = this->client[this->database][type];
 
         auto search = bsoncxx::builder::basic::make_document(
             bsoncxx::builder::basic::kvp("_id", id)

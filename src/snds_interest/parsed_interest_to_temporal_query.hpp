@@ -29,49 +29,60 @@
  *
  * @warning This mapping is based on conventions. Adjust if your naming scheme differs.
 */
-inline temporal_query::TemporalQuery temporal_query_from_interest(const parsed_interest_name::ParsedInterestName& pi)
+inline temporal_query::TemporalQuery
+temporal_query_from_interest(const parsed_interest_name::ParsedInterestName& pi)
 {
     temporal_query::TemporalQuery q;
-    // we’ll assume:
-    //   pi.prefix  holds the “type” (or service) component
-    //   pi.name holds the “id”
-    // adjust as your naming scheme requires
-    // q.type = pi.prefix;
-    q.id   = pi.name;
 
-    for (auto const& raw_param: pi.params) 
+    // Default/fallbacks based on your naming:
+    //   /SNDS/<TYPE>/temporalQuery:id=...&type=...&...
+    // Treat the path component as TYPE by default.
+    q.type = pi.name;   // e.g., "CAR"
+    // q.id stays empty until we parse "id="
+
+    for (const auto& raw_param : pi.params)
     {
-        // decode any %-escapes
+        // decode %-escapes (so timeframe "now%2Bbefore%2Bafter" → "now+before+after")
         std::string param = url_decode(raw_param);
 
-        // split at the first '='
-        auto eq = param.find('=');
-        if (eq == std::string::npos) 
-        {
-            // no “key=value”? shove into extras
-            q.extras[param] = "";
-            continue;
-        }
-        std::string key = param.substr(0, eq);
-        std::string val = param.substr(eq + 1);
+        // split once on '='
+        const auto eq = param.find('=');
+        const std::string key = (eq == std::string::npos) ? param : param.substr(0, eq);
+        const std::string val = (eq == std::string::npos) ? ""    : param.substr(eq + 1);
 
-        if (key == "date") 
+        if (key == "id") 
+        {
+            q.id = val;                     // <- primary source of ID (e.g., "car001")
+        } 
+        else if (key == "type") 
+        {
+            q.type = val;                   // <- explicit type overrides default (pi.name)
+        } 
+        else if (key == "date") 
         {
             q.date = val;
-        }
+        } 
         else if (key == "timeframe") 
         {
             q.frame = temporal_query::string_to_timeframe(val);
-        }
+        } 
         else if (key == "count") 
         {
             q.count = val;
-        }
+        } 
         else if (key == "filters") 
         {
             q.filters = temporal_query::parse_filters(val);
+        } 
+        else 
+        {
+            // Preserve unknowns for debugging/forward-compat
+            q.extras[key] = val;
         }
     }
+
+    // If an Interest omitted "type=", we already set q.type = pi.name above.
+    // If an Interest omitted "id=", leave q.id empty (or set a fallback here if you prefer).
 
     return q;
 }

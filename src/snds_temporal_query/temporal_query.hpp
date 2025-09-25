@@ -48,7 +48,7 @@ namespace temporal_query{
     /**
      * @brief Simple filter descriptor (key/value).
      *
-     * @note When parsed from CSV via @ref parse_filters, values are empty (key-only).
+     * @note When parsed from | via @ref parse_filters, values are empty (key-only).
     */
     struct Filter 
     {
@@ -195,11 +195,11 @@ namespace temporal_query{
     */
     std::vector<Filter> parse_filters(std::string_view csv);
     /**
-     * @brief Join filters back into a CSV string (keys only).
+     * @brief Join filters back into a string (keys only).
      * @param filters Vector of filters.
-     * @return "k1,k2,k3".
+     * @return "k1|k2|k3".
     */
-    std::string filters_to_csv(const std::vector<Filter>& filters);
+    std::string pack_filters(const std::vector<Filter>& filters);
      /**
      * @brief Parse parameters from a path-like string (heuristics for legacy forms).
      * @param s Example: "/SNDS/car2/getByID:car2" or "/SNDS/Car/getByID:car2".

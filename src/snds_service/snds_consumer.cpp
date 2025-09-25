@@ -558,14 +558,16 @@ void SNDSConsumer::send_metafile_interests(const std::string& body, const tempor
     std::unordered_set<std::string> seen_canonical;
     std::optional<parsed_interest_name::ParsedInterestName> pending;
 
-    auto send_with_flag = [&](parsed_interest_name::ParsedInterestName& pin, bool is_last)
+    auto send_with_flag = [&](parsed_interest_name::ParsedInterestName pin, bool is_last)
     {
+        // work on our local copy
         parsed_interest_name::add_param(pin, GET_PARAMETER_LAST_METAFILE_INTEREST_TAG, is_last ? "true" : "false");
+        m_logger->debug("Added param to pin: {}", pin.to_string());
 
         const auto name_to_string = parsed_interest_name::to_custom_ndn_name(pin, true);
         m_logger->info("Sending Interest ({}={}): {}", GET_PARAMETER_LAST_METAFILE_INTEREST_TAG, is_last ? "true" : "false", name_to_string);
 
-        try 
+        try
         {
             ndn::Name interestName(name_to_string);
             m_logger->debug("Created interest_name: {}", interestName.toUri());
@@ -573,6 +575,8 @@ void SNDSConsumer::send_metafile_interests(const std::string& body, const tempor
             interest.setCanBePrefix(true);
             interest.setInterestLifetime(ndn::time::milliseconds(6000));
 
+            using std::placeholders::_1;
+            using std::placeholders::_2;
             m_face.expressInterest
             (
                 interest,
@@ -580,16 +584,15 @@ void SNDSConsumer::send_metafile_interests(const std::string& body, const tempor
                 std::bind(&SNDSConsumer::onNack,    this, _1, _2),
                 std::bind(&SNDSConsumer::onTimeout, this, _1)
             );
-        } 
-        catch (const std::exception& e) 
+        }
+        catch (const std::exception& e)
         {
             m_logger->error("Invalid NDN name {}; dropping. Error: {}", name_to_string, e.what());
         }
     };
-
-    for (const auto& entry : root) 
+    for (const auto entry : root) 
     {
-        for (auto& [key, arr] : entry.items()) 
+        for (auto [key, arr] : entry.items()) 
         {
             m_logger->debug("Parsing key: {}", key);
             if (!arr.is_array()) 
@@ -612,7 +615,8 @@ void SNDSConsumer::send_metafile_interests(const std::string& body, const tempor
                 if (date_field.is_null()) { m_logger->warn("Missing _id.timestamp.$date"); continue; }
                 const long long raw_timestamp = ::json_to_epoch_ms(date_field);
 
-                const std::string type = ::json_to_string(doc["type"]);
+                const std::string type_raw = doc.value("type", std::string{});
+                const std::string type     = type_raw.empty() ? parent_query.type : type_raw;
                 m_logger->debug("Doc fields -> id={}, ts(ms)={}, type={}", id, raw_timestamp, type);
 
                 // ---- Build base interest (no last-flag yet) ----
@@ -623,6 +627,8 @@ void SNDSConsumer::send_metafile_interests(const std::string& body, const tempor
                     parsed_interest_name::interest_message_type::INTEREST_MESSAGE_TYPE::VERSION,
                     std::vector<std::string>{}
                 );
+
+                m_logger->debug("Created interest from metafile: {}", pin.to_string());
 
                 m_logger->debug("Adding params...");
                 try
@@ -643,9 +649,11 @@ void SNDSConsumer::send_metafile_interests(const std::string& body, const tempor
                 {
                     m_logger->error("Unknown exception while adding params");
                 }
-                m_logger->debug("Added params...");
+                m_logger->debug("Added params to name: {}...", pin.to_string());
 
                 const auto canonical = parsed_interest_name::to_custom_ndn_name(pin, true);
+
+                m_logger->debug("Created canonical name: {}", canonical);
 
                 if (!seen_canonical.emplace(canonical).second) 
                 {
@@ -653,22 +661,27 @@ void SNDSConsumer::send_metafile_interests(const std::string& body, const tempor
                     continue; 
                 }
 
+                m_logger->debug("Checking if pending has value");
                 // We found a new unique interest:
                 // flush the previous pending one as not-last, then keep this as pending
-                if (pending.has_value()) 
+                if (pending) 
                 {
-                    send_with_flag(pending.value(), false);
+                    m_logger->debug("Pending has value");
+                    send_with_flag(*pending, false);
                     pending.reset();
                 }
-                pending = std::move(pin);
+                m_logger->debug("Moving to pending...");
+                pending.emplace(pin);
+                m_logger->debug("Pending emplaced");
+
             }
         }
     }
 
     // After the loop, whatever is left is the last
-    if (pending.has_value()) 
+    if (pending) 
     {
-        send_with_flag(pending.value(), /*is_last*/ true);
+        send_with_flag(*pending, /*is_last*/ true);
     } 
     else 
     {
@@ -1005,13 +1018,13 @@ void SNDSConsumer::onData(const ndn::Interest& interest, const ndn::Data& data)
 
                     // Prefer normalized fields; fall back to any available source.
                     const std::string id   = item.value("id",    pi.get_interest_parameter(0).value_or(""));
-                    const std::string type = item.value("type",  "");  // may be empty in your examples
+                    const std::string type = item.value("type",  pi.get_interest_parameter(1).value_or(""));  // may be empty in your examples
                     // date can be number (epoch ms) or string; store as string for the URI if present.
                     std::string date;
                     if (item.contains("date")) 
                     {
-                        if (item["date"].is_string())        date = item["date"].get<std::string>();
-                        else                                  date = item["date"].dump(); // preserve numeric
+                        if (item["date"].is_string()) date = item["date"].get<std::string>();
+                        else date = item["date"].dump(); // preserve numeric
                     }
 
                     parsed_interest_name::add_param(env, GET_PARAMETER_ID_TAG,                id);
