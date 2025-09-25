@@ -1907,10 +1907,29 @@ The Broker IP and PORT should be this:
 
 ### Resilience
 
+
 Currently the way I have set up the script ``test-run.py`` is that the second one becomes the secondary node: 
 
 ```py
 sudo python ./topologies/test-topology.conf
+```
+
+
+Setup a Node to fail: 
+
+
+```python
+host.cmdPrint(
+  'cd /home/fotis/Github/SeEDS/build &&
+  f'( timeout 60s {cmd_core};
+  f'{cmd_core}
+  'rc=$?;
+  'if [ "$rc" -eq 124 ]; then
+  f'  echo "[TIMEOUT] $(date \"+%Y-%m-%d %H:%M:%S.%3N\") {host.name}: daemon exceeded 120s";
+  'fi;
+  'exit $rc
+  f') > "{host_home}/log.txt" 2>&1 
+)
 ```
 
 You can set it up however you like. This is just a flag, which signifies whether the node is secondary. What this means is that the secondary node (in this case B) will start its Inter-Process-Communication ( IPC ) loop inside the C++ code. If the Node is primary ( in this case A ) it doesn't listen to the IPC for the resilience. **Care**: we also need to run the process of the ``./resilience_poller_bin``:
