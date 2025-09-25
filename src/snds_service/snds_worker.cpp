@@ -777,36 +777,78 @@ void Worker::process_registry_file(const std::string& payload, const std::string
     pending_ids_to_type_map[type] = std::move(id_set);
 }
 
+// Optional: normalize to a friendlier {id,date,type} when present.
+static nlohmann::json _normalize_temporal_entry_to_item(const nlohmann::json& entry)
+{
+    nlohmann::json out = nlohmann::json::object();
+
+    if (entry.is_object())
+    {
+        if (entry.contains("_id") && entry["_id"].is_object())
+        {
+            const auto& idobj = entry["_id"];
+            if (idobj.contains("_id") && idobj["_id"].is_string())
+                out["id"] = idobj["_id"].get<std::string>();
+
+            if (idobj.contains("timestamp") &&
+                idobj["timestamp"].is_object() &&
+                idobj["timestamp"].contains("$date"))
+            {
+                // Keep raw; convert later if you need ISO-8601
+                out["date"] = idobj["timestamp"]["$date"];
+            }
+        }
+        if (entry.contains("type")) out["type"] = entry["type"];
+    }
+
+    return out.empty() ? entry : out;
+}
+
 // Extract the single item from a "direct" payload.
-// Supports both shapes:
+// Supports:
 //  A) {"mode":"direct","items":[{...}]}
-//  B) [ { "<key or empty>": { ...doc... } } ]
+//  B) [ { "<bucket or empty>": { ...doc... } } ]          // legacy
+//  C) [ { "<bucket>": [ { ...doc... } ] } ]               // NEW (your case)
 bool Worker::_extract_direct_temporal_item(const std::string& content, nlohmann::json& out)
 {
     if (!nlohmann::json::accept(content)) return false;
     nlohmann::json j = nlohmann::json::parse(content, nullptr, false);
     if (j.is_discarded()) return false;
 
-    // Schema A
-    if (j.is_object() && j.value("mode","") == "direct") 
+    // --- Schema C: [ { "<bucket>": [ { ... } ] } ] ---
+    if (j.is_array() && !j.empty())
+    {
+        const auto& first = j.front();
+        if (first.is_object() && first.size() == 1)
+        {
+            const auto& val = first.begin().value();
+            if (val.is_array() && val.size() == 1 && val.front().is_object())
+            {
+                out = _normalize_temporal_entry_to_item(val.front());
+                return true;
+            }
+            // --- Schema B (legacy): [ { "<bucket>": { ... } } ] ---
+            if (val.is_object())
+            {
+                out = _normalize_temporal_entry_to_item(val);
+                return out.is_object();
+            }
+        }
+    }
+
+    // --- Schema A: {"mode":"direct","items":[{...}]} ---
+    if (j.is_object() && j.value("mode","") == "direct")
     {
         const auto& items = j.value("items", nlohmann::json::array());
-        if (items.is_array() && !items.empty() && items.front().is_object()) 
+        if (items.is_array() && !items.empty() && items.front().is_object())
         {
-            out = items.front();
+            out = _normalize_temporal_entry_to_item(items.front());
             return true;
         }
     }
 
-    // Schema B (legacy array with single inner object under any key, incl. "")
-    if (j.is_array() && !j.empty() && j.front().is_object() && j.front().size() == 1) 
-    {
-        out = j.front().begin().value();
-        return out.is_object();
-    }
-
-    // Fallback: if it's just an object, treat it as the item
-    if (j.is_object()) { out = std::move(j); return true; }
+    // Fallback: a plain object is the item
+    if (j.is_object()) { out = _normalize_temporal_entry_to_item(j); return true; }
 
     return false;
 }

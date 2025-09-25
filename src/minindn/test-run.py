@@ -93,21 +93,23 @@ if __name__ == '__main__':
         #is_last = (idx == number_of_services - 1)  # make last host SECONDARY
         is_second = (idx == 1)  # make the second host SECONDARY
         is_primary = not is_second
+        #is_primary = True
         registry_key = f"CAR_{idx}"
         only_a_timeout = (idx == 0)
+        #only_a_timeout = False
 
         # --- SAFE per-host Mongo startup (no pkill) ---
 
         # Try a clean shutdown of this node's Mongo (harmless if not running)
         host.cmd(
-            'bash -lc '
+            'sudo bash -lc '
             f'\'mongod --dbpath "{mongo_dir}" --shutdown >/dev/null 2>&1 || true; '
             f'rm -f "{mongo_dir}/mongod.pid" >/dev/null 2>&1 || true\''
         )
 
         # Start mongod bound to the node IP only (no 127.0.0.1)
         ret = host.cmd(
-            'bash -lc \''
+            'sudo bash -lc \''
             'mongod '
             '--port 27017 '
             f'--bind_ip {node_ip} '
@@ -130,7 +132,7 @@ if __name__ == '__main__':
 
         # Strong readiness: mongosh ping via the NODE IP
         ready = host.cmd(
-            'bash -lc \'for i in {1..60}; do '
+            'sudo bash -lc \'for i in {1..60}; do '
             f'mongosh --quiet --host {node_ip} --port 27017 --eval "db.adminCommand({{ping:1}}).ok" 2>/dev/null | grep -q "^1$" && echo READY && exit 0; '
             'sleep 0.5; '
             'done; echo FAIL; exit 1\''
@@ -145,7 +147,7 @@ if __name__ == '__main__':
         broker_uri = f'mongodb://{node_ip}:27017/?serverSelectionTimeoutMS=60000'
         host.cmdPrint(
             'cd /home/fotis/Github/SeEDS/build && '
-            './snds_broker_bin '
+            'sudo ./snds_broker_bin '
             f'--mongo.uri="{broker_uri}" '
             f'--bind-ip={node_ip} '
             '--bind-port=10000 '
@@ -164,7 +166,7 @@ if __name__ == '__main__':
         seed_from_port = primary_port
 
         cmd_core = (
-            f'./snds_daemon_bin '
+            f'sudo ./snds_daemon_bin '
             f'--log-level={args.log_level} '
             f'--num-services={number_of_services} '
             '--snds-prefix=SNDS '
@@ -185,22 +187,23 @@ if __name__ == '__main__':
         )
 
         # Start the SNDS daemon on every host, pointing to the per-node broker via node IP
-        if only_a_timeout:
-            host.cmdPrint(
-                'cd /home/fotis/Github/SeEDS/build && '
-                f'( timeout 60s {cmd_core}; '
-                'rc=$?; '
-                'if [ "$rc" -eq 124 ]; then '
-                f'  echo "[TIMEOUT] $(date \"+%Y-%m-%d %H:%M:%S.%3N\") {host.name}: daemon exceeded 120s"; '
-                'fi; '
-                'exit $rc '
-                f') > "{host_home}/log.txt" 2>&1 &'
-            )
-        else:
-            host.cmdPrint(
-                'cd /home/fotis/Github/SeEDS/build && '
-                f'{cmd_core} > "{host_home}/log.txt" 2>&1 &'
-            )
+        #if only_a_timeout:
+        #    host.cmdPrint(
+        #        'cd /home/fotis/Github/SeEDS/build && '
+        #        f'( timeout 60s {cmd_core}; '
+        #        f'{cmd_core};'
+        #        'rc=$?; '
+        #        'if [ "$rc" -eq 124 ]; then '
+        #        f'  echo "[TIMEOUT] $(date \"+%Y-%m-%d %H:%M:%S.%3N\") {host.name}: daemon exceeded 120s"; '
+        #        'fi; '
+        #        'exit $rc '
+        #        f') > "{host_home}/log.txt" 2>&1 &'
+        #    )
+        #else:
+        host.cmdPrint(
+            'cd /home/fotis/Github/SeEDS/build && '
+            f'{cmd_core} > "{host_home}/log.txt" 2>&1 &'
+        )
 
         # Per-host packet capture (optional)
         host.cmdPrint(

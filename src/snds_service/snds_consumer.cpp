@@ -625,11 +625,24 @@ void SNDSConsumer::send_metafile_interests(const std::string& body, const tempor
                 );
 
                 m_logger->debug("Adding params...");
-                parsed_interest_name::add_param(pin, GET_PARAMETER_ID_TAG,   id);
-                parsed_interest_name::add_param(pin, GET_PARAMETER_TYPE_TAG, type);
-                parsed_interest_name::add_param(pin, GET_PARAMETER_DATE_TAG, format_timestamp_ms(raw_timestamp));
-                parsed_interest_name::add_param(pin, GET_PARAMETER_IS_METAFILE_TAG, "true");
-                parsed_interest_name::add_param(pin, GET_PARAMETER_PARENT_QUERY_HASH_TAG, parent_query_hash);
+                try
+                {
+                    parsed_interest_name::add_param(pin, GET_PARAMETER_ID_TAG,   id);
+                    parsed_interest_name::add_param(pin, GET_PARAMETER_TYPE_TAG, type);
+                    parsed_interest_name::add_param(pin, GET_PARAMETER_DATE_TAG, format_timestamp_ms(raw_timestamp));
+                    parsed_interest_name::add_param(pin, GET_PARAMETER_IS_METAFILE_TAG, "true");
+                    parsed_interest_name::add_param(pin, GET_PARAMETER_PARENT_QUERY_HASH_TAG, parent_query_hash);
+                
+                    m_logger->debug("Added params...");
+                }
+                catch (const std::exception& ex)
+                {
+                    m_logger->error("Exception while adding params: {}", ex.what());
+                }
+                catch (...)
+                {
+                    m_logger->error("Unknown exception while adding params");
+                }
                 m_logger->debug("Added params...");
 
                 const auto canonical = parsed_interest_name::to_custom_ndn_name(pin, true);
@@ -968,50 +981,64 @@ void SNDSConsumer::onData(const ndn::Interest& interest, const ndn::Data& data)
 
             //direct mode: just check whether the count is empty or 1
             nlohmann::json j = nlohmann::json::parse(payload);
-            nlohmann::json item;
-            if (!_extract_direct_temporal_item(j, item)) {
-                m_logger->warn("Direct mode flagged, but unable to extract item; falling back to manifest path.");
-                // ... proceed with manifest handling
-            } else {
-                m_logger->debug("Direct mode...");
-                parsed_interest_name::ParsedInterestName env =
-                parsed_interest_name::make_parsed_interest_name
-                (
-                    /*prefix*/ "",            // not used by build_query_uri
-                    /*name*/   "",            // not used by build_query_uri
-                    parsed_interest_name::interest_message_type::INTEREST_MESSAGE_TYPE::VERSION,
-                    {}
-                );
-                    
-                // item is guaranteed to be an object; safe to call value()
-                const std::string id   = item.value("id", item.value("_id", pi.get_interest_parameter(0).value_or("")));
-                const std::string type = item.value("type", "");
-                const std::string date = item.value("date", "");
 
-                parsed_interest_name::add_param(env, GET_PARAMETER_ID_TAG,  id);
-                parsed_interest_name::add_param(env, GET_PARAMETER_TYPE_TAG, type);
-                parsed_interest_name::add_param(env, GET_PARAMETER_DATE_TAG, date);
-                parsed_interest_name::add_param(env, GET_PARAMETER_IS_METAFILE_TAG, "false");
-                parsed_interest_name::add_param(env, GET_PARAMETER_PARENT_QUERY_HASH_TAG, "");
-                parsed_interest_name::add_param(env, GET_PARAMETER_LAST_METAFILE_INTEREST_TAG, "true");
-                parsed_interest_name::add_param(env, GET_PARAMETER_RETRIEVE_MODE, "direct");
-                
-                const bool values_already_encoded = true;
-                std::string name = parsed_interest_name::build_query_uri("/", env.params, /*encode_values=*/!values_already_encoded); 
-                
-                auto message = std::make_unique<snds_intra_message::SNDS_INTRA_MESSAGE>
-                (
-                    std::move(name),
-                    snds_intra_message::SNDS_INTRA_MESSAGE_TYPE::VERSION_RESPONSE,
-                    snds_intra_message::SNDS_CLIENT_TYPES::CONSUMER,
-                    std::move(payload),
-                    snds_intra_message::HTTP_MESSAGE_TYPE::HTTP_EMPTY
-                );
-                v_to_worker->writeMessage(std::move(message));
-                return; // IMPORTANT: stop here so you don’t enter the manifest path
+            // Decide direct vs indirect by bucketed array size
+            if (_is_direct_temporal_payload(j)) 
+            {
+                nlohmann::json item;
+                if (!_extract_direct_temporal_item(j, item)) 
+                {
+                    m_logger->warn("Direct-mode detected but item extraction failed; falling back to manifest/indirect.");
+                } 
+                else 
+                {
+                    m_logger->debug("Direct mode (single id in bucket).");
+
+                    parsed_interest_name::ParsedInterestName env =
+                        parsed_interest_name::make_parsed_interest_name
+                        (
+                            /*prefix*/ "",
+                            /*name*/   "",
+                            parsed_interest_name::interest_message_type::INTEREST_MESSAGE_TYPE::VERSION,
+                            {}
+                        );
+
+                    // Prefer normalized fields; fall back to any available source.
+                    const std::string id   = item.value("id",    pi.get_interest_parameter(0).value_or(""));
+                    const std::string type = item.value("type",  "");  // may be empty in your examples
+                    // date can be number (epoch ms) or string; store as string for the URI if present.
+                    std::string date;
+                    if (item.contains("date")) 
+                    {
+                        if (item["date"].is_string())        date = item["date"].get<std::string>();
+                        else                                  date = item["date"].dump(); // preserve numeric
+                    }
+
+                    parsed_interest_name::add_param(env, GET_PARAMETER_ID_TAG,                id);
+                    parsed_interest_name::add_param(env, GET_PARAMETER_TYPE_TAG,              type);
+                    parsed_interest_name::add_param(env, GET_PARAMETER_DATE_TAG,              date);
+                    parsed_interest_name::add_param(env, GET_PARAMETER_IS_METAFILE_TAG,       "false");
+                    parsed_interest_name::add_param(env, GET_PARAMETER_PARENT_QUERY_HASH_TAG, "");
+                    parsed_interest_name::add_param(env, GET_PARAMETER_LAST_METAFILE_INTEREST_TAG, "true");
+                    parsed_interest_name::add_param(env, GET_PARAMETER_RETRIEVE_MODE,         "direct");
+
+                    const bool values_already_encoded = true;
+                    std::string name = parsed_interest_name::build_query_uri("/", env.params, /*encode_values=*/!values_already_encoded);
+
+                    auto message = std::make_unique<snds_intra_message::SNDS_INTRA_MESSAGE>
+                    (
+                        std::move(name),
+                        snds_intra_message::SNDS_INTRA_MESSAGE_TYPE::VERSION_RESPONSE,
+                        snds_intra_message::SNDS_CLIENT_TYPES::CONSUMER,
+                        std::move(payload),
+                        snds_intra_message::HTTP_MESSAGE_TYPE::HTTP_EMPTY
+                    );
+                    v_to_worker->writeMessage(std::move(message));
+                    return; // do not fall through
+                }
             }
 
-
+            // Indirect / manifest path (>= 2 ids or structure not recognized)
             auto parent_temporal_query = temporal_query_from_interest(pi);
             m_logger->debug("Created Parent Temporal Query: {}", temporal_query::serialize_kv(parent_temporal_query));
             send_metafile_interests(payload, parent_temporal_query);
@@ -1022,46 +1049,73 @@ void SNDSConsumer::onData(const ndn::Interest& interest, const ndn::Data& data)
 };
 
 
-bool SNDSConsumer::_is_direct_temporal_payload(const nlohmann::json& j)
+// Small helper: try to read "[{ <bucket>: [ ... ] }]" and expose the inner array.
+static bool _extract_bucket_array(const nlohmann::json& j, std::string* bucket_name, const nlohmann::json** bucket_array)
 {
-    // Schema A: {"mode":"direct","items":[{...}]}
-    if (j.is_object() && j.value("mode", "") == "direct") 
-    {
-        const auto& items = j.value("items", nlohmann::json::array());
-        return items.is_array() && !items.empty() && items.front().is_object();
-    }
+    if (!(j.is_array() && !j.empty())) return false;
+    const auto& first = j.front();
+    if (!(first.is_object() && first.size() == 1)) return false;
 
-    // Schema B: [ { "": { ...doc... } } ] or [ { "TYPE": { ... } } ]
-    if (j.is_array() && !j.empty() && j.front().is_object() && j.front().size() == 1) 
-    {
-        const auto& inner = j.front().begin().value();
-        return inner.is_object(); // contains fields like id, date, type
-    }
+    // Single key object: { "<bucket>": <value> }
+    const auto it = first.begin();
+    if (!(it.value().is_array())) return false;
 
-    return false;
+    if (bucket_name)  *bucket_name  = it.key();
+    if (bucket_array) *bucket_array = &it.value();
+    return true;
 }
 
+bool SNDSConsumer::_is_direct_temporal_payload(const nlohmann::json& j)
+{
+    std::string bucket;
+    const nlohmann::json* arr = nullptr;
+    if (!_extract_bucket_array(j, &bucket, &arr)) return false;
+
+    // "Direct" ≙ exactly one item in the bucketed array
+    return arr && arr->is_array() && arr->size() == 1;
+}
+
+// Normalize one entry into something usable by your VERSION interest builder.
+// Falls back gracefully if fields are missing.
+static nlohmann::json _normalize_temporal_entry_to_item(const nlohmann::json& entry)
+{
+    nlohmann::json out = nlohmann::json::object();
+
+    // Common shape from your examples:
+    // { "_id": { "_id": "car1", "timestamp": { "$date": 1758754068761 } }, "type": "GENERIC"? }
+    if (entry.is_object())
+    {
+        if (entry.contains("_id") && entry["_id"].is_object())
+        {
+            const auto& idobj = entry["_id"];
+            if (idobj.contains("_id") && idobj["_id"].is_string())
+                out["id"] = idobj["_id"].get<std::string>();
+
+            if (idobj.contains("timestamp") &&
+                idobj["timestamp"].is_object() &&
+                idobj["timestamp"].contains("$date"))
+            {
+                // Keep as-is (number or string). You can convert to ISO-8601 elsewhere if needed.
+                out["date"] = idobj["timestamp"]["$date"];
+            }
+        }
+
+        if (entry.contains("type")) out["type"] = entry["type"];
+    }
+
+    // If we failed to normalize, return the raw entry so caller can still try to read fields.
+    if (out.empty()) return entry;
+    return out;
+}
 
 bool SNDSConsumer::_extract_direct_temporal_item(const nlohmann::json& j, nlohmann::json& out)
 {
-    // Schema A 
-    if (j.is_object() && j.value("mode","") == "direct") 
-    {
-        const auto& items = j.value("items", nlohmann::json::array());
-        if (items.is_array() && !items.empty() && items.front().is_object()) 
-        {
-            out = items.front();
-            return true;
-        }
-        return false;
-    }
+    std::string bucket;
+    const nlohmann::json* arr = nullptr;
+    if (!_extract_bucket_array(j, &bucket, &arr)) return false;
+    if (!(arr && arr->is_array() && !arr->empty())) return false;
 
-    // Schema B (legacy): [ { "<key>": { ... } } ]
-    if (j.is_array() && !j.empty() && j.front().is_object() && j.front().size() == 1) 
-    {
-        out = j.front().begin().value();   // the inner { ... }
-        return out.is_object();
-    }
-
-    return false;
+    const auto& entry = (*arr)[0];
+    out = _normalize_temporal_entry_to_item(entry);
+    return out.is_object();
 }

@@ -1329,9 +1329,91 @@ Params:
 Since there are multiple ``car1`` instances we should expect an [indirect mode response](#indirect-mode)
 
 
-If we instead request an ID ``carNEW``, which is present once in the Broker Database we should get [direct mode response](#direct-mode). Remind we should post the ``carNEW`` to the NDN to be visible.
+If we instead request an ID ``carNEW1``, which is present once in the Broker Database we should get [direct mode response](#direct-mode). Remind we should post the ``carNEW1`` to the NDN to be visible.
 
 ##### Direct Mode
+
+```
+[2025-09-25 05:54:32.975] [info] [Consumer] Created name /SNDS/carNew1/temporalQuery:id%3DcarNew1&type%3D&date%3D2025-09-28&count%3D2&timeframe%3Dnow&filters%3D
+[2025-09-25 05:54:32.975] [info] [Consumer] Sending actual Interest /SNDS/carNew1/temporalQuery%3Aid%3DcarNew1%26type%3D%26date%3D2025-09-28%26count%3D2%26timeframe%3Dnow%26filters%3D?CanBePrefix&Lifetime=6000
+[2025-09-25 05:54:32.975] [info] [Producer] Received interest in function: onInterest, name: /SNDS/carNew1/temporalQuery%3Aid%3DcarNew1%26type%3D%26date%3D2025-09-28%26count%3D2%26timeframe%3Dnow%26filters%3D
+[2025-09-25 05:54:32.975] [info] [Producer] Parsed interest: Prefix: SNDS, Name: carNew1, Command: temporalQuery, Params: [id=carNew1, type=, date=2025-09-28, count=2, timeframe=now, filters=]
+[2025-09-25 05:54:32.975] [debug] [Producer] Created interest response: /SNDS/carNew1/temporalQuery%3Aid%3DcarNew1%26type%3D%26date%3D2025-09-28%26count%3D2%26timeframe%3Dnow%26filters%3D in: process_temporal_query_interest
+[2025-09-25 05:54:32.975] [debug] [Producer] TemporalQuery → id: carNew1, date: 2025-09-28, type: , timeframe: now, count: 2, filters: 
+[2025-09-25 05:54:32.975] [debug] [Producer] Requesting to endpoint: /temporal-query?id=carNew1&type=&count=2&date=2025-09-28&timeframe=now&filters=
+[2025-09-25 05:54:32.977] [info] [Producer] Successfully queried /temporal-query
+[2025-09-25 05:54:32.977] [debug] [Producer] Sending data to the NDN…
+[2025-09-25 05:54:32.977] [info] [Consumer] Received Data with name: /SNDS/carNew1/temporalQuery%3Aid%3DcarNew1%26type%3D%26date%3D2025-09-28%26count%3D2%26timeframe%3Dnow%26filters%3D in function onData
+[2025-09-25 05:54:32.977] [info] [Consumer] Data packet payload: [
+  {
+    "now": [
+      {
+        "_id": {
+          "_id": "carNew1",
+          "timestamp": {
+            "$date": 1758768831282
+          }
+        }
+      }
+    ]
+  }
+] in function onData
+[2025-09-25 05:54:32.977] [info] [Consumer] Parsed interest: Prefix: SNDS, Name: carNew1, Command: temporalQuery, Params: [id=carNew1, type=, date=2025-09-28, count=2, timeframe=now, filters=] in onData
+[2025-09-25 05:54:32.977] [info] [Consumer] Temporal Query Reponse...
+[2025-09-25 05:54:32.977] [debug] [Consumer] Removed extra characters from payload (first 32 bytes hex): 5b 0a 20 20 7b 0a 20 20 20 20 22 6e 6f 77 22 3a 20 5b 0a 20 20 20 20 20 20 7b 0a 20 20 20 20 20 
+[2025-09-25 05:54:32.977] [debug] [Consumer] Candidate JSON slice:
+[
+  {
+    "now": [
+      {
+        "_id": {
+          "_id": "carNew1",
+          "timestamp": {
+            "$date": 1758768831282
+          }
+        }
+      }
+    ]
+  }
+]
+[2025-09-25 05:54:32.977] [debug] [Consumer] Sanitized payload to:
+[
+  {
+    "now": [
+      {
+        "_id": {
+          "_id": "carNew1",
+          "timestamp": {
+            "$date": 1758768831282
+          }
+        }
+      }
+    ]
+  }
+]
+[2025-09-25 05:54:32.977] [debug] [Consumer] Direct mode (single id in bucket).
+[2025-09-25 05:54:32.977] [info] [Worker] Received content: /?id=carNew1&type=&date=1758768831282&metafile=false&parentQueryHash=&lastInterest=true&mode=direct
+[2025-09-25 05:54:32.977] [info] [Worker] Received payload: [
+  {
+    "now": [
+      {
+        "_id": {
+          "_id": "carNew1",
+          "timestamp": {
+            "$date": 1758768831282
+          }
+        }
+      }
+    ]
+  }
+]
+[2025-09-25 05:54:32.977] [info] [Worker] Received type: VERSION_RESPONSE
+[2025-09-25 05:54:32.977] [debug] [Worker] Consumer intra message...
+[2025-09-25 05:54:32.977] [info] [Consumer] Reading packet...
+[2025-09-25 05:54:32.977] [info] [Worker] Direct mode...
+[2025-09-25 05:54:32.977] [debug] [Worker] Cleared pending_get_by_id_requests for 'carNew1': erased=0
+[2025-09-25 05:54:32.977] [info] [Worker] Reading packet...
+```
 
 ##### Indirect Mode
 
@@ -1530,9 +1612,21 @@ If we instead request an ID ``carNEW``, which is present once in the Broker Data
 
 ```
 
+##### Requesting from other nodes
+
+Publish through A: 
+
+![alt text](image-2.png)
+
+Request through B:
+
+![alt text](requesting-temp-from-b.png)
+
+![alt text](requesting-temp-from-b-1.png)
+
 ##### Filters 
 
-#### Resilience
+#### Resilience Requests
 
 The way to run resilience is explained in the [resilience section](#resilience).
 
