@@ -244,7 +244,7 @@ void SNDSProducer::init(){
             replay_broker_journal_incremental_();
         }
         // Process events non-blockingly (or with a timeout)
-        m_face.processEvents(ndn::time::seconds(2)); // Process for 1 second
+        m_face.processEvents(ndn::time::milliseconds(100));
 
         //// Check if there are messages to process for advertisement
         //std::unique_ptr<SNDS_INTRA_MESSAGE> message = v_to_producer->readMessage();
@@ -1728,18 +1728,18 @@ void SNDSProducer::start_resilience_ipc_()
                         resilience_ipc_running_.store(false);
                         m_logger->warn("[resilience-ipc] stop requested; will be joined from main loop");
                     }
-                        else if (role == "secondary") 
+                    else if (role == "secondary") 
+                    {
+                        m_logger->warn("[resilience-ipc] demoted to SECONDARY (reason={})", reason);
+                        store_.mutate([&](nlohmann::json& s)
                         {
-                            m_logger->warn("[resilience-ipc] demoted to SECONDARY (reason={})", reason);
-                            store_.mutate([&](nlohmann::json& s)
-                            {
-                                auto& r = ensure_obj(s, "resilience");
-                                r["role"]   = "secondary";
-                                r["since"]  = iso8601_now_utc();
-                                r["reason"] = reason;
-                            });
-                            am_primary_.store(false);
-                        } 
+                            auto& r = ensure_obj(s, "resilience");
+                            r["role"]   = "secondary";
+                            r["since"]  = iso8601_now_utc();
+                            r["reason"] = reason;
+                        });
+                        am_primary_.store(false);
+                    } 
                     else 
                     {
                         m_logger->warn("[resilience-ipc] unknown role='{}'", role);

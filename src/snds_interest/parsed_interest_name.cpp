@@ -21,12 +21,24 @@ std::map<std::string, std::string> parsed_interest_name::parse_params_map(const 
     return result;
 }
 
-void parsed_interest_name::add_param(parsed_interest_name::ParsedInterestName& pi, std::string key, std::string value) 
+// --- safer add_param: strips accidental "key=" from value, encodes key only ---
+void parsed_interest_name::add_param(parsed_interest_name::ParsedInterestName& pi,
+                                     std::string key,
+                                     std::string value)
 {
-    // store as "key=value" (raw). 
+    // Defensive: if value already looks like "key=...", strip the duplicate prefix.
+    const std::string prefix = key + "=";
+    if (!value.empty() && value.rfind(prefix, 0) == 0) 
+    {
+        value.erase(0, prefix.size());
+    }
+
+    // Store raw "key=value" (no value encoding here; build_query_uri will handle it).
+    // Encode the key so bad characters (space, '&', '=') don't break the query.
     pi.params.emplace_back(key + "=" + value);
 }
 
+// --- safer build_query_uri: encodes keys, optionally values; no stray "/?" ---
 std::string parsed_interest_name::build_query_uri(std::string_view base_path, const std::vector<std::string>& kv_tokens, bool encode_values)
 {
     std::string out;
@@ -34,27 +46,49 @@ std::string parsed_interest_name::build_query_uri(std::string_view base_path, co
     out.append(base_path);
 
     if (out.empty() || out.back() != '/') out.push_back('/');
-    out.push_back('?');
 
-    bool first = true;
-    for (const auto& tok : kv_tokens) 
-    {
+    bool wrote_any = false;
+
+    for (const auto& tok : kv_tokens) {
         if (tok.empty()) continue;
 
         auto [k, v] = parsed_interest_name::parse_param_kv(tok);
         if (k.empty()) continue;
 
-        if (!first) out.push_back('&');
-        first = false;
+        // If v accidentally contains "k=...", strip the duplicate prefix first.
+        const std::string dup = k + "=";
+        if (!v.empty() && v.rfind(dup, 0) == 0) 
+        {
+            v.erase(0, dup.size());
+        }
 
-        out.append(k);
+        if (!wrote_any) 
+        {
+            out.push_back('?');
+            wrote_any = true;
+        } 
+        else 
+        {
+            out.push_back('&');
+        }
+
+        // Always encode the key; encode value only if requested.
+        out.append(url_encode(k));
         out.push_back('=');
-        out.append(v);
+        out.append(encode_values ? url_encode(v) : v);
     }
 
-    // If everything was empty/missing, you'll get just "/?" — caller can decide if that’s OK.
+    // If nothing emitted, remove the '?' if we added it (we didn't in this path),
+    // and also avoid leaving just "/?" from older code paths.
+    if (!wrote_any) 
+    {
+        if (!out.empty() && out.back() == '?') out.pop_back();
+        // If caller passed base_path that already had '?', we won't add one anyway.
+    }
+
     return out;
 }
+
 
 parsed_interest_name::ParsedInterestName parsed_interest_name::parse_interest_name(const ndn::Name& name) 
 {

@@ -353,7 +353,7 @@ void Worker::process_temporal_query_response
         }
 
         // Clear pending GET_BY_ID/GET_BY_TYPE
-        const std::string resolved_id   = item.value("id", item.value("_id", std::string{}));
+        const std::string resolved_id = _extract_id_fallback(item);
         if (!resolved_id.empty()) 
         {
             const auto erased = pending_get_by_id_requests.erase(resolved_id);
@@ -361,7 +361,7 @@ void Worker::process_temporal_query_response
         } 
         else 
         {
-            m_logger->warn("Direct mode item had no 'id'/'_id'; cannot clear pending_get_by_id_requests");
+            m_logger->warn("Direct mode item had no usable id");
         }
 
         const std::string resolved_type = item.value("type", std::string{});
@@ -936,30 +936,66 @@ void Worker::process_registry_file(const std::string& payload, const std::string
     pending_ids_to_type_map[type] = std::move(id_set);
 }
 
+std::string Worker::_extract_id_fallback(const nlohmann::json& j)
+{
+    if (!j.is_object()) return {};
+    if (j.contains("id") && j["id"].is_string()) return j["id"].get<std::string>();
+    if (j.contains("_id") && j["_id"].is_string()) return j["_id"].get<std::string>();
+    if (j.contains("_id") && j["_id"].is_object()) 
+    {
+        const auto& idobj = j["_id"];
+        if (idobj.contains("_id") && idobj["_id"].is_string()) return idobj["_id"].get<std::string>();
+    }
+    return {};
+}
+
 // Optional: normalize to a friendlier {id,date,type} when present.
 static nlohmann::json _normalize_temporal_entry_to_item(const nlohmann::json& entry)
 {
     nlohmann::json out = nlohmann::json::object();
 
-    if (entry.is_object())
-    {
-        if (entry.contains("_id") && entry["_id"].is_object())
-        {
-            const auto& idobj = entry["_id"];
-            if (idobj.contains("_id") && idobj["_id"].is_string())
-                out["id"] = idobj["_id"].get<std::string>();
+    if (!entry.is_object())return entry;
 
-            if (idobj.contains("timestamp") &&
-                idobj["timestamp"].is_object() &&
-                idobj["timestamp"].contains("$date"))
-            {
-                // Keep raw; convert later if you need ISO-8601
-                out["date"] = idobj["timestamp"]["$date"];
-            }
-        }
-        if (entry.contains("type")) out["type"] = entry["type"];
+    // id candidates, in order:
+    // 1) explicit "id"
+    // 2) top-level "_id" as string
+    // 3) nested "_id._id" as string
+    if (entry.contains("id") && entry["id"].is_string()) 
+    {
+        out["id"] = entry["id"].get<std::string>();
+    } 
+    else if (entry.contains("_id") && entry["_id"].is_string()) 
+    {
+        out["id"] = entry["_id"].get<std::string>();
+    } 
+    else if (entry.contains("_id") && entry["_id"].is_object()) 
+    {
+        const auto& idobj = entry["_id"];
+        if (idobj.contains("_id") && idobj["_id"].is_string()) out["id"] = idobj["_id"].get<std::string>();
     }
 
+    // date candidates:
+    // 1) top-level "timestamp.$date"
+    // 2) nested "_id.timestamp.$date"
+    if (entry.contains("timestamp") &&
+        entry["timestamp"].is_object() &&
+        entry["timestamp"].contains("$date"))
+    {
+        out["date"] = entry["timestamp"]["$date"];
+    } else if (entry.contains("_id") && entry["_id"].is_object()) {
+        const auto& idobj = entry["_id"];
+        if (idobj.contains("timestamp") &&
+            idobj["timestamp"].is_object() &&
+            idobj["timestamp"].contains("$date"))
+        {
+            out["date"] = idobj["timestamp"]["$date"];
+        }
+    }
+
+    if (entry.contains("type"))
+        out["type"] = entry["type"];
+
+    // If we extracted nothing, return original so callers can still inspect it.
     return out.empty() ? entry : out;
 }
 

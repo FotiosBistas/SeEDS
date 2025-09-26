@@ -359,4 +359,5 @@ private:
 	 */
 	bool _extract_direct_temporal_item(const std::string& content, nlohmann::json& out);
 
+	std::string _extract_id_fallback(const nlohmann::json& j);
 };
