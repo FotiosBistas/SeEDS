@@ -11,10 +11,11 @@ from minindn.apps.app_manager import AppManager
 from minindn.apps.nfd import Nfd
 from minindn.apps.nlsr import Nlsr
 
-# Persistent MongoDB data root (per host under this dir)
-PERSIST_BASE = "/home/fotis/Github/SeEDS/src/minindn/persist/mongo"
 
 HUB_NAME = 'd'  # center node is now 'd' instead of 'c'
+PERSIST_BASE = "/src/minindn/persist/mongo"
+TMP_DIRECTORY = "/src/minindn/tmp"
+BUILD_DIRECTORY = "/build"
 
 if __name__ == '__main__':
     # Hand only the topology to Mini-NDN; keep the rest as our script args
@@ -28,6 +29,7 @@ if __name__ == '__main__':
     sys.argv = topo_and_minindn_args
 
     parser = argparse.ArgumentParser(description="Extra SeEDS options")
+    parser.add_argument('--base-directory', required=True, help='Directory where Mongo/MiniNDN data/logs will be saved. Input it in the following format: /home/Github/SeEDS')
     parser.add_argument('--mongo-user', default=None)
     parser.add_argument('--mongo-pass', default=None)
     parser.add_argument('--mongo-db', default=None)
@@ -94,11 +96,15 @@ if __name__ == '__main__':
     name_to_index = {h.name: i for i, h in enumerate(ndn.net.hosts)}
     primary_for_secondary = {sec.name: pri for (pri, sec) in pairs}
 
-    # --- Per-host setup: Mongo (persistent) + Broker + Daemon + tcpdump (+ Poller + HTTP publish)
+    base_directory = args.base_directory
+
+    # --- Per-host setup: Mongo (persistent) + Broker + Daemon + tcpdump (+ Poller) ---
     for idx, host in enumerate(ndn.net.hosts):
-        host_home = f"/home/fotis/Github/SeEDS/src/minindn/tmp/{host.name}"   # volatile logs, etc.
-        mongo_dir = f"{PERSIST_BASE}/{host.name}"                              # PERSISTENT data
-        node_ip   = host.IP()                                                  # unique Mininet IP
+        host_home = f"{base_directory}{TMP_DIRECTORY}/{host.name}"      # volatile logs, etc.
+        print(f"Setted up host_home: {host_home}")
+        mongo_dir = f"{base_directory}{PERSIST_BASE}/{host.name}"       # PERSISTENT data
+        print(f"Setted up mongo dir: {mongo_dir}")
+        node_ip   = host.IP()                                           # unique Mininet IP
         host.cmdPrint(f'mkdir -p "{host_home}" "{mongo_dir}"')
 
         # Role & failure plan
@@ -158,7 +164,7 @@ if __name__ == '__main__':
         # Start broker on this host (bind to node IP, port 10000)
         broker_uri = f'mongodb://{node_ip}:27017/?serverSelectionTimeoutMS=60000'
         host.cmdPrint(
-            'cd /home/fotis/Github/SeEDS/build && '
+            f'cd {base_directory}{BUILD_DIRECTORY} && '
             'sudo ./snds_broker_bin '
             f'--mongo.uri="{broker_uri}" '
             f'--bind-ip={node_ip} '
@@ -194,20 +200,20 @@ if __name__ == '__main__':
         if will_fail:
             # Failing nodes run for limited time then exit (simulate failure)
             host.cmdPrint(
-                'cd /home/fotis/Github/SeEDS/build && '
+                f'cd {base_directory}{BUILD_DIRECTORY} && '
                 f'( sudo {timeout_prefix} {cmd_core}; '
                 'rc=$?; '
                 'if [ "$rc" -eq 124 ]; then '
                 f'  echo "[TIMEOUT] $(date \"+%Y-%m-%d %H:%M:%S.%3N\") ' + host.name + ': daemon exceeded timeout"; '
                 'fi; '
                 'exit $rc '
-                f') > "{host_home}/log.txt" 2>&1 &'
+                f') > "{host_home}/daemon.log" 2>&1 &'
             )
         else:
             # Staying nodes keep running
             host.cmdPrint(
-                'cd /home/fotis/Github/SeEDS/build && '
-                f'sudo {cmd_core} > "{host_home}/log.txt" 2>&1 &'
+                f'cd {base_directory}{BUILD_DIRECTORY} && '
+                f'sudo {cmd_core} > "{host_home}/daemon.log" 2>&1 &'
             )
 
         # For each SECONDARY node (excluding hub), start resilience_poller_bin (after delay)
@@ -224,7 +230,7 @@ if __name__ == '__main__':
                 poller_cmd = (
                     'bash -lc \''
                     f'sleep {args.poller_delay}; '
-                    'cd /home/fotis/Github/SeEDS/build && '
+                    f'cd {base_directory}{BUILD_DIRECTORY} && '
                     'sudo ./resilience_poller_bin '
                     '--prefix=SNDS '
                     f'--peer-alive={peer_alive} '
@@ -240,7 +246,6 @@ if __name__ == '__main__':
                 )
                 host.cmdPrint(poller_cmd)
 
-
         # Per-host packet capture
         host.cmdPrint(
             f'sudo sh -c \'tcpdump -i any -n -tttt > "{host_home}/packets.txt" 2>&1 &\''
@@ -248,15 +253,15 @@ if __name__ == '__main__':
 
         sleep(2)
 
-    # --- Per-host setup: Mongo (persistent) + Broker + Daemon + tcpdump (+ Poller + HTTP publish)
+    # --- Per-host publish + subscribe (separate loop so services are up) ---
     for idx, host in enumerate(ndn.net.hosts):
-        host_home = f"/home/fotis/Github/SeEDS/src/minindn/tmp/{host.name}"   # volatile logs, etc.
-        mongo_dir = f"{PERSIST_BASE}/{host.name}"                              # PERSISTENT data
-        node_ip   = host.IP()                                                  # unique Mininet IP
-        host.cmdPrint(f'mkdir -p "{host_home}" "{mongo_dir}"')
-        # --- After starting daemon (and poller if any), publish HTTP requests on each node ---
+        host_home = f"{base_directory}{TMP_DIRECTORY}/{host.name}"
+        node_ip   = host.IP()
+
         # We wait max(poller_delay, publish_delay) to ensure services are up before publishing.
         pub_wait = max(args.poller_delay, args.publish_delay)
+
+        # Publish two test entries per node
         publish_cmd = (
             'bash -lc \''
             f'sleep {pub_wait}; '
@@ -264,31 +269,32 @@ if __name__ == '__main__':
             # First request: id=car{idx}
             f'echo "[PUBLISH] $(date "+%Y-%m-%d %H:%M:%S.%3N") {host.name}: POST id=car{idx}" >> "{host_home}/Requests.log"; '
             f'curl -v -i -X POST "$URL" -d "id=car{idx}" >> "{host_home}/Requests.log" 2>&1; '
-            'echo "" >> "{host_home}/Requests.log"; '
+            f'echo "" >> "{host_home}/Requests.log"; '
             # Second request: id=car{10+idx}&type=CAR_{idx}
             f'echo "[PUBLISH] $(date "+%Y-%m-%d %H:%M:%S.%3N") {host.name}: POST id=car{10+idx}&type=CAR_{idx}" >> "{host_home}/Requests.log"; '
             f'curl -v -i -X POST "$URL" -d "id=car{10+idx}&type=CAR_{idx}" >> "{host_home}/Requests.log" 2>&1; '
-            'echo "" >> "{host_home}/Requests.log"; '
+            f'echo "" >> "{host_home}/Requests.log"; '
             '\''
         )
         host.cmdPrint(publish_cmd)
 
-          # --- Subscription: subscribe only to the "next" index (wrap-around), never to self ---
+        # Subscribe only to the next index (wrap-around), never to self
         next_idx = (idx + 1) % number_of_services
         if next_idx == idx:
             info(f"[subscribe] {host.name}: only one node present; skipping self-subscribe.\n")
         else:
             subscribe_cmd = (
                 'bash -lc \''
+                f'sleep {pub_wait}; '
                 'URL="http://127.0.0.1:8080"; '
                 f'SUBURL="http://{node_ip}:10000/notify"; '  # <-- change path if needed
                 f'echo "[SUBSCRIBE] $(date "+%Y-%m-%d %H:%M:%S.%3N") {host.name}: GET type=CAR_{next_idx} isSub=true suburl=$SUBURL" >> "{host_home}/Subscription.log"; '
                 'curl -v -i -G "$URL" '
-                f' --data-urlencode "type=CAR_{next_idx}" '
+                f'  --data-urlencode "type=CAR_{next_idx}" '
                 '  --data-urlencode "isSub=true" '
                 '  --data-urlencode "suburl=$SUBURL" '
                 f'  >> "{host_home}/Subscription.log" 2>&1; '
-                'echo "" >> "{host_home}/Subscription.log"; '
+                f'echo "" >> "{host_home}/Subscription.log"; '
                 '\''
             )
             host.cmdPrint(subscribe_cmd)
@@ -303,7 +309,7 @@ if __name__ == '__main__':
     sleep(1)
 
     for host in ndn.net.hosts:
-        mongo_dir = f"{PERSIST_BASE}/{host.name}"
+        mongo_dir = f"{base_directory}{PERSIST_BASE}/{host.name}"
         host.cmdPrint(
             'sudo mongod '
             f'--dbpath "{mongo_dir}" '
