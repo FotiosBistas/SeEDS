@@ -244,7 +244,7 @@ void SNDSProducer::init(){
             replay_broker_journal_incremental_();
         }
         // Process events non-blockingly (or with a timeout)
-        m_face.processEvents(ndn::time::milliseconds(200));
+        m_face.processEvents(ndn::time::milliseconds(100));
 
         //// Check if there are messages to process for advertisement
         //std::unique_ptr<SNDS_INTRA_MESSAGE> message = v_to_producer->readMessage();

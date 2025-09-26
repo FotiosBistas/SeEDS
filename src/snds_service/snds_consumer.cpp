@@ -1017,8 +1017,9 @@ void SNDSConsumer::onData(const ndn::Interest& interest, const ndn::Data& data)
                         );
 
                     // Prefer normalized fields; fall back to any available source.
-                    const std::string id   = item.value("id",    pi.get_interest_parameter(0).value_or(""));
-                    const std::string type = item.value("type",  pi.get_interest_parameter(1).value_or(""));  // may be empty in your examples
+                    const std::string id   = pi.get_interest_parameter(0).value_or("");
+                    const std::string type = pi.get_interest_parameter(1).value_or("");
+                    m_logger->debug("Got ID and type in direct: {},{}", id, type);
                     // date can be number (epoch ms) or string; store as string for the URI if present.
                     std::string date;
                     if (item.contains("date")) 
@@ -1062,73 +1063,99 @@ void SNDSConsumer::onData(const ndn::Interest& interest, const ndn::Data& data)
 };
 
 
-// Small helper: try to read "[{ <bucket>: [ ... ] }]" and expose the inner array.
-static bool _extract_bucket_array(const nlohmann::json& j, std::string* bucket_name, const nlohmann::json** bucket_array)
+// Accepts both shapes:
+//   1) [{ "<bucket>": [ { ... } ] }]   -> array with exactly 1 element
+//   2) [{ "<bucket>": { ... } }]       -> direct single object
+static bool _extract_bucket_first(const nlohmann::json& j, std::string* bucket_name, const nlohmann::json** first_elem_or_obj, bool* value_is_array)
 {
     if (!(j.is_array() && !j.empty())) return false;
+
     const auto& first = j.front();
     if (!(first.is_object() && first.size() == 1)) return false;
 
-    // Single key object: { "<bucket>": <value> }
     const auto it = first.begin();
-    if (!(it.value().is_array())) return false;
 
-    if (bucket_name)  *bucket_name  = it.key();
-    if (bucket_array) *bucket_array = &it.value();
-    return true;
+    if (bucket_name) *bucket_name = it.key();
+
+    if (it.value().is_array()) 
+    {
+        if (value_is_array) *value_is_array = true;
+        if (!it.value().empty()) 
+        {
+            if (first_elem_or_obj) *first_elem_or_obj = &it.value()[0];
+            return true;
+        }
+        return false;
+    }
+
+    if (it.value().is_object()) 
+    {
+        if (value_is_array) *value_is_array = false;
+        if (first_elem_or_obj) *first_elem_or_obj = &it.value();
+        return true;
+    }
+
+    return false;
 }
 
 bool SNDSConsumer::_is_direct_temporal_payload(const nlohmann::json& j)
 {
     std::string bucket;
-    const nlohmann::json* arr = nullptr;
-    if (!_extract_bucket_array(j, &bucket, &arr)) return false;
+    const nlohmann::json* elem = nullptr;
+    bool value_is_array = false;
 
-    // "Direct" ≙ exactly one item in the bucketed array
-    return arr && arr->is_array() && arr->size() == 1;
+    if (!_extract_bucket_first(j, &bucket, &elem, &value_is_array)) return false;
+
+    // Direct if:
+    // - bucket value is an array with exactly 1 element, OR
+    // - bucket value is a single object
+    if (value_is_array) 
+    {
+        // We already ensured elem points to the first array element; also need array size==1
+        const auto& first = j.front();
+        const auto it = first.begin();
+        return it.value().is_array() && it.value().size() == 1;
+    }
+    else 
+    {
+        // Single object is direct
+        return true;
+    }
 }
 
 // Normalize one entry into something usable by your VERSION interest builder.
-// Falls back gracefully if fields are missing.
 static nlohmann::json _normalize_temporal_entry_to_item(const nlohmann::json& entry)
 {
     nlohmann::json out = nlohmann::json::object();
 
-    // Common shape from your examples:
-    // { "_id": { "_id": "car1", "timestamp": { "$date": 1758754068761 } }, "type": "GENERIC"? }
-    if (entry.is_object())
+    if (entry.is_object()) 
     {
-        if (entry.contains("_id") && entry["_id"].is_object())
+        if (entry.contains("_id") && entry["_id"].is_object()) 
         {
             const auto& idobj = entry["_id"];
-            if (idobj.contains("_id") && idobj["_id"].is_string())
-                out["id"] = idobj["_id"].get<std::string>();
-
-            if (idobj.contains("timestamp") &&
-                idobj["timestamp"].is_object() &&
-                idobj["timestamp"].contains("$date"))
+            if (idobj.contains("_id") && idobj["_id"].is_string()) out["id"] = idobj["_id"].get<std::string>();
+            if (idobj.contains("timestamp") && idobj["timestamp"].is_object() && idobj["timestamp"].contains("$date"))
             {
-                // Keep as-is (number or string). You can convert to ISO-8601 elsewhere if needed.
                 out["date"] = idobj["timestamp"]["$date"];
             }
         }
-
         if (entry.contains("type")) out["type"] = entry["type"];
     }
 
-    // If we failed to normalize, return the raw entry so caller can still try to read fields.
-    if (out.empty()) return entry;
-    return out;
+    return out.empty() ? entry : out;
 }
 
 bool SNDSConsumer::_extract_direct_temporal_item(const nlohmann::json& j, nlohmann::json& out)
 {
     std::string bucket;
-    const nlohmann::json* arr = nullptr;
-    if (!_extract_bucket_array(j, &bucket, &arr)) return false;
-    if (!(arr && arr->is_array() && !arr->empty())) return false;
+    const nlohmann::json* elem = nullptr;
+    bool value_is_array = false;
 
-    const auto& entry = (*arr)[0];
-    out = _normalize_temporal_entry_to_item(entry);
+    if (!_extract_bucket_first(j, &bucket, &elem, &value_is_array)) return false;
+
+    // elem points either to the single object, or to the first (and only) array element
+    if (!elem || !elem->is_object()) return false;
+
+    out = _normalize_temporal_entry_to_item(*elem);
     return out.is_object();
 }
