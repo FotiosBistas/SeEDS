@@ -106,7 +106,7 @@ void ResiliencePoller::handle_is_alive_data_(const ndn::Interest &, const ndn::D
     const auto &block = data.getContent();
     std::string payload(reinterpret_cast<const char *>(block.value()), block.value_size());
 
-    const parsed_interest_name::ParsedInterestName pi = parsed_interest_name::parse_from_string(url_decode(data.getName().toUri()));
+    const parsed_interest_name::ParsedInterestName pi = parsed_interest_name::parse_from_string(url_decode(data.getName().toUri()), this->prefix_);
 
     log_->info("[info] Received is alive data: {}", payload);
 
@@ -258,7 +258,8 @@ void ResiliencePoller::handle_patch_data_(const ndn::Interest& /*interest*/, con
         {
             const auto pi = parsed_interest_name::parse_from_string
             (
-                url_decode(data.getName().toUri())
+                url_decode(data.getName().toUri()),
+                this->prefix_
             );
             if (auto version = pi.get_interest_parameter(0); version) from_version = std::stoull(*version);
             if (auto version = pi.get_interest_parameter(1); version) to_version   = std::stoull(*version);
@@ -316,7 +317,8 @@ void ResiliencePoller::handle_patch_nack_(const ndn::Interest& interest, const n
     {
         const auto pi = parsed_interest_name::parse_from_string
         (
-            url_decode(interest.getName().toUri())
+            url_decode(interest.getName().toUri()),
+            this->prefix_
         );
         if (auto version = pi.get_interest_parameter(1); version) 
         {
@@ -341,7 +343,8 @@ void ResiliencePoller::handle_patch_timeout_(const ndn::Interest& interest)
     {
         const auto pi = parsed_interest_name::parse_from_string
         (
-            url_decode(interest.getName().toUri())
+            url_decode(interest.getName().toUri()),
+            this->prefix_
         );
         if (auto version = pi.get_interest_parameter(1); version) 
         {
@@ -385,7 +388,8 @@ void ResiliencePoller::handle_snapshot_data_(const ndn::Interest&, const ndn::Da
         try 
         {
             const auto pi = parsed_interest_name::parse_from_string(
-                url_decode(data.getName().toUri())
+                url_decode(data.getName().toUri()),
+                this->prefix_
             );
             if (auto v = pi.get_interest_parameter(0); v.has_value()) to_version = static_cast<uint64_t>(std::stoull(*v));
         } 

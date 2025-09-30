@@ -157,7 +157,7 @@ void Worker::_handle_consumer_intra_message(snds_intra_message::SNDS_INTRA_MESSA
         }
         case snds_intra_message::SNDS_INTRA_MESSAGE_TYPE::GET_BY_ID_FOR_TYPE_RESPONSE:
         {
-            auto name = parsed_interest_name::parse_from_string(message.get_message());
+            auto name = parsed_interest_name::parse_from_string(message.get_message(), this->snds_prefix);
 
             m_logger->debug("Name: {}", name.to_string());
 

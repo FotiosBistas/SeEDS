@@ -497,6 +497,8 @@ namespace parsed_interest_name {
      * @param name Path-like string, e.g., `"/SNDS/CAR/car1"`.
      * @return Parsed interest structure.
     */
-    ParsedInterestName parse_from_string(const std::string& name);
+    //ParsedInterestName parse_from_string(const std::string& name);
+
+    ParsedInterestName parse_from_string(const std::string& name, std::string_view known_prefix);
 
 }

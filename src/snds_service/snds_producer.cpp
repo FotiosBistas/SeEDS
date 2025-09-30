@@ -385,7 +385,7 @@ void SNDSProducer::process_temporal_query_advertisement(const std::string& conte
 
 void SNDSProducer::process_by_id_advertisement(const std::string& content)
 {
-    auto parsed_interest = parsed_interest_name::parse_from_string(content);
+    auto parsed_interest = parsed_interest_name::parse_from_string(content, this->snds_prefix);
     m_logger->debug("Parsed interest {} from string", parsed_interest.to_string());
 
     // we know that the structure of the interest should be /prefix/id
@@ -482,7 +482,7 @@ void SNDSProducer::onInterest(const ndn::Interest& interest)
 {
     const ndn::Name name = interest.getName();
     m_logger->info("Received interest in function: {0}, name: {1}", __FUNCTION__, name.toUri());
-    parsed_interest_name::ParsedInterestName pi = parsed_interest_name::parse_from_string(url_decode(name.toUri()));
+    parsed_interest_name::ParsedInterestName pi = parsed_interest_name::parse_from_string(url_decode(name.toUri()), this->snds_prefix);
     m_logger->info("Parsed interest: {}", pi.to_string());
 
 
