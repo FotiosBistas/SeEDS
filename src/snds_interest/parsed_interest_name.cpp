@@ -221,65 +221,173 @@ std::vector<std::string> parsed_interest_name::split
 }
 
 
-parsed_interest_name::ParsedInterestName parsed_interest_name::parse_from_string(const std::string& name)
+//parsed_interest_name::ParsedInterestName parsed_interest_name::parse_from_string(const std::string& name)
+//{
+//    //split on '/' and ignore empty pieces
+//    auto parts = split(name, '/');
+//    ParsedInterestName pi;
+//
+//    // assign prefix and name
+//    if (parts.size() > 0)
+//    {
+//        pi.prefix = parts[0];
+//    }
+//
+//
+//    size_t command_index = parts.size();
+//
+//    for (size_t i = 1; i < parts.size(); ++i) 
+//    {
+//        // parse all the parts and find the possible command index
+//        auto t = interest_message_type::from_string(parts[i]);
+//        if (t != interest_message_type::INTEREST_MESSAGE_TYPE::EMPTY) {
+//            pi.command = t;
+//            command_index = i;
+//            break;
+//        }
+//    }
+//
+//    size_t name_end = (command_index < parts.size() ? command_index : parts.size());
+//    std::ostringstream oss;
+//    for (size_t i = 1; i < name_end; ++i) 
+//    {
+//        if (i > 1) oss << '/';
+//        oss << parts[i];
+//    }
+//    pi.name = oss.str();
+//
+//    // parse the “command” token (e.g. "temporalQuery:date=2025…&timeframe=…")
+//    if (command_index < parts.size()) 
+//    {
+//        const auto& command_string = parts[command_index];
+//        auto pos = command_string.find(':');
+//        if (pos != std::string::npos && pos + 1 < command_string.size()) 
+//        {
+//            auto parameter_list = command_string.substr(pos + 1);
+//
+//            // KEEP empties here so "" is preserved between &&
+//            for (auto& kv : split_keep_empty(parameter_list, '&')) 
+//            {
+//                // push even if empty
+//                pi.params.push_back(std::move(kv));
+//            }
+//        }
+//    }
+//
+//    // any further slash-separated parts are treated as extra params
+//    if (command_index < parts.size()) 
+//    {
+//        for (size_t i = command_index + 1; i < parts.size(); ++i) 
+//        {
+//            pi.params.push_back(parts[i]);
+//        }
+//    }
+//
+//    return pi;
+//}
+
+parsed_interest_name::ParsedInterestName parsed_interest_name::parse_from_string(const std::string& full, std::string_view known_prefix)
 {
-    //split on '/' and ignore empty pieces
-    auto parts = split(name, '/');
+    auto parts = split(full, '/');
+    auto kp    = split(std::string(known_prefix), '/');
+
     ParsedInterestName pi;
 
-    // assign prefix and name
-    if (parts.size() > 0)
+    // Try to match known_prefix by segments (exact, in order, from the start)
+    size_t matched = 0;
+    while (matched < kp.size() && matched < parts.size() && parts[matched] == kp[matched]) 
     {
-        pi.prefix = parts[0];
+        ++matched;
     }
 
-
-    size_t command_index = parts.size();
-
-    for (size_t i = 1; i < parts.size(); ++i) 
+    // If we fully matched the known prefix, use it as pi.prefix and
+    // parse the remainder; otherwise, fall back to legacy parse (first seg = prefix).
+    std::vector<std::string> remainder;
+    if (matched == kp.size() && matched > 0) 
     {
-        // parse all the parts and find the possible command index
-        auto t = interest_message_type::from_string(parts[i]);
-        if (t != interest_message_type::INTEREST_MESSAGE_TYPE::EMPTY) {
+        // matched known prefix exactly at the front
+        // normalize prefix to the provided known prefix (joined)
+        std::ostringstream pfx;
+        for (size_t i = 0; i < kp.size(); ++i) 
+        {
+            if (i) pfx << '/';
+            pfx << kp[i];
+        }
+        pi.prefix = pfx.str();
+
+        remainder.assign(parts.begin() + matched, parts.end());
+    } 
+    else 
+    {
+        // fallback legacy: prefix = first segment (if any)
+        if (!parts.empty()) pi.prefix = parts.front();
+        remainder.assign(parts.begin() + (parts.empty() ? 0 : 1), parts.end());
+    }
+
+    // Find command index within the remainder (unchanged logic)
+    size_t command_index = remainder.size();
+    for (size_t i = 0; i < remainder.size(); ++i) 
+    {
+        auto t = interest_message_type::from_string(remainder[i]);
+        if (t != interest_message_type::INTEREST_MESSAGE_TYPE::EMPTY) 
+        {
             pi.command = t;
             command_index = i;
             break;
         }
     }
 
-    size_t name_end = (command_index < parts.size() ? command_index : parts.size());
-    std::ostringstream oss;
-    for (size_t i = 1; i < name_end; ++i) 
+    // ----- NAME SELECTION -----
+    // With known-prefix success: pick the *last* segment before the command as the id (e.g., "car1").
+    // With fallback: retain legacy join of all pre-command as name.
+    if (matched == kp.size() && matched > 0) 
     {
-        if (i > 1) oss << '/';
-        oss << parts[i];
+        // known-prefix path → last segment before command
+        if (command_index > 0) 
+        {
+            pi.name = remainder[command_index - 1];
+        } 
+        else if (!remainder.empty()) 
+        {
+            pi.name = remainder.back();
+        } 
+        else 
+        {
+            pi.name.clear();
+        }
+    } 
+    else 
+    {
+        // legacy behavior: join all pre-command parts as name
+        std::ostringstream nm;
+        for (size_t i = 0; i < command_index; ++i) 
+        {
+            if (i) nm << '/';
+            nm << remainder[i];
+        }
+        pi.name = nm.str();
     }
-    pi.name = oss.str();
 
-    // parse the “command” token (e.g. "temporalQuery:date=2025…&timeframe=…")
-    if (command_index < parts.size()) 
+    // Parse command params
+    if (command_index < remainder.size()) 
     {
-        const auto& command_string = parts[command_index];
+        const auto& command_string = remainder[command_index];
         auto pos = command_string.find(':');
         if (pos != std::string::npos && pos + 1 < command_string.size()) 
         {
             auto parameter_list = command_string.substr(pos + 1);
 
-            // KEEP empties here so "" is preserved between &&
+            // KEEP empties so "" between && is preserved
             for (auto& kv : split_keep_empty(parameter_list, '&')) 
             {
-                // push even if empty
                 pi.params.push_back(std::move(kv));
             }
         }
-    }
 
-    // any further slash-separated parts are treated as extra params
-    if (command_index < parts.size()) 
-    {
-        for (size_t i = command_index + 1; i < parts.size(); ++i) 
+        // Any further slash-separated parts are extra params
+        for (size_t i = command_index + 1; i < remainder.size(); ++i) 
         {
-            pi.params.push_back(parts[i]);
+            pi.params.push_back(remainder[i]);
         }
     }
 

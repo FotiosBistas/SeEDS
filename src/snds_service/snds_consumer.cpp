@@ -86,7 +86,8 @@ void SNDSConsumer::init(){
 
 void SNDSConsumer::express_get_by_id_from_node_interest(const std::string& content)
 {
-    auto tmp_interest = parsed_interest_name::parse_from_string(content);
+    //auto tmp_interest = parsed_interest_name::parse_from_string(content);
+    auto tmp_interest = parsed_interest_name::parse_from_string(content, this->snds_prefix);
 
 
     auto maybe_id = tmp_interest.get_interest_parameter(0);
@@ -139,7 +140,8 @@ void SNDSConsumer::express_get_by_id_from_node_interest(const std::string& conte
 
 void SNDSConsumer::express_get_by_id_for_type_interest(const std::string& content)
 {
-    auto tmp_interest  = parsed_interest_name::parse_from_string(content);
+    //auto tmp_interest  = parsed_interest_name::parse_from_string(content);
+    auto tmp_interest  = parsed_interest_name::parse_from_string(content, this->snds_prefix);
 
 
     auto maybe_id = tmp_interest.get_interest_parameter(0);
@@ -192,7 +194,8 @@ void SNDSConsumer::express_get_by_id_for_type_interest(const std::string& conten
 
 void SNDSConsumer::express_by_id_and_type_advertisement_interest(const std::string& content)
 {
-    auto tmp_interest  = parsed_interest_name::parse_from_string(content);
+    //auto tmp_interest  = parsed_interest_name::parse_from_string(content);
+    auto tmp_interest  = parsed_interest_name::parse_from_string(content, this->snds_prefix);
     
     auto maybe_id   = tmp_interest.get_interest_parameter(0);
     auto maybe_type = tmp_interest.get_interest_parameter(1);
@@ -288,7 +291,8 @@ void SNDSConsumer::express_temporal_query_interest(const std::string& content)
 
 void SNDSConsumer::express_get_by_type_interest(const std::string& content)
 {
-    auto tmp_interest  = parsed_interest_name::parse_from_string(content);
+    //auto tmp_interest  = parsed_interest_name::parse_from_string(content);
+    auto tmp_interest  = parsed_interest_name::parse_from_string(content, this->snds_prefix);
 
     auto name = parsed_interest_name::to_custom_ndn_name
     (
@@ -323,7 +327,8 @@ void SNDSConsumer::express_get_by_type_interest(const std::string& content)
 
 void SNDSConsumer::express_subscription_notification(const std::string& content)
 {
-    auto tmp_interest = parsed_interest_name::parse_from_string(content);
+    //auto tmp_interest = parsed_interest_name::parse_from_string(content);
+    auto tmp_interest  = parsed_interest_name::parse_from_string(content, this->snds_prefix);
 
     auto maybe_id = tmp_interest.get_interest_parameter(0);
     auto maybe_type = tmp_interest.get_interest_parameter(1);
@@ -385,8 +390,8 @@ void SNDSConsumer::express_subscription_notification(const std::string& content)
 
 void SNDSConsumer::express_subscription_interest(const std::string& content)
 {
-    auto tmp_interest = parsed_interest_name::parse_from_string(content);
-
+    //auto tmp_interest = parsed_interest_name::parse_from_string(content);
+    auto tmp_interest  = parsed_interest_name::parse_from_string(content, this->snds_prefix);
 
     auto interest_type        = tmp_interest.command;
     auto other_scope_name     = tmp_interest.name;
@@ -452,7 +457,9 @@ void SNDSConsumer::express_subscription_interest(const std::string& content)
 
 void SNDSConsumer::express_scope_interest(const std::string& content)
 {
-    auto tmp_interest = parsed_interest_name::parse_from_string(content);
+    //auto tmp_interest = parsed_interest_name::parse_from_string(content);
+    auto tmp_interest = parsed_interest_name::parse_from_string(content, this->snds_prefix);
+
     auto maybe_id = tmp_interest.get_interest_parameter(0);
     auto maybe_type = tmp_interest.get_interest_parameter(1);
 
@@ -506,7 +513,8 @@ void SNDSConsumer::express_scope_interest(const std::string& content)
 
 void SNDSConsumer::express_get_by_id_interest(const std::string& content)
 {
-    auto tmp_interest = parsed_interest_name::parse_from_string(content);
+    //auto tmp_interest = parsed_interest_name::parse_from_string(content);
+    auto tmp_interest = parsed_interest_name::parse_from_string(content, this->snds_prefix);
 
     auto maybe_id = tmp_interest.get_interest_parameter(0);
 
@@ -710,7 +718,8 @@ void SNDSConsumer::onData(const ndn::Interest& interest, const ndn::Data& data)
         return;
     }
 
-    const parsed_interest_name::ParsedInterestName pi = parsed_interest_name::parse_from_string(url_decode(data.getName().toUri()));
+    //const parsed_interest_name::ParsedInterestName pi = parsed_interest_name::parse_from_string(url_decode(data.getName().toUri()));
+    const parsed_interest_name::ParsedInterestName pi = parsed_interest_name::parse_from_string(url_decode(data.getName().toUri()), this->snds_prefix);
     m_logger->info("Parsed interest: {} in {}", pi.to_string(), __func__);
 
 
