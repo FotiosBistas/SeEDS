@@ -184,6 +184,13 @@ Usage:
                                 DigitalTwin)
 ```
 
+
+Note when you want to insert complex prefixes like ``/ndn/gr/edu/mmlab1/aueb/thomasi/`` skip the first and last ``\`` and insert it like this: 
+
+```
+ndn/gr/edu/mmlab1/aueb/thomasi
+```
+
 Run the Broker Bin: 
 
 ```
