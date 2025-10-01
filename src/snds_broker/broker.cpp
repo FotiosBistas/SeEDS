@@ -83,7 +83,7 @@ void Broker::listen(){
         
             const bool mirror_to_secondary = body.value("mirror_to_secondary", true);
             logger->debug("Mirror to secondary: {}", mirror_to_secondary);
-            const std::string suffix = body.value("secondary_suffix", std::string("_SECONDARY"));
+            const std::string suffix = body.value("secondary_suffix", std::string(secondary_suffix));
         
             if (!body.contains("collections") || !body["collections"].is_object()) {
                 res.status = 400;
@@ -99,7 +99,7 @@ void Broker::listen(){
             };
         
             auto is_versioned_name = [&](const std::string& name){
-                return ends_with(name, std::string("_VERSIONED"));
+                return ends_with(name, std::string(versioned_suffix));
             };
         
             nlohmann::json summary = nlohmann::json::object();
@@ -352,10 +352,79 @@ void Broker::listen(){
     };
 }
 
+// --- helper: parse ISO 8601 "YYYY-MM-DDTHH:MM:SS[.mmm]Z" to b_date ---
+static bsoncxx::types::b_date parse_iso8601_or_now(const bsoncxx::document::view& view, std::shared_ptr<spdlog::logger> logger)
+{
+    // default: now
+    auto now_tp = std::chrono::system_clock::now();
+
+    auto ts = view["timestamp"];
+    if (!ts) {
+        logger->warn("No 'timestamp' provided; defaulting to now()");
+        return bsoncxx::types::b_date{now_tp};
+    }
+
+    if (ts.type() == bsoncxx::type::k_date) {
+        return ts.get_date();
+    }
+
+    // Allow milliseconds since epoch, too
+    if (ts.type() == bsoncxx::type::k_int64) {
+        auto ms = std::chrono::milliseconds{ts.get_int64()};
+        return bsoncxx::types::b_date{std::chrono::time_point<std::chrono::system_clock>(ms)};
+    }
+
+    if (ts.type() == bsoncxx::type::k_string) {
+        std::string s = std::string(ts.get_string().value);
+
+        // trim fractional seconds if present
+        // accepted formats: "YYYY-MM-DDTHH:MM:SSZ" or "YYYY-MM-DDTHH:MM:SS.mmmZ"
+        std::tm tm{};
+        const char* fmt = "%Y-%m-%dT%H:%M:%S";
+        // drop trailing 'Z'
+        if (!s.empty() && (s.back() == 'Z' || s.back() == 'z')) s.pop_back();
+        // cut fractional seconds if they exist
+        auto dot = s.find('.');
+        std::string core = (dot == std::string::npos) ? s : s.substr(0, dot);
+
+        std::istringstream iss(core);
+        iss >> std::get_time(&tm, fmt);
+        if (!iss.fail()) {
+            // interpret as UTC (timegm is a GNU extension; OK on Linux)
+            time_t tt = timegm(&tm);
+            if (tt >= 0) {
+                auto tp = std::chrono::system_clock::from_time_t(tt);
+                // if we had ".mmm", add them
+                if (dot != std::string::npos) {
+                    std::string frac = s.substr(dot + 1);
+                    // keep only up to 3 digits for millis
+                    if (auto p = frac.find_first_not_of("0123456789"); p != std::string::npos) {
+                        frac = frac.substr(0, p);
+                    }
+                    while (frac.size() < 3) frac.push_back('0');
+                    int msec = 0;
+                    try { msec = std::stoi(frac.substr(0,3)); } catch (...) {}
+                    tp += std::chrono::milliseconds(msec);
+                }
+                return bsoncxx::types::b_date{tp};
+            }
+        }
+
+        logger->warn("Failed to parse ISO-8601 timestamp '{}'; defaulting to now()", std::string(ts.get_string().value));
+        return bsoncxx::types::b_date{now_tp};
+    }
+
+    logger->warn("Unsupported 'timestamp' type {}; defaulting to now()",
+                 static_cast<int>(ts.type()));
+    return bsoncxx::types::b_date{now_tp};
+}
+
+
 std::optional<InsertOrReplaceResult> Broker::add_one(const std::string& body, const bool versioned){
     try{
         auto jsonData = bsoncxx::from_json(body);
         auto view = jsonData.view();
+
         if(!view["id"]){
             logger->error("Missing 'id' in request body");
             return std::nullopt;
@@ -364,82 +433,74 @@ std::optional<InsertOrReplaceResult> Broker::add_one(const std::string& body, co
         bsoncxx::document::element type(view["type"]);
         bsoncxx::document::element docId(view["id"]);
 
-        logger->debug("Received type: {} and id: {} inside", type.get_value().get_string(), docId.get_value().get_string());
+        logger->debug("Received type: {} and id: {} inside",
+            type.get_string().value, docId.get_string().value);
 
-        auto now = std::chrono::system_clock::now();
-        bsoncxx::types::b_date bson_date(now);
+        // derive the effective timestamp once
+        bsoncxx::types::b_date effective_ts = parse_iso8601_or_now(view, logger);
 
+        // Build _id for versioned documents
         bsoncxx::builder::basic::document id_builder;
         if (versioned) {
             id_builder.append(
                 bsoncxx::builder::basic::kvp("_id", docId.get_value()),
-                bsoncxx::builder::basic::kvp("timestamp", bson_date)
+                bsoncxx::builder::basic::kvp("timestamp", effective_ts)
             );
-        }         
+        }
 
+        // Build the full document, copying everything EXCEPT raw "timestamp"
         bsoncxx::builder::basic::document doc_builder;
-        if(versioned){
-            doc_builder.append(
-                bsoncxx::builder::basic::kvp("_id", id_builder.view())
-            );
-        }else{
-            doc_builder.append(
-                bsoncxx::builder::basic::kvp("_id", docId.get_value())
-            );
+        if (versioned) {
+            doc_builder.append(bsoncxx::builder::basic::kvp("_id", id_builder.view()));
+        } else {
+            doc_builder.append(bsoncxx::builder::basic::kvp("_id", docId.get_value()));
         }
 
-        for(auto&& element: view){
-            doc_builder.append(
-                bsoncxx::builder::basic::kvp(element.key(), element.get_value())
-            );
+        for (auto&& element : view) {
+            auto key = std::string(element.key());
+            if (key == "timestamp") continue; // skip raw ts (string/int); we'll add the parsed date below
+            doc_builder.append(bsoncxx::builder::basic::kvp(element.key(), element.get_value()));
         }
-        // insert timestamp anyway
-        doc_builder.append(
-            bsoncxx::builder::basic::kvp("timestamp", bson_date)
-        );
 
-        logger->debug("Constructed ID document: {}", bsoncxx::to_json(doc_builder));
+        // Add the parsed/normalized timestamp once
+        doc_builder.append(bsoncxx::builder::basic::kvp("timestamp", effective_ts));
+
+        logger->debug("Constructed ID document: {}", bsoncxx::to_json(doc_builder.view()));
 
         if (versioned) {
             std::string type_str = std::string(type.get_string().value);
-        
-            // If the incoming type already carries the SECONDARY suffix, strip it for now.
             bool is_secondary = false;
-            if (type_str.size() >= std::strlen(secondary_suffix.data()) &&
-                type_str.compare(type_str.size() - std::strlen(secondary_suffix.data()),
-                                 std::strlen(secondary_suffix.data()),
-                                 secondary_suffix) == 0)
-            {
+            if (type_str.size() >= secondary_suffix.size() &&
+                type_str.compare(type_str.size() - secondary_suffix.size(),
+                                 secondary_suffix.size(),
+                                 secondary_suffix) == 0) {
                 is_secondary = true;
-                type_str.erase(type_str.size() - std::strlen(secondary_suffix.data())); // drop trailing "_SECONDARY"
+                type_str.erase(type_str.size() - secondary_suffix.size());
             }
-        
-            // Always form TYPE_VERSIONED, then (optionally) append _SECONDARY
-            std::string collection_name = type_str + "_VERSIONED";
-            if (is_secondary) collection_name += "_SECONDARY";
-        
+            std::string collection_name = type_str + std::string(versioned_suffix);
+            if (is_secondary) collection_name += std::string(secondary_suffix);
+
             logger->debug("Created type version: {}", collection_name);
             auto collection = this->client[database][collection_name];
             auto result = collection.insert_one(doc_builder.extract());
             return result;
         }
 
+        // Unversioned: replace by id, upsert; keep the same normalized timestamp
         auto filter = bsoncxx::builder::basic::make_document(
             bsoncxx::builder::basic::kvp("_id", docId.get_value())
         );
+        logger->debug("Constructed filter document: {}", bsoncxx::to_json(filter.view()));
 
-        logger->debug("Constructed filter document: {}", bsoncxx::to_json(filter));
-
-        // helps you retrieve the most recent version
-        auto type_str = type.get_string().value;
-        auto collection = this->client[database][type_str];
+        auto collection = this->client[database][type.get_string().value];
         auto result = collection.replace_one(
             filter.view(),
             doc_builder.view(),
             mongocxx::options::replace{}.upsert(true)
         );
         return result;
-    }catch(const std::exception& e){
+    }
+    catch(const std::exception& e){
         logger->error("Error: {}", e.what());
         return std::nullopt;
     }

@@ -78,6 +78,8 @@ private:
     // ----- configuration/constants -----
     /// @brief Suffix used to identify mirrored secondary collections.
     static constexpr std::string_view secondary_suffix = "_SECONDARY";
+    /// @brief Suffix used to identify versioned collections.
+    static constexpr std::string_view versioned_suffix = "_VERSIONED";
 
     // ----- immutable runtime configuration (HTTP/Mongo) -----
     std::string logFile;    ///< Path to log file used by the broker.
