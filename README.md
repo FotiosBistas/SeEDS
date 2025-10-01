@@ -389,78 +389,97 @@ Just download the apt file and install it. Connect to the local cluster ( you ca
 
 ### Populate database
 
-```
-mongosh SeEDS --eval 'db.CAR_VERSIONED.insertOne({
-  _id: { _id: "car001", timestamp: new Date("2025-09-25T09:30:00Z") },
-  id: "car001",
-  type: "CAR",
-  speed: 62,
-  engine_temp: 85.2,
-  battery: 91,
-  timestamp: new Date("2025-09-25T09:30:00Z")
-})'
-```
+Note that you need to run Broker bin first: 
 
 ```
-mongosh SeEDS --eval 'db.CAR_VERSIONED.insertOne({
-  _id: { _id: "car001", timestamp: new Date("2025-09-25T09:00:00Z") },
-  id: "car001",
-  type: "CAR",
-  speed: 50,
-  engine_temp: 80.1,
-  battery: 95,
-  timestamp: new Date("2025-09-25T09:00:00Z")
-})'
+./snds_broker_bin --mongo.uri mongodb://127.0.0.1:27017
+Using URI: mongodb://127.0.0.1:27017
+[2025-10-01 15:07:06.954] [info] [Broker] HTTP server listening on 0.0.0.0:10000
 ```
 
-```
-mongosh SeEDS --eval 'db.CAR_VERSIONED.insertOne({
-  _id: { _id: "car001", timestamp: new Date("2025-09-25T09:30:00Z") },
-  id: "car001",
-  type: "CAR",
-  speed: 62,
-  engine_temp: 85.2,
-  battery: 91,
-  timestamp: new Date("2025-09-25T09:30:00Z")
-})'
-```
-
-```
-mongosh SeEDS --eval 'db.CAR_VERSIONED.insertOne({
-  _id: { _id: "car001", timestamp: new Date("2025-09-25T10:00:00Z") },
-  id: "car001",
-  type: "CAR",
-  speed: 75,
-  engine_temp: 92.4,
-  battery: 87,
-  timestamp: new Date("2025-09-25T10:00:00Z")
-})'
+#### car002 @ 09:30
+```sh
+curl -X POST http://localhost:10000/add \
+  -H "Content-Type: application/json" \
+  -d '{
+    "id": "car002",
+    "type": "CAR",
+    "speed": 64,
+    "engine_temp": 25400,
+    "battery": 91,
+    "timestamp": "2025-09-25T09:30:00Z"
+  }'
 ```
 
-```
-mongosh SeEDS --eval 'db.CAR_VERSIONED.insertOne({
-  _id: { _id: "car002", timestamp: new Date("2025-09-25T09:40:00Z") },
-  id: "car002",
-  type: "CAR",
-  speed: 70,
-  engine_temp: 90.1,
-  battery: 78,
-  timestamp: new Date("2025-09-25T09:40:00Z")
-})'
-```
-
-```
-mongosh SeEDS --eval 'db.CAR_VERSIONED.insertOne({
-  _id: { _id: "car003", timestamp: new Date("2025-09-25T09:50:00Z") },
-  id: "car003",
-  type: "CAR",
-  speed: 55,
-  engine_temp: 79.4,
-  battery: 95,
-  timestamp: new Date("2025-09-25T09:50:00Z")
-})'
+#### car001 @ 09:30
+```sh
+curl -X POST http://localhost:10000/add \
+  -H "Content-Type: application/json" \
+  -d '{
+    "id": "car001",
+    "type": "CAR",
+    "speed": 62,
+    "engine_temp": 85.2,
+    "battery": 91,
+    "timestamp": "2025-09-25T09:30:00Z"
+  }'
 ```
 
+#### car001 @ 09:00
+```sh
+curl -X POST http://localhost:10000/add \
+  -H "Content-Type: application/json" \
+  -d '{
+    "id": "car001",
+    "type": "CAR",
+    "speed": 50,
+    "engine_temp": 80.1,
+    "battery": 95,
+    "timestamp": "2025-09-25T09:00:00Z"
+  }'
+```
+
+#### car001 @ 10:00 (newest)
+```sh
+curl -X POST http://localhost:10000/add \
+  -H "Content-Type: application/json" \
+  -d '{
+    "id": "car001",
+    "type": "CAR",
+    "speed": 75,
+    "engine_temp": 92.4,
+    "battery": 87,
+    "timestamp": "2025-09-25T10:00:00Z"
+  }'
+```
+
+#### car002 @ 09:40
+```sh
+curl -X POST http://localhost:10000/add \
+  -H "Content-Type: application/json" \
+  -d '{
+    "id": "car002",
+    "type": "CAR",
+    "speed": 70,
+    "engine_temp": 90.1,
+    "battery": 78,
+    "timestamp": "2025-09-25T09:40:00Z"
+  }'
+```
+
+#### car003 @ 09:50
+```sh
+curl -X POST http://localhost:10000/add \
+  -H "Content-Type: application/json" \
+  -d '{
+    "id": "car003",
+    "type": "CAR",
+    "speed": 55,
+    "engine_temp": 79.4,
+    "battery": 95,
+    "timestamp": "2025-09-25T09:50:00Z"
+  }'
+```
 
 ## Run 
 
