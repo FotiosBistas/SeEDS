@@ -13,6 +13,11 @@
 
 ## Populate MongoDB
 
+You can empty the database: 
+
+```sh
+mongosh SeEDS --eval "db.dropDatabase()"
+```
 
 Note that you need to run Broker bin first: 
 
@@ -107,6 +112,24 @@ curl -X POST http://localhost:10000/add \
 ## Run necessary services
 
 
+Producer's NFD: 
+
+```
+reset && nfd-stop ; sleep 2 && nfd-start && sleep 2 && nfdc face create udp://mmlab-aueb-1.mmlab.edu.gr && nfdc route add / udp://mmlab-aueb-1.mmlab.edu.gr && nfdc route add /localhop/nfd udp://mmlab-aueb-1.mmlab.edu.gr
+```
+
+Consumer's .7 NFD: 
+
+```
+reset && nfd-stop ; sleep 2; nfd-start && sleep 2 && nfdc face create udp://mmlab-aueb-2.mmlab.edu.gr && nfdc route add / udp://mmlab-aueb-2.mmlab.edu.gr && nfdc route add /localhop/nfd udp://mmlab-aueb-2.mmlab.edu.gr
+```
+
+Consumer's .27 NFD: 
+
+```
+reset && nfd-stop ; sleep 2; nfd-start && sleep 2 && nfdc face create udp://titan.cs.memphis.edu && nfdc route add / udp://titan.cs.memphis.edu && nfdc route add /localhop/nfd udp://titan.cs.memphis.edu
+```
+
 Producer's MongoDB Service:
 
 ```
@@ -122,13 +145,13 @@ Producer SeEDS Service:
 Consumer .7 SeEDS Service: 
 
 ```
-./snds_daemon_bin --snds-prefix ndn/gr/edu/mmlab1/aueb/thomasi --num-services 3 --snds-id 1
+./snds_daemon_bin --snds-prefix ndn/gr/edu/mmlab1/aueb/thomasi --num-services 3 --snds-id 1 --producer.registry-type="MOTO"
 ```
 
 Consumer .27 SeEDS Service: 
 
 ```
-./snds_daemon_bin --snds-prefix ndn/gr/edu/mmlab1/aueb/thomasi --num-services 3 --snds-id 2
+./snds_daemon_bin --snds-prefix ndn/gr/edu/mmlab1/aueb/thomasi --num-services 3 --snds-id 2 --producer.registry-type="SENSOR"
 ```
 
 Note how they all share the same prefix. This is because we need to get the data from the Producer's prefix.
@@ -373,52 +396,17 @@ Payload: {
 ## Get by Type from Consumers 
 
 
-Let's publish an ID ``car001`` to the ``CAR`` registry of the Producer: 
+Let's publish a IDs ``car001`` and ``car002`` to the ``CAR`` registry of the Producer: 
 
-```
-scn4ndn@seeds8:~$ curl -v -i -X POST http://127.0.0.1:8080 -d "type=CAR&id=car001"
-Note: Unnecessary use of -X or --request, POST is already inferred.
-*   Trying 127.0.0.1:8080...
-* Connected to 127.0.0.1 (127.0.0.1) port 8080
-> POST / HTTP/1.1
-> Host: 127.0.0.1:8080
-> User-Agent: curl/8.5.0
-> Accept: */*
-> Content-Length: 18
-> Content-Type: application/x-www-form-urlencoded
-> 
-< HTTP/1.1 200 OK
-HTTP/1.1 200 OK
-< Keep-Alive: timeout=5, max=100
-Keep-Alive: timeout=5, max=100
-< Content-Length: 260
-Content-Length: 260
-< Content-Type: text/plain
-Content-Type: text/plain
-
-< 
-{
-  "batch_size": 1,
-  "messages": [
-    {
-      "name": "/ndn/gr/edu/mmlab1/aueb/thomasi/CAR/byIDAndTypeAdvertisement:car001&CAR",
-      "payload": {
-        "raw": "ACK_ID_REGISTERED\n"
-      },
-      "sender": 6,
-      "type": "CONTROL_MESSAGE"
-    }
-  ]
-}
-* Connection #0 to host 127.0.0.1 left intact
+```sh
 ```
 
 
-Let's check the logs of the Producer Node: 
+Let's check the Producer Node's .8 logs for ```car001``: 
 
 ```log
-[2025-10-01 08:08:48.245] [info] [HTTPServer] Received POST request for / with body type=CAR&id=car001
-[2025-10-01 08:08:48.246] [info] [HTTPServer] Received POST request from 127.0.0.1
+[2025-10-01 10:07:18.262] [info] [HTTPServer] Received POST request for / with body id=car001&type=CAR
+[2025-10-01 10:07:18.262] [info] [HTTPServer] Received POST request from 127.0.0.1
 Message: {id=car001,type=CAR}
 Type: BY_ID_AND_TYPE_ADVERTISEMENT
 Sender: HTTP_SRV
@@ -427,7 +415,7 @@ HTTP Type: HTTP_POST
 Params:
 id = car001
 type = CAR
-[2025-10-01 08:08:48.246] [debug] [HTTPServer] Writing message from POST request to service queue...
+[2025-10-01 10:07:18.262] [debug] [HTTPServer] Writing message from POST request to service queue...
 Message: {id=car001,type=CAR}
 Type: BY_ID_AND_TYPE_ADVERTISEMENT
 Sender: HTTP_SRV
@@ -437,19 +425,19 @@ Params:
 id = car001
 type = CAR
 
-[2025-10-01 08:08:48.246] [debug] [DigitalTwin] Extracted content from message {id=car001,type=CAR}
-[2025-10-01 08:08:48.246] [debug] [DigitalTwin] Extracted content length from message 20
-[2025-10-01 08:08:48.246] [debug] [DigitalTwin] Extracted type from message: BY_ID_AND_TYPE_ADVERTISEMENT
-[2025-10-01 08:08:48.246] [info] [DigitalTwin] Received by Type get request...
-[2025-10-01 08:08:48.246] [debug] [DigitalTwin] The Type is the following: CAR
-[2025-10-01 08:08:48.246] [debug] [DigitalTwin] The ID is the following: car001
+[2025-10-01 10:07:18.262] [debug] [DigitalTwin] Extracted content from message {id=car001,type=CAR}
+[2025-10-01 10:07:18.262] [debug] [DigitalTwin] Extracted content length from message 20
+[2025-10-01 10:07:18.262] [debug] [DigitalTwin] Extracted type from message: BY_ID_AND_TYPE_ADVERTISEMENT
+[2025-10-01 10:07:18.262] [info] [DigitalTwin] Received by Type get request...
+[2025-10-01 10:07:18.262] [debug] [DigitalTwin] The Type is the following: CAR
+[2025-10-01 10:07:18.262] [debug] [DigitalTwin] The ID is the following: car001
 Message: /ndn/gr/edu/mmlab1/aueb/thomasi/CAR/byIDAndTypeAdvertisement:car001&CAR
 Type: BY_ID_AND_TYPE_ADVERTISEMENT
 Sender: DIGITAL_TWIN
 Payload: 
 HTTP Type: HTTP_EMPTY
 Params:
-[2025-10-01 08:08:48.246] [info] [DigitalTwin] Pushing byType advertisement to the Consumer...
+[2025-10-01 10:07:18.262] [info] [DigitalTwin] Pushing byType advertisement to the Consumer...
 Message: /ndn/gr/edu/mmlab1/aueb/thomasi/CAR/byIDAndTypeAdvertisement:car001&CAR
 Type: BY_ID_AND_TYPE_ADVERTISEMENT
 Sender: DIGITAL_TWIN
@@ -457,20 +445,20 @@ Payload:
 HTTP Type: HTTP_EMPTY
 Params:
 
-[2025-10-01 08:08:48.246] [debug] [DigitalTwin] Sleeping 2000 ms before sending scope advertisement...
-[2025-10-01 08:08:48.246] [debug] [Consumer] Extracted content from message: /ndn/gr/edu/mmlab1/aueb/thomasi/CAR/byIDAndTypeAdvertisement:car001&CAR
-[2025-10-01 08:08:48.246] [debug] [Consumer] Extracted content length from message: 71
-[2025-10-01 08:08:48.246] [debug] [Consumer] Extracted message type from message: BY_ID_AND_TYPE_ADVERTISEMENT
-[2025-10-01 08:08:48.246] [debug] [Consumer] Created name: /ndn/gr/edu/mmlab1/aueb/thomasi/CAR/byIDAndTypeAdvertisement:car001&CAR in func: express_by_id_and_type_advertisement_interest
-[2025-10-01 08:08:48.246] [info] [Consumer] Sending actual Interest /ndn/gr/edu/mmlab1/aueb/thomasi/CAR/byIDAndTypeAdvertisement%3Acar001%26CAR?CanBePrefix&Lifetime=6000
-[2025-10-01 08:08:48.246] [info] [Producer] Received interest in function: onInterest, name: /ndn/gr/edu/mmlab1/aueb/thomasi/CAR/byIDAndTypeAdvertisement%3Acar001%26CAR
-[2025-10-01 08:08:48.247] [info] [Producer] Parsed interest: Prefix: ndn/gr/edu/mmlab1/aueb/thomasi, Name: CAR, Command: byIDAndTypeAdvertisement, Params: [car001, CAR]
-[2025-10-01 08:08:48.247] [info] [Producer] Processing Type Advertisement
-[2025-10-01 08:08:48.247] [info] [Producer] Type advertisement: name(registry) = CAR, ID = car001
-[2025-10-01 08:08:48.247] [info] [Producer] [event] type_add: CAR -> car001
-[2025-10-01 08:08:48.247] [info] [Producer] [resilience] mutate → ver=10 hash=d35ab132e24de8f933603ce28e8e6481
-[2025-10-01 08:08:48.247] [debug] [Producer] [resilience] history versions: 0(37a6259c) 1(260ec692) 2(70f94e1d) 3(e3bf833b) 4(d82c0ce5) 5(c9609515) 6(1e561ccd) 7(f9042de4) 8(beb95ca5) 9(735e2035) 10(d35ab132) 
-[2025-10-01 08:08:48.247] [debug] [Producer] [resilience] ops from v9 → v10:
+[2025-10-01 10:07:18.262] [debug] [DigitalTwin] Sleeping 2000 ms before sending scope advertisement...
+[2025-10-01 10:07:18.262] [debug] [Consumer] Extracted content from message: /ndn/gr/edu/mmlab1/aueb/thomasi/CAR/byIDAndTypeAdvertisement:car001&CAR
+[2025-10-01 10:07:18.262] [debug] [Consumer] Extracted content length from message: 71
+[2025-10-01 10:07:18.262] [debug] [Consumer] Extracted message type from message: BY_ID_AND_TYPE_ADVERTISEMENT
+[2025-10-01 10:07:18.262] [debug] [Consumer] Created name: /ndn/gr/edu/mmlab1/aueb/thomasi/CAR/byIDAndTypeAdvertisement:car001&CAR in func: express_by_id_and_type_advertisement_interest
+[2025-10-01 10:07:18.262] [info] [Consumer] Sending actual Interest /ndn/gr/edu/mmlab1/aueb/thomasi/CAR/byIDAndTypeAdvertisement%3Acar001%26CAR?CanBePrefix&Lifetime=6000
+[2025-10-01 10:07:18.263] [info] [Producer] Received interest in function: onInterest, name: /ndn/gr/edu/mmlab1/aueb/thomasi/CAR/byIDAndTypeAdvertisement%3Acar001%26CAR
+[2025-10-01 10:07:18.263] [info] [Producer] Parsed interest: Prefix: ndn/gr/edu/mmlab1/aueb/thomasi, Name: CAR, Command: byIDAndTypeAdvertisement, Params: [car001, CAR]
+[2025-10-01 10:07:18.264] [info] [Producer] Processing Type Advertisement
+[2025-10-01 10:07:18.264] [info] [Producer] Type advertisement: name(registry) = CAR, ID = car001
+[2025-10-01 10:07:18.264] [info] [Producer] [event] type_add: CAR -> car001
+[2025-10-01 10:07:18.264] [info] [Producer] [resilience] mutate → ver=8 hash=11ddcc1444734220d497b7ba6c7d187e
+[2025-10-01 10:07:18.264] [debug] [Producer] [resilience] history versions: 0(37a6259c) 1(527549ed) 2(05496551) 3(fc5b337d) 4(0f541a6e) 5(46b92c05) 6(0b494326) 7(4f9564f1) 8(11ddcc14) 
+[2025-10-01 10:07:18.264] [debug] [Producer] [resilience] ops from v7 → v8:
 [
   {
     "op": "add",
@@ -482,130 +470,40 @@ Params:
     }
   }
 ]
-[2025-10-01 08:08:48.247] [info] [Producer] Getting from IP: 127.0.0.1 and port: 10000
-[2025-10-01 08:08:48.247] [debug] [Producer] HTTP GET /state?type=CAR
-[2025-10-01 08:08:48.249] [info] [Producer] [resilience] mutate → ver=11 hash=35ce77aa2fd7103293a965e62378e09a
-[2025-10-01 08:08:48.249] [debug] [Producer] [resilience] history versions: 0(37a6259c) 1(260ec692) 2(70f94e1d) 3(e3bf833b) 4(d82c0ce5) 5(c9609515) 6(1e561ccd) 7(f9042de4) 8(beb95ca5) 9(735e2035) 10(d35ab132) 11(35ce77aa) 
-[2025-10-01 08:08:48.249] [debug] [Producer] [resilience] ops from v10 → v11:
+[2025-10-01 10:07:18.264] [info] [Producer] Getting from IP: 127.0.0.1 and port: 10000
+[2025-10-01 10:07:18.264] [debug] [Producer] HTTP GET /state?type=CAR
+[2025-10-01 10:07:18.277] [info] [Producer] [resilience] mutate → ver=9 hash=a57078135a71cae3a38d87c2843d1eb9
+[2025-10-01 10:07:18.277] [debug] [Producer] [resilience] history versions: 0(37a6259c) 1(527549ed) 2(05496551) 3(fc5b337d) 4(0f541a6e) 5(46b92c05) 6(0b494326) 7(4f9564f1) 8(11ddcc14) 9(a5707813) 
+[2025-10-01 10:07:18.277] [debug] [Producer] [resilience] ops from v8 → v9:
 [
   {
     "op": "add",
     "path": "/broker/collections/CAR",
     "value": {
       "algo": "SHA-256",
-      "count": 0,
-      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-      "lastSeen": "2025-10-01T08:08:48Z"
+      "count": 3,
+      "hash": "b66cd183738b81929b9632a47631dace78dd98715418434d4f92be99a6ec75c1",
+      "lastSeen": "2025-10-01T10:07:18Z"
     }
   }
 ]
-[2025-10-01 08:08:48.249] [info] [Producer] [debug][event:type_add CAR->car001] summary → types=1 ids=1 subs(byId)=0 subs(byType)=0 announced=7
-[2025-10-01 08:08:48.249] [debug] [Producer] [debug][event:type_add CAR->car001] type_registry:
-[2025-10-01 08:08:48.249] [debug] [Producer]   [CAR] car001 
-[2025-10-01 08:08:48.249] [debug] [Producer] [debug][event:type_add CAR->car001] subscribed_nodes_for_id:
-[2025-10-01 08:08:48.249] [debug] [Producer] [debug][event:type_add CAR->car001] subscribed_nodes_for_type:
-[2025-10-01 08:08:48.249] [debug] [Producer] [debug][event:type_add CAR->car001] announcements: /ndn/gr/edu/mmlab1/aueb/thomasi/CAR_registry /ndn/gr/edu/mmlab1/aueb/thomasi/CAR /ndn/gr/edu/mmlab1/aueb/thomasi/state_0 /ndn/gr/edu/mmlab1/aueb/thomasi/is_alive_0 /ndn/gr/edu/mmlab1/aueb/thomasi/car001 /ndn/gr/edu/mmlab1/aueb/thomasi/SNDS_ID_scope_0 /ndn/gr/edu/mmlab1/aueb/thomasi_0 
-[2025-10-01 08:08:48.249] [info] [Producer] [debug][event:type_add CAR->car001] broker.journal: entries=1 cursor=0 last_fp=
-[2025-10-01 08:08:48.249] [debug] [Producer] [debug][event:type_add CAR->car001] broker.journal (last 1 of 1):
-[2025-10-01 08:08:48.249] [debug] [Producer]   [0] ts=2025-10-01T07:50:50Z type=GENERIC id=car001 payload_keys=1
-[2025-10-01 08:08:48.249] [debug] [Producer] [overlay][event:type_add CAR->car001] ver=0 hash=d41d8cd98f00b204e9800998ecf8427e keys=0
-[2025-10-01 08:08:48.249] [info] [Producer] Registered new ID car001 for type CAR. Sending CONTROL.
-[2025-10-01 08:08:48.249] [debug] [Producer] Sending data to the NDN…
-[2025-10-01 08:08:48.249] [info] [Consumer] Received Data with name: /ndn/gr/edu/mmlab1/aueb/thomasi/CAR/byIDAndTypeAdvertisement%3Acar001%26CAR in function onData
-[2025-10-01 08:08:48.249] [info] [Consumer] Data packet payload: ACK_ID_REGISTERED in function onData
-[2025-10-01 08:08:48.249] [info] [Consumer] Parsed interest: Prefix: ndn/gr/edu/mmlab1/aueb/thomasi, Name: CAR, Command: byIDAndTypeAdvertisement, Params: [car001, CAR] in onData
+[2025-10-01 10:07:18.277] [info] [Producer] [debug][event:type_add CAR->car001] summary → types=1 ids=1 subs(byId)=0 subs(byType)=0 announced=6
+[2025-10-01 10:07:18.277] [debug] [Producer] [debug][event:type_add CAR->car001] type_registry:
+[2025-10-01 10:07:18.278] [debug] [Producer]   [CAR] car001 
+[2025-10-01 10:07:18.278] [debug] [Producer] [debug][event:type_add CAR->car001] subscribed_nodes_for_id:
+[2025-10-01 10:07:18.278] [debug] [Producer] [debug][event:type_add CAR->car001] subscribed_nodes_for_type:
+[2025-10-01 10:07:18.278] [debug] [Producer] [debug][event:type_add CAR->car001] announcements: /ndn/gr/edu/mmlab1/aueb/thomasi/CAR_registry /ndn/gr/edu/mmlab1/aueb/thomasi/CAR /ndn/gr/edu/mmlab1/aueb/thomasi/state_0 /ndn/gr/edu/mmlab1/aueb/thomasi/is_alive_0 /ndn/gr/edu/mmlab1/aueb/thomasi/SNDS_ID_scope_0 /ndn/gr/edu/mmlab1/aueb/thomasi_0 
+[2025-10-01 10:07:18.278] [info] [Producer] [debug][event:type_add CAR->car001] broker.journal: entries=0 cursor=0 last_fp=
+[2025-10-01 10:07:18.278] [debug] [Producer] [overlay][event:type_add CAR->car001] ver=0 hash=d41d8cd98f00b204e9800998ecf8427e keys=0
+[2025-10-01 10:07:18.278] [info] [Producer] Registered new ID car001 for type CAR. Sending CONTROL.
+[2025-10-01 10:07:18.278] [debug] [Producer] Sending data to the NDN…
 ```
 
-We can also publish to ``CAR`` from a completely different node since it depends on the namespace of the producer. Let's do it from Consumer .7:
-
-```
-scn4ndn@seeds7:~$ curl -v -i -X POST http://127.0.0.1:8080 -d "type=CAR&id=car002"
-Note: Unnecessary use of -X or --request, POST is already inferred.
-*   Trying 127.0.0.1:8080...
-* Connected to 127.0.0.1 (127.0.0.1) port 8080
-> POST / HTTP/1.1
-> Host: 127.0.0.1:8080
-> User-Agent: curl/8.5.0
-> Accept: */*
-> Content-Length: 18
-> Content-Type: application/x-www-form-urlencoded
-> 
-< HTTP/1.1 200 OK
-HTTP/1.1 200 OK
-< Keep-Alive: timeout=5, max=100
-Keep-Alive: timeout=5, max=100
-< Content-Length: 260
-Content-Length: 260
-< Content-Type: text/plain
-Content-Type: text/plain
-
-< 
-{
-  "batch_size": 1,
-  "messages": [
-    {
-      "name": "/ndn/gr/edu/mmlab1/aueb/thomasi/CAR/byIDAndTypeAdvertisement:car002&CAR",
-      "payload": {
-        "raw": "ACK_ID_REGISTERED\n"
-      },
-      "sender": 6,
-      "type": "CONTROL_MESSAGE"
-    }
-  ]
-}
-* Connection #0 to host 127.0.0.1 left intact
-scn4ndn@seeds7:~$ 
-```
-
-Let's check the logs of the Producer Node: 
+Let's check the Producer Node's .8 logs for ```car002``: 
 
 ```log
-[2025-10-01 08:12:35.816] [info] [Producer] Received interest in function: onInterest, name: /ndn/gr/edu/mmlab1/aueb/thomasi/CAR/byIDAndTypeAdvertisement%3Acar002%26CAR
-[2025-10-01 08:12:35.816] [info] [Producer] Parsed interest: Prefix: ndn/gr/edu/mmlab1/aueb/thomasi, Name: CAR, Command: byIDAndTypeAdvertisement, Params: [car002, CAR]
-[2025-10-01 08:12:35.816] [info] [Producer] Processing Type Advertisement
-[2025-10-01 08:12:35.816] [info] [Producer] Type advertisement: name(registry) = CAR, ID = car002
-[2025-10-01 08:12:35.816] [info] [Producer] [event] type_add: CAR -> car002
-[2025-10-01 08:12:35.816] [info] [Producer] [resilience] mutate → ver=12 hash=c62806b94b60ee2c75f7962110fc6c32
-[2025-10-01 08:12:35.817] [debug] [Producer] [resilience] history versions: 0(37a6259c) 1(260ec692) 2(70f94e1d) 3(e3bf833b) 4(d82c0ce5) 5(c9609515) 6(1e561ccd) 7(f9042de4) 8(beb95ca5) 9(735e2035) 10(d35ab132) 11(35ce77aa) 12(c62806b9) 
-[2025-10-01 08:12:35.817] [debug] [Producer] [resilience] ops from v11 → v12:
-[
-  {
-    "op": "add",
-    "path": "/types/CAR/ids/car002",
-    "value": true
-  }
-]
-[2025-10-01 08:12:35.817] [info] [Producer] Getting from IP: 127.0.0.1 and port: 10000
-[2025-10-01 08:12:35.817] [debug] [Producer] HTTP GET /state?type=CAR
-[2025-10-01 08:12:35.821] [info] [Producer] [resilience] mutate → ver=13 hash=05278785cae92313095d73b6cf1a83bc
-[2025-10-01 08:12:35.821] [debug] [Producer] [resilience] history versions: 0(37a6259c) 1(260ec692) 2(70f94e1d) 3(e3bf833b) 4(d82c0ce5) 5(c9609515) 6(1e561ccd) 7(f9042de4) 8(beb95ca5) 9(735e2035) 10(d35ab132) 11(35ce77aa) 12(c62806b9) 13(05278785) 
-[2025-10-01 08:12:35.821] [debug] [Producer] [resilience] ops from v12 → v13:
-[
-  {
-    "op": "replace",
-    "path": "/broker/collections/CAR/lastSeen",
-    "value": "2025-10-01T08:12:35Z"
-  }
-]
-[2025-10-01 08:12:35.821] [info] [Producer] [debug][event:type_add CAR->car002] summary → types=1 ids=2 subs(byId)=0 subs(byType)=0 announced=7
-[2025-10-01 08:12:35.821] [debug] [Producer] [debug][event:type_add CAR->car002] type_registry:
-[2025-10-01 08:12:35.821] [debug] [Producer]   [CAR] car002 car001 
-[2025-10-01 08:12:35.821] [debug] [Producer] [debug][event:type_add CAR->car002] subscribed_nodes_for_id:
-[2025-10-01 08:12:35.821] [debug] [Producer] [debug][event:type_add CAR->car002] subscribed_nodes_for_type:
-[2025-10-01 08:12:35.821] [debug] [Producer] [debug][event:type_add CAR->car002] announcements: /ndn/gr/edu/mmlab1/aueb/thomasi/CAR_registry /ndn/gr/edu/mmlab1/aueb/thomasi/CAR /ndn/gr/edu/mmlab1/aueb/thomasi/state_0 /ndn/gr/edu/mmlab1/aueb/thomasi/is_alive_0 /ndn/gr/edu/mmlab1/aueb/thomasi/car001 /ndn/gr/edu/mmlab1/aueb/thomasi/SNDS_ID_scope_0 /ndn/gr/edu/mmlab1/aueb/thomasi_0 
-[2025-10-01 08:12:35.821] [info] [Producer] [debug][event:type_add CAR->car002] broker.journal: entries=1 cursor=0 last_fp=
-[2025-10-01 08:12:35.821] [debug] [Producer] [debug][event:type_add CAR->car002] broker.journal (last 1 of 1):
-[2025-10-01 08:12:35.821] [debug] [Producer]   [0] ts=2025-10-01T07:50:50Z type=GENERIC id=car001 payload_keys=1
-[2025-10-01 08:12:35.821] [debug] [Producer] [overlay][event:type_add CAR->car002] ver=0 hash=d41d8cd98f00b204e9800998ecf8427e keys=0
-[2025-10-01 08:12:35.821] [info] [Producer] Registered new ID car002 for type CAR. Sending CONTROL.
-[2025-10-01 08:12:35.821] [debug] [Producer] Sending data to the NDN…
-```
-
-Let's check the logs of the Consumer Node: 
-
-```log
-[2025-10-01 08:12:35.813] [info] [HTTPServer] Received POST request for / with body type=CAR&id=car002
-[2025-10-01 08:12:35.813] [info] [HTTPServer] Received POST request from 127.0.0.1
+[2025-10-01 10:07:22.411] [info] [HTTPServer] Received POST request for / with body id=car002&type=CAR
+[2025-10-01 10:07:22.411] [info] [HTTPServer] Received POST request from 127.0.0.1
 Message: {id=car002,type=CAR}
 Type: BY_ID_AND_TYPE_ADVERTISEMENT
 Sender: HTTP_SRV
@@ -614,14 +512,69 @@ HTTP Type: HTTP_POST
 Params:
 id = car002
 type = CAR
-[2025-10-01 08:12:35.813] [info] [DigitalTwin] Received by Type get request...
+[2025-10-01 10:07:22.411] [debug] [HTTPServer] Writing message from POST request to service queue...
+Message: {id=car002,type=CAR}
+Type: BY_ID_AND_TYPE_ADVERTISEMENT
+Sender: HTTP_SRV
+Payload: 
+HTTP Type: HTTP_POST
+Params:
+id = car002
+type = CAR
+
+[2025-10-01 10:07:22.411] [debug] [DigitalTwin] Extracted content from message {id=car002,type=CAR}
+[2025-10-01 10:07:22.411] [debug] [DigitalTwin] Extracted content length from message 20
+[2025-10-01 10:07:22.411] [debug] [DigitalTwin] Extracted type from message: BY_ID_AND_TYPE_ADVERTISEMENT
+Message: BATCH
+Type: GENERIC
+Sender: WORKER
+Payload: {
+  "batch_size": 1,
+  "messages": [
+    {
+      "name": "/ndn/gr/edu/mmlab1/aueb/thomasi/CAR/scopeNotification:car001&CAR&SNDS_ID_scope_0",
+      "payload": {
+        "raw": "ACK_SUBSCRIPTION_NO_SUBSCRIBERS\n"
+      },
+      "sender": 6,
+      "type": "CONTROL_MESSAGE"
+    }
+  ]
+}
+
+HTTP Type: HTTP_EMPTY
+Params:
+[2025-10-01 10:07:22.411] [info] [DigitalTwin] Received by Type get request...
+[2025-10-01 10:07:22.411] [debug] [DigitalTwin] The Type is the following: CAR
+[2025-10-01 10:07:22.411] [debug] [DigitalTwin] The ID is the following: car002
+[2025-10-01 10:07:22.411] [info] [HTTPServer] Read Message from queue:
+Message: BATCH
+Type: GENERIC
+Sender: WORKER
+Payload: {
+  "batch_size": 1,
+  "messages": [
+    {
+      "name": "/ndn/gr/edu/mmlab1/aueb/thomasi/CAR/scopeNotification:car001&CAR&SNDS_ID_scope_0",
+      "payload": {
+        "raw": "ACK_SUBSCRIPTION_NO_SUBSCRIBERS\n"
+      },
+      "sender": 6,
+      "type": "CONTROL_MESSAGE"
+    }
+  ]
+}
+
+HTTP Type: HTTP_EMPTY
+Params:
+
 Message: /ndn/gr/edu/mmlab1/aueb/thomasi/CAR/byIDAndTypeAdvertisement:car002&CAR
 Type: BY_ID_AND_TYPE_ADVERTISEMENT
 Sender: DIGITAL_TWIN
 Payload: 
 HTTP Type: HTTP_EMPTY
 Params:
-[2025-10-01 08:12:35.813] [info] [DigitalTwin] Pushing byType advertisement to the Consumer...
+[2025-10-01 10:07:22.411] [info] [DigitalTwin] Pushing byType advertisement to the Consumer...
 Message: /ndn/gr/edu/mmlab1/aueb/thomasi/CAR/byIDAndTypeAdvertisement:car002&CAR
 Type: BY_ID_AND_TYPE_ADVERTISEMENT
 Sender: DIGITAL_TWIN
@@ -629,24 +582,56 @@ Payload:
 HTTP Type: HTTP_EMPTY
 Params:
 
-[2025-10-01 08:12:35.813] [info] [Consumer] Sending actual Interest /ndn/gr/edu/mmlab1/aueb/thomasi/CAR/byIDAndTypeAdvertisement%3Acar002%26CAR?CanBePrefix&Lifetime=6000
-[2025-10-01 08:12:35.824] [info] [Consumer] Received Data with name: /ndn/gr/edu/mmlab1/aueb/thomasi/CAR/byIDAndTypeAdvertisement%3Acar002%26CAR in function onData
-[2025-10-01 08:12:35.824] [info] [Consumer] Data packet payload: ACK_ID_REGISTERED in function onData
-[2025-10-01 08:12:35.824] [info] [Consumer] Parsed interest: Prefix: ndn/gr/edu/mmlab1/aueb/thomasi, Name: CAR, Command: byIDAndTypeAdvertisement, Params: [car002, CAR] in onData
-[2025-10-01 08:12:35.825] [info] [Consumer] Got ACK ACK_ID_REGISTERED. Skipping...
-[2025-10-01 08:12:35.825] [info] [Consumer] Reading packet...
-[2025-10-01 08:12:35.825] [info] [Worker] Received content: /ndn/gr/edu/mmlab1/aueb/thomasi/CAR/byIDAndTypeAdvertisement:car002&CAR
-[2025-10-01 08:12:35.825] [info] [Worker] Received payload: ACK_ID_REGISTERED
-[2025-10-01 08:12:35.825] [info] [Worker] Received type: GET_BY_ID_FOR_TYPE_RESPONSE
-[2025-10-01 08:12:35.825] [info] [Worker] Received ACK Message with name: /ndn/gr/edu/mmlab1/aueb/thomasi/CAR/byIDAndTypeAdvertisement:car002&CAR payload: ACK_ID_REGISTERED...
-Message: /ndn/gr/edu/mmlab1/aueb/thomasi/CAR/byIDAndTypeAdvertisement:car002&CAR
-Type: CONTROL_MESSAGE
-Sender: WORKER
-Payload: ACK_ID_REGISTERED
+[2025-10-01 10:07:22.411] [debug] [DigitalTwin] Sleeping 2000 ms before sending scope advertisement...
+[2025-10-01 10:07:22.411] [debug] [Consumer] Extracted content from message: /ndn/gr/edu/mmlab1/aueb/thomasi/CAR/byIDAndTypeAdvertisement:car002&CAR
+[2025-10-01 10:07:22.411] [debug] [Consumer] Extracted content length from message: 71
+[2025-10-01 10:07:22.411] [debug] [Consumer] Extracted message type from message: BY_ID_AND_TYPE_ADVERTISEMENT
+[2025-10-01 10:07:22.411] [debug] [Consumer] Created name: /ndn/gr/edu/mmlab1/aueb/thomasi/CAR/byIDAndTypeAdvertisement:car002&CAR in func: express_by_id_and_type_advertisement_interest
+[2025-10-01 10:07:22.411] [info] [Consumer] Sending actual Interest /ndn/gr/edu/mmlab1/aueb/thomasi/CAR/byIDAndTypeAdvertisement%3Acar002%26CAR?CanBePrefix&Lifetime=6000
+[2025-10-01 10:07:22.412] [info] [Producer] Received interest in function: onInterest, name: /ndn/gr/edu/mmlab1/aueb/thomasi/CAR/byIDAndTypeAdvertisement%3Acar002%26CAR
+[2025-10-01 10:07:22.412] [info] [Producer] Parsed interest: Prefix: ndn/gr/edu/mmlab1/aueb/thomasi, Name: CAR, Command: byIDAndTypeAdvertisement, Params: [car002, CAR]
+[2025-10-01 10:07:22.412] [info] [Producer] Processing Type Advertisement
+[2025-10-01 10:07:22.412] [info] [Producer] Type advertisement: name(registry) = CAR, ID = car002
+[2025-10-01 10:07:22.412] [info] [Producer] [event] type_add: CAR -> car002
+[2025-10-01 10:07:22.412] [info] [Producer] [resilience] mutate → ver=10 hash=93f50177ebf3f325bdf2c5de60639e07
+[2025-10-01 10:07:22.412] [debug] [Producer] [resilience] history versions: 0(37a6259c) 1(527549ed) 2(05496551) 3(fc5b337d) 4(0f541a6e) 5(46b92c05) 6(0b494326) 7(4f9564f1) 8(11ddcc14) 9(a5707813) 10(93f50177) 
+[2025-10-01 10:07:22.412] [debug] [Producer] [resilience] ops from v9 → v10:
+[
+  {
+    "op": "add",
+    "path": "/types/CAR/ids/car002",
+    "value": true
+  }
+]
+[2025-10-01 10:07:22.412] [info] [Producer] Getting from IP: 127.0.0.1 and port: 10000
+[2025-10-01 10:07:22.412] [debug] [Producer] HTTP GET /state?type=CAR
+[2025-10-01 10:07:22.414] [info] [Producer] [resilience] mutate → ver=11 hash=e977c0651a18f0c8a3197c3725bf7a1a
+[2025-10-01 10:07:22.414] [debug] [Producer] [resilience] history versions: 0(37a6259c) 1(527549ed) 2(05496551) 3(fc5b337d) 4(0f541a6e) 5(46b92c05) 6(0b494326) 7(4f9564f1) 8(11ddcc14) 9(a5707813) 10(93f50177) 11(e977c065) 
+[2025-10-01 10:07:22.414] [debug] [Producer] [resilience] ops from v10 → v11:
+[
+  {
+    "op": "replace",
+    "path": "/broker/collections/CAR/lastSeen",
+    "value": "2025-10-01T10:07:22Z"
+  }
+]
+[2025-10-01 10:07:22.414] [info] [Producer] [debug][event:type_add CAR->car002] summary → types=1 ids=2 subs(byId)=0 subs(byType)=0 announced=6
+[2025-10-01 10:07:22.414] [debug] [Producer] [debug][event:type_add CAR->car002] type_registry:
+[2025-10-01 10:07:22.414] [debug] [Producer]   [CAR] car002 car001 
+[2025-10-01 10:07:22.414] [debug] [Producer] [debug][event:type_add CAR->car002] subscribed_nodes_for_id:
+[2025-10-01 10:07:22.414] [debug] [Producer] [debug][event:type_add CAR->car002] subscribed_nodes_for_type:
+[2025-10-01 10:07:22.414] [debug] [Producer] [debug][event:type_add CAR->car002] announcements: /ndn/gr/edu/mmlab1/aueb/thomasi/CAR_registry /ndn/gr/edu/mmlab1/aueb/thomasi/CAR /ndn/gr/edu/mmlab1/aueb/thomasi/state_0 /ndn/gr/edu/mmlab1/aueb/thomasi/is_alive_0 /ndn/gr/edu/mmlab1/aueb/thomasi/SNDS_ID_scope_0 /ndn/gr/edu/mmlab1/aueb/thomasi_0 
+[2025-10-01 10:07:22.414] [info] [Producer] [debug][event:type_add CAR->car002] broker.journal: entries=0 cursor=0 last_fp=
+[2025-10-01 10:07:22.414] [debug] [Producer] [overlay][event:type_add CAR->car002] ver=0 hash=d41d8cd98f00b204e9800998ecf8427e keys=0
+[2025-10-01 10:07:22.414] [info] [Producer] Registered new ID car002 for type CAR. Sending CONTROL.
+[2025-10-01 10:07:22.414] [debug] [Producer] Sending data to the NDN…
 ```
 
-Let's also try a GET by Type request from Consumer .7:
+Let's try a GET by Type request from Consumer .7:
 
+```log
+
+```
 
 
 

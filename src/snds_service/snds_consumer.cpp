@@ -311,9 +311,9 @@ void SNDSConsumer::express_get_by_type_interest(const std::string& content)
     ndn::Interest interest(interestName);
     //TODO we don't want all the cases to be fresh
     //for example the latest case
-    //interest.setMustBeFresh(true);
+    interest.setMustBeFresh(true);
     interest.setCanBePrefix(true);
-    interest.setInterestLifetime(ndn::time::milliseconds(6000)); 
+    interest.setInterestLifetime(ndn::time::milliseconds(200)); 
     m_logger->info("Sending actual Interest {}", interest.toUri().c_str());
     m_face.expressInterest
     (
