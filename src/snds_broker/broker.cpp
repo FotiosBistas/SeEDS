@@ -436,7 +436,7 @@ std::optional<InsertOrReplaceResult> Broker::add_one(const std::string& body, co
         logger->debug("Received type: {} and id: {} inside",
             type.get_string().value, docId.get_string().value);
 
-        // derive the effective timestamp once
+        // derive the effective timestamp once (already parsed/normalized)
         bsoncxx::types::b_date effective_ts = parse_iso8601_or_now(view, logger);
 
         // Build _id for versioned documents
@@ -458,7 +458,7 @@ std::optional<InsertOrReplaceResult> Broker::add_one(const std::string& body, co
 
         for (auto&& element : view) {
             auto key = std::string(element.key());
-            if (key == "timestamp") continue; // skip raw ts (string/int); we'll add the parsed date below
+            if (key == "timestamp") continue; // skip raw ts; we add normalized below
             doc_builder.append(bsoncxx::builder::basic::kvp(element.key(), element.get_value()));
         }
 
@@ -486,19 +486,44 @@ std::optional<InsertOrReplaceResult> Broker::add_one(const std::string& body, co
             return result;
         }
 
-        // Unversioned: replace by id, upsert; keep the same normalized timestamp
-        auto filter = bsoncxx::builder::basic::make_document(
-            bsoncxx::builder::basic::kvp("_id", docId.get_value())
-        );
-        logger->debug("Constructed filter document: {}", bsoncxx::to_json(filter.view()));
+        // --- NON-VERSIONED: replace only if incoming timestamp is MORE RECENT ---
 
         auto collection = this->client[database][type.get_string().value];
-        auto result = collection.replace_one(
-            filter.view(),
-            doc_builder.view(),
-            mongocxx::options::replace{}.upsert(true)
+
+        // Check if a document with this _id exists
+        auto id_only_filter = bsoncxx::builder::basic::make_document(
+            bsoncxx::builder::basic::kvp("_id", docId.get_value())
         );
-        return result;
+        auto existing = collection.find_one(id_only_filter.view());
+
+        mongocxx::options::replace opts;
+
+        if (!existing) {
+            // Nothing there yet → upsert
+            logger->debug("No existing doc; upserting unversioned");
+            opts.upsert(true);
+            auto result = collection.replace_one(id_only_filter.view(), doc_builder.view(), opts);
+            return result;
+        } else {
+            // Exists → replace only when existing.timestamp < effective_ts
+            // filter: { _id: <id>, timestamp: { $lt: effective_ts } }
+            bsoncxx::builder::basic::document conditional_filter;
+            conditional_filter.append(
+                bsoncxx::builder::basic::kvp("_id", docId.get_value()),
+                bsoncxx::builder::basic::kvp("timestamp",
+                    bsoncxx::builder::basic::make_document(
+                        bsoncxx::builder::basic::kvp("$lt", effective_ts)
+                    )
+                )
+            );
+
+            // No upsert here: if not newer, we want a clean "matched=0, modified=0"
+            logger->debug("Existing doc found; attempting conditional replace-if-newer");
+            auto result = collection.replace_one(conditional_filter.view(), doc_builder.view());
+            // result->matched_count() == 0 means "not newer" (or missing timestamp)
+            // result->modified_count() == 1 means we replaced with newer data
+            return result;
+        }
     }
     catch(const std::exception& e){
         logger->error("Error: {}", e.what());
