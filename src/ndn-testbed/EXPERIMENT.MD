@@ -1,12 +1,26 @@
 # Experiment Description 
 
+To satisfy KPI 6, we deployed and tested the SeEDS prototype in the official NDN testbed. The experiment involved a distributed setup with three participating nodes that interconnect through the NDN across three different continents, including the University of Memphis (UMemphis) testbed node.
+
+
+The prototype we tested included the ``GETbyTYPE`` and ``GETbyID`` requests. The other requests have also been tested locally in MiniNDN and work as expected. Future work will include testing the other request types in the testbed network.
+
+The experiment demonstrated end-to-end communication between the nodes, ensuring that Interests and Data packets could be exchanged reliably across wide-area NDN infrastructure.
+
+This deployment validated:
+
+- The ability of SeEDS to operate in a multi-continental environment.
+- Correct operation of the system in the global NDN testbed, beyond controlled lab conditions.
+- Successful integration of the UMemphis node as a critical participant in the experiment.
+
 # Topology 
+The experiment was deployed on the NDN testbed using a three-node topology spanning different continents. The participating nodes were:
 
-## Producer 
+- mmlab1 – NDN testbed node located in @TODO, was configured as the Producer node, responsible for publishing and advertising data into the NDN network.
+- mmlab2 – NDN testbed node located in @TODO, issuing Interests to retrieve data from the producer.
+- UMemphis – NDN testbed node located in North America (University of Memphis), was configured as a Consumer node, retrieving the same data across transcontinental paths.
 
-## Consumer 1
-
-## Consumer 2
+This topology ensured intercontinental communication paths, with each node positioned in a different geographic region. The three nodes were configured to exchange Interests and Data packets, forming a triangular overlay in the NDN testbed.
 
 
 # Results and setup
