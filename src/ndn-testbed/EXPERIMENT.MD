@@ -14,14 +14,13 @@ This deployment validated:
 - Successful integration of the UMemphis node as a critical participant in the experiment.
 
 # Topology 
-The experiment was deployed on the NDN testbed using a three-node topology spanning different continents. The participating nodes were:
+The experiment was deployed on the NDN testbed. The producer and consumer applications were connected to three NDN nodes. The participating nodes were:
 
-- mmlab1 – NDN testbed node located in @TODO, was configured as the Producer node, responsible for publishing and advertising data into the NDN network.
-- mmlab2 – NDN testbed node located in @TODO, issuing Interests to retrieve data from the producer.
-- UMemphis – NDN testbed node located in North America (University of Memphis), was configured as a Consumer node, retrieving the same data across transcontinental paths.
+- MML1 - NDN testbed node located at AUEB (Athens, Greece), was configured as the Producer node, responsible for publishing and advertising data into the NDN network.
+- MML2 – NDN testbed node located at AUEB (Athens, Greece), issuing Interests to retrieve data from the producer.
+- MEMPHIS – NDN testbed node located at Umemphis (Memphis, USA) was configured as a Consumer node, retrieving the same data across transcontinental paths.
 
-This topology ensured intercontinental communication paths, with each node positioned in a different geographic region. The three nodes were configured to exchange Interests and Data packets, forming a triangular overlay in the NDN testbed.
-
+The three nodes do not have direct connectivity; during the experiment the path was MML2 (Greece) - UFBA (Brazil) - WU (USA) - MEMPHIS (USA) - ARIZONA (USA), UCLA (USA) MML1 (Greece), thus covering three continents (Europe, North America, South America).
 
 # Results and setup
 
