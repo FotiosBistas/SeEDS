@@ -35,6 +35,8 @@ The full topology can be found in: https://play.ndn.today/?testbed=1. The below 
 - DELFT: Delft University of Technology in Netherlands - Europe.
 - ARIZONA: University of Arizona - North America.
 
+The routing tables are ML2 (Greece) - UFBA (Brazil) - WU (USA) - MEMPHIS (USA) - ARIZONA (USA), UCLA (USA) MML1 (Greece).
+
 Based on the graph and the routing tables at least two continents are involved in the communication between ``Memphis`` and the ``MMLab`` nodes, with the possibility that a third continent South America is going to be involved in the communication. This topology ensured intercontinental communication paths, with each node positioned in a different geographic region. If the data between the nodes can be retrieved, the intercontinental communication is possible.
 
 
