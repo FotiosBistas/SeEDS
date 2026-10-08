@@ -1,54 +1,49 @@
-# Minimum CMake version
-cmake_minimum_required(VERSION 3.10)
-
-# Project name and language
+cmake_minimum_required(VERSION 3.30)
 project(SeEDS LANGUAGES CXX)
-
-find_package(PkgConfig REQUIRED)
-find_package(OpenSSL REQUIRED)
-find_package(Boost REQUIRED)
-
-# Find libpcap
-pkg_check_modules(PCAP REQUIRED libpcap)
-include_directories(${PCAP_INCLUDE_DIRS})
-link_directories(${PCAP_LIBRARY_DIRS})
-
-# Find libsystemd
-pkg_check_modules(SYSTEMD REQUIRED libsystemd)
-include_directories(${SYSTEMD_INCLUDE_DIRS})
-link_directories(${SYSTEMD_LIBRARY_DIRS})
-
-# Find SQLite3
-pkg_check_modules(SQLITE3 REQUIRED sqlite3)
-include_directories(${SQLITE3_INCLUDE_DIRS})
-link_directories(${SQLITE3_LIBRARY_DIRS})
-
-# Specify the C++ standard
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-# Include External Project / FetchContent modules
+find_package(PkgConfig REQUIRED)
+find_package(OpenSSL REQUIRED)
 include(ExternalProject)
 include(FetchContent)
 
-set(MONGO_C_DRIVER_VERSION "2.1.0") # or newer stable
-set(MONGO_C_INSTALL_DIR "${CMAKE_BINARY_DIR}/mongo-c-driver-install")
+pkg_check_modules(SYSTEMD REQUIRED IMPORTED_TARGET libsystemd)
+
+find_path(VALGRIND_INCLUDE_DIR NAMES valgrind/valgrind.h)
+
+if(NOT VALGRIND_INCLUDE_DIR)
+    message(FATAL_ERROR "Valgrind development headers are required. ")
+endif()
+
+
+pkg_check_modules(PCAP QUIET IMPORTED_TARGET libpcap)
+
+if(NOT PCAP_FOUND)
+    message(FATAL_ERROR "libpcap development files are required.\n")
+endif()
+
+
 
 #####################################################################
 # Fetch and build mongo-c-driver
 #####################################################################
+set(MONGO_C_DRIVER_VERSION "2.1.0") # or newer stable
+set(MONGO_C_INSTALL_DIR "${CMAKE_BINARY_DIR}/mongo-c-driver-install")
 ExternalProject_Add(mongo-c-driver
-  URL https://github.com/mongodb/mongo-c-driver/releases/download/${MONGO_C_DRIVER_VERSION}/mongo-c-driver-${MONGO_C_DRIVER_VERSION}.tar.gz
-  PREFIX ${CMAKE_BINARY_DIR}/mongo-c-driver
-  SOURCE_DIR ${CMAKE_BINARY_DIR}/mongo-c-driver-src
-  BINARY_DIR ${CMAKE_BINARY_DIR}/mongo-c-driver-src/build
-  CMAKE_ARGS
-    -DCMAKE_BUILD_TYPE=Release
-    -DCMAKE_INSTALL_PREFIX=${MONGO_C_INSTALL_DIR}
-    -DENABLE_SRV=ON              # <— required for mongodb+srv
-    -DENABLE_SSL=OPENSSL         # <— Atlas requires TLS
-  BUILD_COMMAND ${CMAKE_COMMAND} --build .
-  INSTALL_COMMAND ${CMAKE_COMMAND} --build . --target install
+    URL https://github.com/mongodb/mongo-c-driver/releases/download/${MONGO_C_DRIVER_VERSION}/mongo-c-driver-${MONGO_C_DRIVER_VERSION}.tar.gz
+    DOWNLOAD_EXTRACT_TIMESTAMP TRUE
+    PREFIX ${CMAKE_BINARY_DIR}/mongo-c-driver
+    SOURCE_DIR ${CMAKE_BINARY_DIR}/mongo-c-driver-src
+    BINARY_DIR ${CMAKE_BINARY_DIR}/mongo-c-driver-src/build
+    CMAKE_ARGS
+        -DCMAKE_BUILD_TYPE=Release
+        -DCMAKE_INSTALL_PREFIX=${MONGO_C_INSTALL_DIR}
+        -DENABLE_SRV=ON              # <— required for mongodb+srv
+        -DENABLE_SSL=OPENSSL         # <— Atlas requires TLS
+        -DCMAKE_INSTALL_LIBDIR=lib
+    BUILD_COMMAND ${CMAKE_COMMAND} --build .
+    INSTALL_COMMAND ${CMAKE_COMMAND} --build . --target install
 )
 
 #####################################################################
@@ -57,19 +52,21 @@ ExternalProject_Add(mongo-c-driver
 set(MONGO_CXX_VERSION "r4.1.2")
 set(MONGO_CXX_INSTALL_DIR "${CMAKE_BINARY_DIR}/mongo-cxx-driver-install")
 ExternalProject_Add(mongo-cxx-driver
-  URL https://github.com/mongodb/mongo-cxx-driver/releases/download/${MONGO_CXX_VERSION}/mongo-cxx-driver-${MONGO_CXX_VERSION}.tar.gz
-  PREFIX ${CMAKE_BINARY_DIR}/mongo-cxx-driver
-  SOURCE_DIR ${CMAKE_BINARY_DIR}/mongo-cxx-driver-src
-  BINARY_DIR ${CMAKE_BINARY_DIR}/mongo-cxx-driver-src/build
-  CMAKE_ARGS
-    -DCMAKE_BUILD_TYPE=Release
-    -DENABLE_SRV=ON
-    -DCMAKE_CXX_STANDARD=17
-    -DBUILD_SHARED_LIBS=ON
-    -DCMAKE_INSTALL_PREFIX=${MONGO_CXX_INSTALL_DIR}
-    -DCMAKE_PREFIX_PATH=${MONGO_C_INSTALL_DIR}
-  BUILD_COMMAND ${CMAKE_COMMAND} --build .
-  INSTALL_COMMAND ${CMAKE_COMMAND} --build . --target install
+    URL https://github.com/mongodb/mongo-cxx-driver/releases/download/${MONGO_CXX_VERSION}/mongo-cxx-driver-${MONGO_CXX_VERSION}.tar.gz
+    DOWNLOAD_EXTRACT_TIMESTAMP TRUE
+    PREFIX ${CMAKE_BINARY_DIR}/mongo-cxx-driver
+    SOURCE_DIR ${CMAKE_BINARY_DIR}/mongo-cxx-driver-src
+    BINARY_DIR ${CMAKE_BINARY_DIR}/mongo-cxx-driver-src/build
+    CMAKE_ARGS
+        -DCMAKE_BUILD_TYPE=Release
+        -DENABLE_SRV=ON
+        -DCMAKE_CXX_STANDARD=17
+        -DBUILD_SHARED_LIBS=ON
+        -DCMAKE_INSTALL_LIBDIR=lib
+        -DCMAKE_INSTALL_PREFIX=${MONGO_CXX_INSTALL_DIR}
+        -DCMAKE_PREFIX_PATH=${MONGO_C_INSTALL_DIR}
+    BUILD_COMMAND ${CMAKE_COMMAND} --build .
+    INSTALL_COMMAND ${CMAKE_COMMAND} --build . --target install
 )
 
 add_dependencies(mongo-cxx-driver mongo-c-driver)
@@ -84,111 +81,221 @@ set(MONGO_CXX_LIBRARY_DIR "${MONGO_CXX_INSTALL_DIR}/lib")
 # Libraries (full paths)
 set(MONGOCXX_LIBRARIES "${MONGO_CXX_LIBRARY_DIR}/libmongocxx.so")
 set(BSONCXX_LIBRARIES  "${MONGO_CXX_LIBRARY_DIR}/libbsoncxx.so")
+#####################################################################
+# Fetch and build SQLite3
+#####################################################################
+set(SQLITE_VERSION "3.51.2")
+set(SQLITE_AUTOCONF_VERSION "3510200")
+set(SQLITE_INSTALL_DIR "${CMAKE_BINARY_DIR}/sqlite-install")
 
+ExternalProject_Add(sqlite-local
+    URL "https://www.sqlite.org/2026/sqlite-autoconf-${SQLITE_AUTOCONF_VERSION}.tar.gz"
+    DOWNLOAD_EXTRACT_TIMESTAMP TRUE
+    PREFIX "${CMAKE_BINARY_DIR}/sqlite"
+    SOURCE_DIR "${CMAKE_BINARY_DIR}/sqlite-src"
+    CONFIGURE_COMMAND <SOURCE_DIR>/configure --prefix=${SQLITE_INSTALL_DIR}
+    BUILD_COMMAND ${CMAKE_MAKE_PROGRAM}
+    INSTALL_COMMAND ${CMAKE_MAKE_PROGRAM} install
+)
+#####################################################################
+# Fetch and build Boost
+#####################################################################
+#####################################################################
+# Fetch and build Boost locally
+#####################################################################
+
+set(BOOST_VERSION "1.85.0")
+set(BOOST_VERSION_UNDERSCORE "1_85_0")
+
+set(BOOST_INSTALL_DIR "${CMAKE_BINARY_DIR}/boost-install")
+
+ExternalProject_Add(boost-local
+    URL "https://archives.boost.io/release/${BOOST_VERSION}/source/boost_${BOOST_VERSION_UNDERSCORE}.tar.gz"
+    URL_HASH SHA256=be0d91732d5b0cc6fbb275c7939974457e79b54d6f07ce2e3dfdd68bef883b0b
+    DOWNLOAD_EXTRACT_TIMESTAMP TRUE
+
+    PREFIX "${CMAKE_BINARY_DIR}/boost"
+    SOURCE_DIR "${CMAKE_BINARY_DIR}/boost-src"
+    BUILD_IN_SOURCE TRUE
+
+    CONFIGURE_COMMAND
+        <SOURCE_DIR>/bootstrap.sh
+        --prefix=${BOOST_INSTALL_DIR}
+        --with-libraries=atomic,chrono,filesystem,log,program_options,regex,thread,stacktrace
+
+    BUILD_COMMAND
+        <SOURCE_DIR>/b2
+        variant=release
+        threading=multi
+        link=shared
+        runtime-link=shared
+        --layout=system
+        "linkflags=-Wl,-rpath,${BOOST_INSTALL_DIR}/lib"
+
+    INSTALL_COMMAND
+        <SOURCE_DIR>/b2
+        install
+        variant=release
+        threading=multi
+        link=shared
+        runtime-link=shared
+        --layout=system
+        "linkflags=-Wl,-rpath,${BOOST_INSTALL_DIR}/lib"
+)
 #####################################################################
 # Fetch and build ndn-cxx (via waf, incremental)
 #####################################################################
 FetchContent_Declare(
-  ndn-cxx
-  GIT_REPOSITORY https://github.com/named-data/ndn-cxx.git
-  GIT_TAG master
-  GIT_SHALLOW TRUE
+    ndn-cxx
+    GIT_REPOSITORY https://github.com/named-data/ndn-cxx.git
+    GIT_TAG ndn-cxx-0.9.0
+    GIT_SHALLOW TRUE
+    PATCH_COMMAND
+        ${CMAKE_COMMAND} -E chdir <SOURCE_DIR>
+        git apply
+        "${CMAKE_SOURCE_DIR}/cmake/patches/ndn-cxx-0.9.0-gcc16.patch"
+
+
+    SOURCE_SUBDIR __seeds_no_cmake_subdirectory__
 )
 
-FetchContent_GetProperties(ndn-cxx)
-if(NOT ndn-cxx_POPULATED)
-  FetchContent_Populate(ndn-cxx)
+FetchContent_MakeAvailable(ndn-cxx)
 
-  set(NDN_CXX_INSTALL_DIR ${CMAKE_BINARY_DIR}/ndn-cxx/install)
-  set(NDN_CXX_INCLUDE_DIR ${NDN_CXX_INSTALL_DIR}/include)
-  set(NDN_CXX_LIBRARY_DIR ${NDN_CXX_INSTALL_DIR}/lib)
+set(NDN_CXX_INSTALL_DIR ${CMAKE_BINARY_DIR}/ndn-cxx/install)
+set(NDN_CXX_INCLUDE_DIR ${NDN_CXX_INSTALL_DIR}/include)
+set(NDN_CXX_LIBRARY_DIR ${NDN_CXX_INSTALL_DIR}/lib)
 
-  file(MAKE_DIRECTORY "${NDN_CXX_INCLUDE_DIR}" "${NDN_CXX_LIBRARY_DIR}")
+file(MAKE_DIRECTORY
+    "${SQLITE_INSTALL_DIR}/include"
+    "${SQLITE_INSTALL_DIR}/lib"
+    "${BOOST_INSTALL_DIR}/include"
+    "${BOOST_INSTALL_DIR}/lib"
+    "${NDN_CXX_INCLUDE_DIR}"
+    "${NDN_CXX_LIBRARY_DIR}"
+)
 
-  add_custom_command(
+add_custom_command(
     OUTPUT ${NDN_CXX_LIBRARY_DIR}/libndn-cxx.so
-    COMMAND ./waf configure
+
+    COMMAND ${CMAKE_COMMAND} -E env
+        PKG_CONFIG_PATH=${SQLITE_INSTALL_DIR}/lib/pkgconfig
+        CPPFLAGS=-I${SQLITE_INSTALL_DIR}/include
+        "LDFLAGS=-L${BOOST_INSTALL_DIR}/lib -L${SQLITE_INSTALL_DIR}/lib -Wl,-rpath,${BOOST_INSTALL_DIR}/lib -Wl,-rpath,${SQLITE_INSTALL_DIR}/lib"
+        ./waf configure
             --prefix=${NDN_CXX_INSTALL_DIR}
             --libdir=${NDN_CXX_LIBRARY_DIR}
+            --boost-includes=${BOOST_INSTALL_DIR}/include
+            --boost-libs=${BOOST_INSTALL_DIR}/lib
+
     COMMAND ./waf
     COMMAND ./waf install
+
     WORKING_DIRECTORY ${ndn-cxx_SOURCE_DIR}
+    DEPENDS sqlite-local boost-local
     BYPRODUCTS ${NDN_CXX_LIBRARY_DIR}/pkgconfig/libndn-cxx.pc
     COMMENT "Building ndn-cxx via waf (incremental)"
     VERBATIM
-  )
+)
 
-  add_custom_target(ndn-cxx-build
+add_custom_target(ndn-cxx-build
     DEPENDS ${NDN_CXX_LIBRARY_DIR}/libndn-cxx.so
-  )
+)
 
-  add_custom_target(ndn-cxx-clean
+add_custom_target(ndn-cxx-clean
     COMMAND ./waf distclean
     WORKING_DIRECTORY ${ndn-cxx_SOURCE_DIR}
     COMMENT "Running waf distclean for ndn-cxx"
-  )
+)
 
-  add_library(ndn-cxx::ndn-cxx SHARED IMPORTED GLOBAL)
-  set_target_properties(ndn-cxx::ndn-cxx PROPERTIES
-    IMPORTED_LOCATION             "${NDN_CXX_LIBRARY_DIR}/libndn-cxx.so"
-    INTERFACE_INCLUDE_DIRECTORIES "${NDN_CXX_INCLUDE_DIR}"
-  )
-  add_dependencies(ndn-cxx::ndn-cxx ndn-cxx-build)
-endif()
+add_library(ndn-cxx::ndn-cxx SHARED IMPORTED GLOBAL)
+
+set_target_properties(ndn-cxx::ndn-cxx PROPERTIES
+    IMPORTED_LOCATION
+        "${NDN_CXX_LIBRARY_DIR}/libndn-cxx.so"
+
+    INTERFACE_INCLUDE_DIRECTORIES
+        "${NDN_CXX_INCLUDE_DIR};${BOOST_INSTALL_DIR}/include;${SQLITE_INSTALL_DIR}/include"
+
+    INTERFACE_COMPILE_DEFINITIONS
+        "BOOST_STACKTRACE_DYN_LINK;BOOST_LOG_DYN_LINK"
+)
+
+set_property(TARGET ndn-cxx::ndn-cxx APPEND PROPERTY
+    INTERFACE_LINK_OPTIONS
+        "-Wl,-rpath-link,${BOOST_INSTALL_DIR}/lib"
+        "-Wl,-rpath-link,${SQLITE_INSTALL_DIR}/lib"
+        "-Wl,-rpath,${NDN_CXX_LIBRARY_DIR}"
+        "-Wl,-rpath,${BOOST_INSTALL_DIR}/lib"
+        "-Wl,-rpath,${SQLITE_INSTALL_DIR}/lib"
+)
+
+add_dependencies(ndn-cxx::ndn-cxx ndn-cxx-build)
 
 #####################################################################
 # Fetch and build NFD
 #####################################################################
+set(NFD_INSTALL_DIR "${CMAKE_BINARY_DIR}/NFD/install")
 FetchContent_Declare(
-  nfd
-  GIT_REPOSITORY https://github.com/named-data/NFD.git
-  GIT_TAG master
-  GIT_SUBMODULES_RECURSE TRUE
-  GIT_SHALLOW TRUE
+    nfd
+    GIT_REPOSITORY https://github.com/named-data/NFD.git
+    GIT_TAG NFD-24.07
+    GIT_SUBMODULES_RECURSE TRUE
+    GIT_SHALLOW TRUE
+    SOURCE_SUBDIR __seeds_no_cmake_subdirectory__
 )
 
-FetchContent_GetProperties(nfd)
-if(NOT nfd_POPULATED)
-  FetchContent_Populate(nfd)
+FetchContent_MakeAvailable(nfd)
+message(STATUS "NFD source dir: ${nfd_SOURCE_DIR}")
 
-  message(STATUS "NFD source dir: ${nfd_SOURCE_DIR}")
+add_custom_target(nfd-build ALL
+    COMMAND ${CMAKE_COMMAND} -E env
+        PKG_CONFIG_PATH=${NDN_CXX_LIBRARY_DIR}/pkgconfig:${SQLITE_INSTALL_DIR}/lib/pkgconfig
+        ./waf configure
+            --prefix=${NFD_INSTALL_DIR}
+            --boost-includes=${BOOST_INSTALL_DIR}/include
+            --boost-libs=${BOOST_INSTALL_DIR}/lib
 
-  add_custom_target(nfd-build ALL
-    COMMAND ${CMAKE_COMMAND} -E env PKG_CONFIG_PATH=${CMAKE_BINARY_DIR}/ndn-cxx/install/lib/pkgconfig
-            ./waf configure --prefix=${CMAKE_BINARY_DIR}/NFD/install
     COMMAND ./waf
     COMMAND ./waf install
+
+    COMMAND ${CMAKE_COMMAND}
+        -DNFD_CONFIG_SAMPLE=${NFD_INSTALL_DIR}/etc/ndn/nfd.conf.sample
+        -DNFD_CONFIG=${NFD_INSTALL_DIR}/etc/ndn/nfd.conf
+        -P ${CMAKE_SOURCE_DIR}/cmake/ensure-nfd-config.cmake
+
     DEPENDS ndn-cxx-build
+
     WORKING_DIRECTORY ${nfd_SOURCE_DIR}
     COMMENT "Building NFD via waf"
-  )
-endif()
+    VERBATIM
+)
 
 #####################################################################
 # Fetch and build ndn-tools
 #####################################################################
 FetchContent_Declare(
-  ndn-tools
-  GIT_REPOSITORY https://github.com/named-data/ndn-tools.git
-  GIT_TAG master
-  GIT_SHALLOW TRUE
+    ndn-tools
+    GIT_REPOSITORY https://github.com/named-data/ndn-tools.git
+    GIT_TAG ndn-tools-24.07
+    GIT_SHALLOW TRUE
+    SOURCE_SUBDIR __seeds_no_cmake_subdirectory__
 )
 
-FetchContent_GetProperties(ndn-tools)
-if(NOT ndn-tools_POPULATED)
-  FetchContent_Populate(ndn-tools)
+FetchContent_MakeAvailable(ndn-tools)
 
-  add_custom_target(ndn-tools-build ALL
+add_custom_target(ndn-tools-build ALL
     COMMAND ${CMAKE_COMMAND} -E env
       PKG_CONFIG_PATH=${CMAKE_BINARY_DIR}/ndn-cxx/install/lib/pkgconfig
-      ./waf configure
+      ./waf configure 
+        --prefix="${CMAKE_BINARY_DIR}/ndn-tools/install"
+        --boost-includes=${BOOST_INSTALL_DIR}/include
+        --boost-libs=${BOOST_INSTALL_DIR}/lib
     COMMAND ./waf
-    COMMAND sudo ./waf install
+    COMMAND ./waf install
     DEPENDS ndn-cxx-build
     WORKING_DIRECTORY ${ndn-tools_SOURCE_DIR}
     COMMENT "Building ndn-tools via waf"
-  )
-endif()
+)
 
 #####################################################################
 # Export environment paths
@@ -197,107 +304,81 @@ set(NFD_BIN_DIR "${CMAKE_BINARY_DIR}/NFD/install/bin")
 set(NDN_CXX_BIN_DIR "${CMAKE_BINARY_DIR}/ndn-cxx/install/bin")
 set(NDN_CXX_LIB_DIR "${CMAKE_BINARY_DIR}/ndn-cxx/install/lib")
 set(NDN_TOOLS_BIN_DIR "${CMAKE_BINARY_DIR}/ndn-tools/install/bin")
-set(BASHRC "$ENV{HOME}/.bashrc")
 
-file(READ "${BASHRC}" BASHRC_CONTENT)
-
-if(NOT BASHRC_CONTENT MATCHES "${NFD_BIN_DIR}")
-  file(APPEND "${BASHRC}" "\n# Added by SeEDS CMake for local NFD build\n")
-  file(APPEND "${BASHRC}" "export PATH=\$PATH:${NFD_BIN_DIR}:${NDN_CXX_BIN_DIR}\n")
-endif()
-if(NOT BASHRC_CONTENT MATCHES "${NDN_TOOLS_BIN_DIR}")
-  file(APPEND "${BASHRC}" "export PATH=\$PATH:${NDN_TOOLS_BIN_DIR}\n")
-endif()
-if(NOT BASHRC_CONTENT MATCHES "${NDN_CXX_LIB_DIR}")
-  file(APPEND "${BASHRC}" "export LD_LIBRARY_PATH=\$LD_LIBRARY_PATH:${NDN_CXX_LIB_DIR}\n")
-endif()
-if(NOT BASHRC_CONTENT MATCHES "${MONGO_CXX_LIBRARY_DIR}")
-  file(APPEND "${BASHRC}" "export LD_LIBRARY_PATH=\$LD_LIBRARY_PATH:${MONGO_CXX_LIBRARY_DIR}\n")
-endif()
-
+#####################################################################
+# Sample NFD Config
+#####################################################################
 set(NFD_CONF_DIR "${CMAKE_BINARY_DIR}/NFD/install/etc/ndn")
 set(NFD_CONF_SRC "${NFD_CONF_DIR}/nfd.conf.sample")
 set(NFD_CONF_DEST "${NFD_CONF_DIR}/nfd.conf")
 if(EXISTS "${NFD_CONF_SRC}" AND NOT EXISTS "${NFD_CONF_DEST}")
-  file(COPY "${NFD_CONF_SRC}" DESTINATION "${NFD_CONF_DIR}")
-  file(RENAME "${NFD_CONF_SRC}" "${NFD_CONF_DEST}")
+    file(COPY "${NFD_CONF_SRC}" DESTINATION "${NFD_CONF_DIR}")
+    file(RENAME "${NFD_CONF_SRC}" "${NFD_CONF_DEST}")
 endif()
 
+#####################################################################
+# Run script
+#####################################################################
+
 set(NFD_RUNNER_PATH "${CMAKE_BINARY_DIR}/run-nfd.sh")
-file(WRITE "${NFD_RUNNER_PATH}" "#!/bin/bash\n")
-file(APPEND "${NFD_RUNNER_PATH}" "# Auto-generated by CMake - run NFD with local ndn-cxx lib\n")
-file(APPEND "${NFD_RUNNER_PATH}" "export LD_LIBRARY_PATH=\$LD_LIBRARY_PATH:${NDN_CXX_LIB_DIR}\n")
-file(APPEND "${NFD_RUNNER_PATH}" "exec ${CMAKE_BINARY_DIR}/NFD/install/bin/nfd \"\$@\"\n")
-file(CHMOD "${NFD_RUNNER_PATH}" PERMISSIONS
-  OWNER_READ OWNER_WRITE OWNER_EXECUTE
-  GROUP_READ GROUP_EXECUTE
-  WORLD_READ WORLD_EXECUTE
+
+file(WRITE "${NFD_RUNNER_PATH}"
+    "#!/usr/bin/env bash
+    set -e
+
+    export LD_LIBRARY_PATH=\"${NDN_CXX_LIB_DIR}:${BOOST_INSTALL_DIR}/lib:${SQLITE_INSTALL_DIR}/lib:\$LD_LIBRARY_PATH\"
+
+    exec \"${CMAKE_BINARY_DIR}/NFD/install/bin/nfd\" \"\$@\"
+    "
 )
+
+file(CHMOD "${NFD_RUNNER_PATH}" PERMISSIONS
+    OWNER_READ OWNER_WRITE OWNER_EXECUTE
+    GROUP_READ GROUP_EXECUTE
+    WORLD_READ WORLD_EXECUTE
+)
+
 message(STATUS "🛠  Created helper script to run NFD: ${NFD_RUNNER_PATH}")
-message(STATUS "👉  You can run it like this: sudo ./run-nfd.sh")
+message(STATUS "👉  You can run it like this: sudo ${NFD_RUNNER_PATH}")
 
 #####################################################################
 # Fetch and add nlohmann/json
 #####################################################################
 FetchContent_Declare(
-  nlohmann_json
-  GIT_REPOSITORY https://github.com/nlohmann/json.git
-  GIT_TAG v3.12.0
-  GIT_SHALLOW TRUE
+    nlohmann_json
+    GIT_REPOSITORY https://github.com/nlohmann/json.git
+    GIT_TAG v3.12.0
+    GIT_SHALLOW TRUE
 )
-FetchContent_GetProperties(nlohmann_json)
-if(NOT nlohmann_json_POPULATED)
-  FetchContent_Populate(nlohmann_json)
-  add_subdirectory(
-    ${nlohmann_json_SOURCE_DIR}
-    ${nlohmann_json_BINARY_DIR}
-    EXCLUDE_FROM_ALL
-  )
-endif()
-
+FetchContent_MakeAvailable(nlohmann_json)
 #####################################################################
 # Fetch and add spdlog
 #####################################################################
 FetchContent_Declare(
-  spdlog
-  GIT_REPOSITORY https://github.com/gabime/spdlog.git
-  GIT_TAG v1.11.0
+    spdlog
+    GIT_REPOSITORY https://github.com/gabime/spdlog.git
+    GIT_TAG v1.11.0
 )
-FetchContent_GetProperties(spdlog)
-if(NOT spdlog_POPULATED)
-  FetchContent_Populate(spdlog)
-  add_subdirectory(${spdlog_SOURCE_DIR} ${spdlog_BINARY_DIR})
-endif()
-
+FetchContent_MakeAvailable(spdlog)
 #####################################################################
 # Fetch and add cxxopts (CLI flags)
 #####################################################################
 FetchContent_Declare(
-  cxxopts
-  GIT_REPOSITORY https://github.com/jarro2783/cxxopts.git
-  GIT_TAG v3.2.0
-  GIT_SHALLOW TRUE
+    cxxopts
+    GIT_REPOSITORY https://github.com/jarro2783/cxxopts.git
+    GIT_TAG v3.2.0
+    GIT_SHALLOW TRUE
 )
-FetchContent_GetProperties(cxxopts)
-if(NOT cxxopts_POPULATED)
-  FetchContent_Populate(cxxopts)
-  # cxxopts provides a proper CMake target; add it
-  add_subdirectory(${cxxopts_SOURCE_DIR} ${cxxopts_BINARY_DIR} EXCLUDE_FROM_ALL)
-endif()
-
+FetchContent_MakeAvailable(cxxopts)
 #####################################################################
 # Fetch and add cpp-httplib
 #####################################################################
 FetchContent_Declare(
-  cpp-httplib
-  GIT_REPOSITORY https://github.com/yhirose/cpp-httplib.git
-  GIT_TAG master
+    cpp-httplib
+    GIT_REPOSITORY https://github.com/yhirose/cpp-httplib.git
+    GIT_TAG v0.60.1
 )
-FetchContent_GetProperties(cpp-httplib)
-if(NOT cpp-httplib_POPULATED)
-  FetchContent_Populate(cpp-httplib)
-endif()
-
+FetchContent_MakeAvailable(cpp-httplib)
 #####################################################################
 # Source dirs
 #####################################################################
@@ -311,8 +392,6 @@ set(SNDS_INTEREST_DIR       ${CMAKE_SOURCE_DIR}/src/snds_interest)
 set(SNDS_TEMPORAL_QUERY_DIR ${CMAKE_SOURCE_DIR}/src/snds_temporal_query)
 set(SNDS_RESILIENCE_DIR     ${CMAKE_SOURCE_DIR}/src/snds_resilience)
 set(SNDS_IPC_DIR            ${CMAKE_SOURCE_DIR}/src/snds_inter_process_communication/)
-
-
 #####################################################################
 # snds_query_params
 #####################################################################

@@ -1,0 +1,12 @@
+diff --git a/ndn-cxx/detail/packet-base.hpp b/ndn-cxx/detail/packet-base.hpp
+index 9924e54..edde3c0 100644
+--- a/ndn-cxx/detail/packet-base.hpp
++++ b/ndn-cxx/detail/packet-base.hpp
+@@ -23,6 +23,7 @@
+ #define NDN_CXX_DETAIL_PACKET_BASE_HPP
+ 
+ #include "ndn-cxx/detail/tag-host.hpp"
++#include <cstdint>
+ 
+ namespace ndn {
+ 
