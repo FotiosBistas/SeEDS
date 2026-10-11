@@ -1,0 +1,14 @@
+--- a/util/install.sh
++++ b/util/install.sh
+@@ -244,6 +244,11 @@
+     # Use our own fork on github for now:
+     git clone https://github.com/mininet/openflow
+     cd $BUILD_DIR/openflow
++
++    if [ -n "${SEEDS_OPENFLOW_PATCH:-}" ]; then
++        echo "Applying SeEDS OpenFlow compatibility patch..."
++        git apply "$SEEDS_OPENFLOW_PATCH"
++    fi
+ 
+     # Patch controller to handle more than 16 switches
+     patch -p1 < $MININET_DIR/mininet/util/openflow-patches/controller.patch

@@ -1,3 +1,6 @@
 [submodule "src/minindn/mini-ndn"]
 	path = src/minindn/mini-ndn
 	url = https://github.com/named-data/mini-ndn.git
+[submodule "external/mini-ndn"]
+	path = external/mini-ndn
+	url = https://github.com/named-data/mini-ndn.git

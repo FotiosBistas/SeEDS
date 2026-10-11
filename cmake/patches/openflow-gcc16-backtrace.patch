@@ -1,0 +1,18 @@
+diff --git a/lib/backtrace.c b/lib/backtrace.c
+--- a/lib/backtrace.c
++++ b/lib/backtrace.c
+@@ -116,6 +116,13 @@ backtrace_capture(struct backtrace *bt)
+     }
+     bt->n_frames = n;
+ #else
+-    bt->n_frames = backtrace(bt->frames, BACKTRACE_MAX_FRAMES);
++    void *frames[BACKTRACE_MAX_FRAMES];
++    int i;
++
++    bt->n_frames = backtrace(frames, BACKTRACE_MAX_FRAMES);
++
++    for (i = 0; i < bt->n_frames; i++) {
++        bt->frames[i] = (uintptr_t) frames[i];
++    }
+ #endif
+ }
