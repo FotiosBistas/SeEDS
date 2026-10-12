@@ -1,0 +1,26 @@
+diff --git a/util/pkgdep/common.sh b/util/pkgdep/common.sh
+index 4035ef6..51579e5 100644
+--- a/util/pkgdep/common.sh
++++ b/util/pkgdep/common.sh
+@@ -123,6 +123,7 @@ declare -A DEP_WAFOPTS
+ DEP_WAFOPTS=(
+   ["NFD"]="--without-websocket"
+   ["PSYNC"]="--with-examples"
++  ["NLSR"]="${SEEDS_NLSR_WAFOPTS:-}"
+ )
+ 
+ # return whether dep is installed
+@@ -306,7 +307,12 @@ $SUDO install -d -m0755 "$DESTDIR"
+ find topologies/ -name '*.conf' | xargs $SUDO install -m0644 -t "$DESTDIR/"
+ 
+ echo "Installing Python dependencies"
+-$SUDO $PYTHON -m pip install -r requirements.txt
++if grep -q '^ID=ubuntu$' /etc/os-release 2>/dev/null &&
++   dpkg --compare-versions "$(. /etc/os-release && printf '%s' "$VERSION_ID")" ge "24.04"; then
++  $SUDO $PYTHON -m pip install --break-system-packages -r requirements.txt
++else
++  $SUDO $PYTHON -m pip install -r requirements.txt
++fi
+ 
+ $SUDO $PYTHON setup.py develop
+ 

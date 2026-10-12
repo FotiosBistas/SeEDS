@@ -1,0 +1,64 @@
+diff --git a/util/install.sh b/util/install.sh
+index bf4492d..548c5c7 100755
+--- a/util/install.sh
++++ b/util/install.sh
+@@ -180,6 +180,11 @@ function mn_deps {
+         if [ "$DIST" = "Ubuntu" -a `expr $RELEASE '>=' 20.04` = "1" ]; then
+                 pf=pyflakes3
+         fi
++        # Ubuntu 24.04 removed the legacy pep8 package.
++        # Use pycodestyle instead.
++        if [ "$DIST" = "Ubuntu" -a `expr $RELEASE '>=' 24.04` = "1" ]; then
++                pep8=pycodestyle
++        fi
+         # Debian 11 "bullseye" renamed
+         # * pep8 to python3-pep8
+         # * pyflakes to pyflakes3
+@@ -192,18 +197,24 @@ function mn_deps {
+                  ethtool help2man $pf pylint $pep8 \
+                  net-tools ${PYPKG}-tk
+ 
+-        # Install pip
+-        $install ${PYPKG}-pip || $install ${PYPKG}-pip-whl
+-        if ! ${PYTHON} -m pip -V; then
+-            if [ $PYTHON_VERSION == 2 ]; then
+-                wget https://bootstrap.pypa.io/pip/2.7/get-pip.py
+-            else
+-                wget https://bootstrap.pypa.io/get-pip.py
++        # Ubuntu 24.04 uses an externally managed Python environment.
++        # Install pexpect through apt instead of system-wide pip.
++        if [ "$DIST" = "Ubuntu" -a `expr $RELEASE '>=' 24.04` = "1" ]; then
++                $install ${PYPKG}-pexpect
++        else
++            # Install pip
++            $install ${PYPKG}-pip || $install ${PYPKG}-pip-whl
++            if ! ${PYTHON} -m pip -V; then
++                if [ $PYTHON_VERSION == 2 ]; then
++                    wget https://bootstrap.pypa.io/pip/2.7/get-pip.py
++                else
++                    wget https://bootstrap.pypa.io/get-pip.py
++                fi
++                sudo ${PYTHON} get-pip.py
++                rm get-pip.py
+             fi
+-            sudo ${PYTHON} get-pip.py
+-            rm get-pip.py
++           ${python} -m pip install pexpect
+         fi
+-       ${python} -m pip install pexpect
+         $install iproute2 || $install iproute
+         $install cgroup-tools || $install cgroup-bin
+         $install cgroupfs-mount
+@@ -211,7 +222,11 @@ function mn_deps {
+ 
+     echo "Installing Mininet core"
+     pushd $MININET_DIR/mininet
+-    sudo PYTHON=${PYTHON} make install
++    if [ "$DIST" = "Ubuntu" -a `expr $RELEASE '>=' 24.04` = "1" ]; then
++        sudo PIP_BREAK_SYSTEM_PACKAGES=1 PYTHON=${PYTHON} make install
++    else
++        sudo PYTHON=${PYTHON} make install
++    fi
+     popd
+ }
+ 
